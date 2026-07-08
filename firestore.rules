@@ -1,11 +1,88 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /programacoes/{id} {
-      allow read, write: if request.auth != null;
+
+    // Negar tudo por padrão — nada é público
+    match /{document=**} {
+      allow read, write: if false;
     }
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function validStatus(status) {
+      return status in ['Rascunho', 'Pendente', 'Aprovada', 'Publicada', 'Concluída', 'Cancelada'];
+    }
+
+    function validProgramacaoFields(data) {
+      return data.keys().hasAll(['titulo', 'coordenacaoId', 'dataInicial', 'dataFinal', 'status', 'criadoPor'])
+        && data.titulo is string
+        && data.titulo.size() > 0
+        && data.titulo.size() <= 500
+        && data.coordenacaoId is string
+        && data.coordenacaoId.size() <= 80
+        && data.dataInicial is string
+        && data.dataFinal is string
+        && data.status is string
+        && validStatus(data.status)
+        && data.criadoPor is string
+        && data.criadoPor.size() <= 128
+        && (!('responsavel' in data) || (data.responsavel is string && data.responsavel.size() <= 200))
+        && (!('objetivo' in data) || (data.objetivo is string && data.objetivo.size() <= 5000))
+        && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 5000))
+        && (!('equipe' in data) || data.equipe is list)
+        && (!('equipe' in data) || data.equipe.size() <= 50);
+    }
+
+    // Programações — somente usuários autenticados
+    match /programacoes/{programacaoId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && validProgramacaoFields(request.resource.data)
+        && request.resource.data.criadoPor == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && validProgramacaoFields(request.resource.data)
+        && request.resource.data.criadoPor == resource.data.criadoPor;
+
+      allow delete: if isSignedIn()
+        && resource.data.criadoPor == request.auth.uid;
+    }
+
+    // Logística — somente autenticados
+    match /logistica/{logisticaId} {
+      allow read: if isSignedIn();
+
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['programacaoId', 'municipioId', 'situacao'])
+        && request.resource.data.programacaoId is string
+        && request.resource.data.municipioId is string
+        && request.resource.data.situacao in ['Solicitado', 'Confirmado']
+        && request.resource.data.transporte is bool
+        && request.resource.data.alimentacao is bool;
+
+      allow delete: if isSignedIn();
+    }
+
+    // Perfil do usuário — cada um só acessa o próprio documento
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['nome', 'email', 'atualizadoEm'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() <= 200
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320;
+
+      allow delete: if false;
     }
   }
 }
