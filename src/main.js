@@ -1,79 +1,107 @@
-import { getAuth, clearAuth, login, initStorage } from './services/storage.js';
+import { watchAuth, logoutUser, loginWithEmail, registerAccount, resetPassword, getAuthErrorMessage } from './services/auth.js';
+import { initProgramacoesSync, subscribeProgramacoes } from './services/programacoes-service.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
-
-initStorage();
+import { isFirebaseConfigured } from './firebase/config.js';
 
 const app = document.getElementById('app');
+let currentUser = null;
+let currentRoute = 'dashboard';
+let routeParams = [];
 
-function navigate(hash) {
-  window.location.hash = hash;
+function render() {
+  if (!currentUser) {
+    app.innerHTML = renderLogin(!isFirebaseConfigured);
+    bindLogin();
+    return;
+  }
+  app.innerHTML = renderApp(currentUser, currentRoute, routeParams);
 }
 
-function handleRoute() {
-  const user = getAuth();
-  const hash = window.location.hash.slice(1) || 'dashboard';
-  const parts = hash.split('/').filter(Boolean);
-  const route = parts[0] || 'dashboard';
-  const params = parts.slice(1);
+function handleHash() {
+  const parts = (window.location.hash.slice(1) || 'dashboard').split('/').filter(Boolean);
+  currentRoute = parts[0] || 'dashboard';
+  routeParams = parts.slice(1);
 
-  if (!user && route !== 'login') {
-    app.innerHTML = renderLogin();
-    bindLogin();
-    return;
+  if (currentRoute === 'login') {
+    currentUser = null;
   }
-
-  if (user && route === 'login') {
-    navigate('dashboard');
-    return;
-  }
-
-  if (route === 'login') {
-    app.innerHTML = renderLogin();
-    bindLogin();
-    return;
-  }
-
-  app.innerHTML = renderApp(user, route, params);
+  render();
 }
 
 function bindLogin() {
-  const form = document.getElementById('login-form');
-  const cpfInput = document.getElementById('cpf');
+  const form = document.getElementById('auth-form');
   const errorEl = document.getElementById('login-error');
+  const titleEl = document.getElementById('auth-title');
+  let mode = 'login';
 
-  cpfInput?.addEventListener('input', (e) => {
-    e.target.value = formatCPFInput(e.target.value);
+  document.getElementById('toggle-register')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    mode = mode === 'login' ? 'register' : 'login';
+    titleEl.textContent = mode === 'login' ? 'Entrar' : 'Criar conta';
+    document.getElementById('nome-group').classList.toggle('hidden', mode === 'login');
+    document.getElementById('auth-submit').textContent = mode === 'login' ? 'Entrar' : 'Criar conta';
+    document.getElementById('toggle-register').textContent = mode === 'login' ? 'Criar conta' : 'Já tenho conta';
+    errorEl.classList.add('hidden');
   });
 
-  form?.addEventListener('submit', (e) => {
+  document.getElementById('forgot-password')?.addEventListener('click', async (e) => {
     e.preventDefault();
-    const cpf = document.getElementById('cpf').value;
-    const senha = document.getElementById('senha').value;
-    const user = login(cpf, senha);
-    if (user) {
-      navigate('dashboard');
-    } else {
-      errorEl.textContent = 'CPF ou senha inválidos.';
+    const email = document.getElementById('email').value;
+    if (!email) { errorEl.textContent = 'Informe seu e-mail.'; errorEl.classList.remove('hidden'); return; }
+    try {
+      await resetPassword(email);
+      errorEl.className = 'alert alert-success';
+      errorEl.textContent = 'E-mail de recuperação enviado!';
+      errorEl.classList.remove('hidden');
+    } catch (err) {
+      errorEl.className = 'alert alert-error';
+      errorEl.textContent = getAuthErrorMessage(err.code);
       errorEl.classList.remove('hidden');
     }
   });
 
-  document.getElementById('forgot-password')?.addEventListener('click', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    alert('Entre em contato com o administrador do sistema para redefinir sua senha.');
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const nome = document.getElementById('nome')?.value.trim();
+
+    try {
+      if (mode === 'register') {
+        await registerAccount({ email, password, nome });
+      } else {
+        await loginWithEmail(email, password);
+      }
+      window.location.hash = 'dashboard';
+    } catch (err) {
+      errorEl.className = 'alert alert-error';
+      errorEl.textContent = getAuthErrorMessage(err.code) || err.message;
+      errorEl.classList.remove('hidden');
+    }
   });
 }
 
-function formatCPFInput(value) {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  return digits
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+watchAuth((user) => {
+  currentUser = user;
+  if (user) {
+    initProgramacoesSync();
+    handleHash();
+  } else if (!isFirebaseConfigured) {
+    render();
+  } else {
+    render();
+  }
+});
+
+subscribeProgramacoes(() => {
+  if (currentUser) render();
+});
+
+window.addEventListener('hashchange', handleHash);
+
+if (!isFirebaseConfigured) {
+  initProgramacoesSync();
+  currentUser = { uid: 'local', email: 'local@sigp.local', nome: 'Usuário Local' };
+  handleHash();
 }
-
-window.addEventListener('hashchange', handleRoute);
-handleRoute();
-
-export { navigate, clearAuth };

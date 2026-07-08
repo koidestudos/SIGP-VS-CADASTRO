@@ -1,0 +1,1174 @@
+{
+  "regions": [
+    {
+      "id": "r-planicie-litoranea",
+      "nome": "Planície Litorânea"
+    },
+    {
+      "id": "r-cocais",
+      "nome": "Cocais"
+    },
+    {
+      "id": "r-vale-do-canide",
+      "nome": "Vale do Canindé"
+    },
+    {
+      "id": "r-vale-do-sambito",
+      "nome": "Vale do Sambito"
+    },
+    {
+      "id": "r-vale-dos-rios-guaribas",
+      "nome": "Vale dos Rios Guaribas"
+    },
+    {
+      "id": "r-vale-do-itaim",
+      "nome": "Vale do Itaim"
+    },
+    {
+      "id": "r-entre-rios",
+      "nome": "Entre Rios"
+    },
+    {
+      "id": "r-carnaubais",
+      "nome": "Carnaubais"
+    },
+    {
+      "id": "r-vale-rios-piaui-itaueira",
+      "nome": "Vale Rios Piauí Itaueira"
+    },
+    {
+      "id": "r-alto-do-parnaiba",
+      "nome": "Alto do Parnaíba"
+    },
+    {
+      "id": "r-serra-da-capivara",
+      "nome": "Serra da Capivara"
+    },
+    {
+      "id": "r-mangabeiras",
+      "nome": "Mangabeiras"
+    }
+  ],
+  "municipios": [
+    {
+      "id": "m-cajueiro-da-praia",
+      "nome": "Cajueiro da Praia",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-ilha-grande",
+      "nome": "Ilha Grande",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-luis-correia",
+      "nome": "Luis Correia",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-parnaiba",
+      "nome": "Parnaíba",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-bom-principio-do-piaui",
+      "nome": "Bom Princípio do Piauí",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-buriti-dos-lopes",
+      "nome": "Buriti dos Lopes",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-caraubas-do-piaui",
+      "nome": "Caraúbas do Piauí",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-caxingo",
+      "nome": "Caxingó",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-cocal",
+      "nome": "Cocal",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-cocal-dos-alves",
+      "nome": "Cocal dos Alves",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-murici-dos-portelas",
+      "nome": "Murici dos Portelas",
+      "regionalId": "r-planicie-litoranea"
+    },
+    {
+      "id": "m-barras",
+      "nome": "Barras",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-batalha",
+      "nome": "Batalha",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-campo-largo-do-piaui",
+      "nome": "Campo Largo do Piauí",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-capitao-de-campos",
+      "nome": "Capitão de Campos",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-esperantina",
+      "nome": "Esperantina",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-joaquim-pires",
+      "nome": "Joaquim Pires",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-joca-marques",
+      "nome": "Joca Marques",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-luzilandia",
+      "nome": "Luzilândia",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-madeiro",
+      "nome": "Madeiro",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-matias-olimpio",
+      "nome": "Matias Olimpio",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-morro-do-chapeu-do-piaui",
+      "nome": "Morro do Chapéu do Piauí",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-nossa-senhora-dos-remedios",
+      "nome": "Nossa Senhora dos Remédios",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-porto",
+      "nome": "Porto",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-sao-joao-do-arraial",
+      "nome": "São João do Arraial",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-brasileira",
+      "nome": "Brasileira",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-domingos-mourao",
+      "nome": "Domingos Mourão",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-lagoa-de-sao-francisco",
+      "nome": "Lagoa de São Francisco",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-milton-brandao",
+      "nome": "Milton Brandão",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-pedro-ii",
+      "nome": "Pedro II",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-piracuruca",
+      "nome": "Piracuruca",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-piripiri",
+      "nome": "Piripiri",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-sao-joao-da-fronteira",
+      "nome": "São João da Fronteira",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-sao-jose-do-divino",
+      "nome": "São José do Divino",
+      "regionalId": "r-cocais"
+    },
+    {
+      "id": "m-bela-vista-do-piaui",
+      "nome": "Bela Vista do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-cajazeiras-do-piaui",
+      "nome": "Cajazeiras do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-campinas-do-piaui",
+      "nome": "Campinas do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-colonia-do-piaui",
+      "nome": "Colônia do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-conceicao-do-caninde",
+      "nome": "Conceição do Canindé",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-floresta-do-piaui",
+      "nome": "Floresta do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-isaias-coelho",
+      "nome": "Isaías Coelho",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-oeiras",
+      "nome": "Oeiras",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-santa-rosa-do-piaui",
+      "nome": "Santa Rosa do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-santo-inacio-do-piaui",
+      "nome": "Santo Inácio do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-sao-francisco-de-assis-do-piaui",
+      "nome": "São Francisco de Assis do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-sao-joao-da-varjota",
+      "nome": "São João da Varjota",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-simplicio-mendes",
+      "nome": "Simplício Mendes",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-tanque-do-piaui",
+      "nome": "Tanque do Piauí",
+      "regionalId": "r-vale-do-canide"
+    },
+    {
+      "id": "m-aroazes",
+      "nome": "Aroazes",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-barra-d-alcantara",
+      "nome": "Barra D'Alcântara",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-elesbao-veloso",
+      "nome": "Elesbão Veloso",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-francinopolis",
+      "nome": "Francinópolis",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-inhuma",
+      "nome": "Inhuma",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-lagoa-do-sitio",
+      "nome": "Lagoa do Sítio",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-novo-oriente-do-piaui",
+      "nome": "Novo Oriente do Piauí",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-pimenteiras",
+      "nome": "Pimenteiras",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-prata-do-piaui",
+      "nome": "Prata do Piauí",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-santa-cruz-dos-milagres",
+      "nome": "Santa Cruz dos Milagres",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-sao-felix-do-piaui",
+      "nome": "São Félix do Piauí",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-sao-miguel-da-baixa-grande",
+      "nome": "São Miguel da Baixa Grande",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-valenca-do-piaui",
+      "nome": "Valença do Piauí",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-varzea-grande",
+      "nome": "Várzea Grande",
+      "regionalId": "r-vale-do-sambito"
+    },
+    {
+      "id": "m-alagoinha-do-piaui",
+      "nome": "Alagoinha do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-alegrete-do-piaui",
+      "nome": "Alegrete do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-aroeiras-do-itaim",
+      "nome": "Aroeiras do Itaim",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-bocaina",
+      "nome": "Bocaina",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-campo-grande-do-piaui",
+      "nome": "Campo Grande do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-dom-expedito-lopes",
+      "nome": "Dom Expedito Lopes",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-francisco-santos",
+      "nome": "Francisco Santos",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-fronteiras",
+      "nome": "Fronteiras",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-geminiano",
+      "nome": "Geminiano",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-ipiranga-do-piaui",
+      "nome": "Ipiranga do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-itainopolis",
+      "nome": "Itainópolis",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-monsenhor-hipolito",
+      "nome": "Monsenhor Hipólito",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-paqueta",
+      "nome": "Paquetá",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-picos",
+      "nome": "Picos",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-pio-ix",
+      "nome": "Pio IX",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-santa-cruz-do-piaui",
+      "nome": "Santa Cruz do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-santana-do-piaui",
+      "nome": "Santana do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-santo-antonio-de-lisboa",
+      "nome": "Santo Antônio de Lisboa",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-sao-joao-da-canabrava",
+      "nome": "São João da Canabrava",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-sao-jose-do-piaui",
+      "nome": "São José do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-sao-juliao",
+      "nome": "São Julião",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-sao-luis-do-piaui",
+      "nome": "São Luis do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-sussuapara",
+      "nome": "Sussuapara",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-vera-mendes",
+      "nome": "Vera Mendes",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-vila-nova-do-piaui",
+      "nome": "Vila Nova do Piauí",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-wall-ferraz",
+      "nome": "Wall Ferraz",
+      "regionalId": "r-vale-dos-rios-guaribas"
+    },
+    {
+      "id": "m-acaua",
+      "nome": "Acauã",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-belem-do-piaui",
+      "nome": "Belém do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-betania-do-piaui",
+      "nome": "Betânia do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-caldeirao-grande-do-piaui",
+      "nome": "Caldeirão Grande do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-caridade-do-piaui",
+      "nome": "Caridade do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-curral-novo-do-piaui",
+      "nome": "Curral Novo do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-francisco-macedo",
+      "nome": "Francisco Macedo",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-jacobina-do-piaui",
+      "nome": "Jacobina do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-jaicos",
+      "nome": "Jaicós",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-marcolandia",
+      "nome": "Marcolândia",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-massape-do-piaui",
+      "nome": "Massapê do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-padre-marcos",
+      "nome": "Padre Marcos",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-patos-do-piaui",
+      "nome": "Patos do Piauí",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-paulistana",
+      "nome": "Paulistana",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-queimada-nova",
+      "nome": "Queimada Nova",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-simoes",
+      "nome": "Simões",
+      "regionalId": "r-vale-do-itaim"
+    },
+    {
+      "id": "m-agricolandia",
+      "nome": "Agricolândia",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-agua-branca",
+      "nome": "Água Branca",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-alto-longa",
+      "nome": "Alto Longá",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-altos",
+      "nome": "Altos",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-amarante",
+      "nome": "Amarante",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-angical-do-piaui",
+      "nome": "Angical do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-barro-duro",
+      "nome": "Barro Duro",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-beneditinos",
+      "nome": "Beneditinos",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-coivaras",
+      "nome": "Coivaras",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-curralinhos",
+      "nome": "Curralinhos",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-demerval-lobao",
+      "nome": "Demerval Lobão",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-hugo-napoleao",
+      "nome": "Hugo Napoleão",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-jardim-do-mulato",
+      "nome": "Jardim do Mulato",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-jose-de-freitas",
+      "nome": "José de Freitas",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-lagoa-alegre",
+      "nome": "Lagoa Alegre",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-lagoa-do-piaui",
+      "nome": "Lagoa do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-lagoinha-do-piaui",
+      "nome": "Lagoinha do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-miguel-alves",
+      "nome": "Miguel Alves",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-miguel-leao",
+      "nome": "Miguel Leão",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-monsenhor-gil",
+      "nome": "Monsenhor Gil",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-nazaria",
+      "nome": "Nazária",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-olho-d-agua-do-piaui",
+      "nome": "Olho D'Água do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-palmeirais",
+      "nome": "Palmeirais",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-passagem-franca-do-piaui",
+      "nome": "Passagem Franca do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-pau-d-arco-do-piaui",
+      "nome": "Pau D'Arco do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-regeneracao",
+      "nome": "Regeneração",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-santo-antonio-dos-milagres",
+      "nome": "Santo Antônio dos Milagres",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-sao-goncalo-do-piaui",
+      "nome": "São Gonçalo do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-sao-pedro-do-piaui",
+      "nome": "São Pedro do Piauí",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-teresina",
+      "nome": "Teresina",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-uniao",
+      "nome": "União",
+      "regionalId": "r-entre-rios"
+    },
+    {
+      "id": "m-assuncao-do-piaui",
+      "nome": "Assunção do Piauí",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-boa-hora",
+      "nome": "Boa Hora",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-boqueirao-do-piaui",
+      "nome": "Boqueirão do Piauí",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-buriti-dos-montes",
+      "nome": "Buriti dos Montes",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-cabeceiras-do-piaui",
+      "nome": "Cabeceiras do Piauí",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-campo-maior",
+      "nome": "Campo Maior",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-castelo-do-piaui",
+      "nome": "Castelo do Piauí",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-cocal-de-telha",
+      "nome": "Cocal de Telha",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-jatoba-do-piaui",
+      "nome": "Jatobá do Piauí",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-juazeiro-do-piaui",
+      "nome": "Juazeiro do Piauí",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-nossa-senhora-de-nazare",
+      "nome": "Nossa Senhora de Nazaré",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-novo-santo-antonio",
+      "nome": "Novo Santo Antônio",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-sao-joao-da-serra",
+      "nome": "São João da Serra",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-sao-miguel-do-tapuio",
+      "nome": "São Miguel do Tapuio",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-sigefredo-pacheco",
+      "nome": "Sigefredo Pacheco",
+      "regionalId": "r-carnaubais"
+    },
+    {
+      "id": "m-arraial",
+      "nome": "Arraial",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-floriano",
+      "nome": "Floriano",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-francisco-ayres",
+      "nome": "Francisco Ayres",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-nazare-do-piaui",
+      "nome": "Nazaré do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-eliseu-martins",
+      "nome": "Eliseu Martins",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-paes-landim",
+      "nome": "Paes Landim",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-colonia-do-gurgueia",
+      "nome": "Colônia do Gurguéia",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-ribeira-do-piaui",
+      "nome": "Ribeira do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-sao-jose-do-peixe",
+      "nome": "São José do Peixe",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-sao-miguel-do-fidalgo",
+      "nome": "São Miguel do Fidalgo",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-brejo-do-piaui",
+      "nome": "Brejo do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-canto-do-buriti",
+      "nome": "Canto do Buriti",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-flores-do-piaui",
+      "nome": "Flores do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-itaueira",
+      "nome": "Itaueira",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-pavussu",
+      "nome": "Pavussu",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-rio-grande-do-piaui",
+      "nome": "Rio Grande do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-tamboril-do-piaui",
+      "nome": "Tamboril do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-manoel-emidio",
+      "nome": "Manoel Emídio",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-sao-francisco-do-piaui",
+      "nome": "São Francisco do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-jerumenha",
+      "nome": "Jerumenha",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-guadalupe",
+      "nome": "Guadalupe",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-canavieira",
+      "nome": "Canavieira",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-landri-sales",
+      "nome": "Landri Sales",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-marcos-parente",
+      "nome": "Marcos Parente",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-bertolinia",
+      "nome": "Bertolínia",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-socorro-do-piaui",
+      "nome": "Socorro do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-porto-alegre-do-piaui",
+      "nome": "Porto Alegre do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-pajeu-do-piaui",
+      "nome": "Pajeú do Piauí",
+      "regionalId": "r-vale-rios-piaui-itaueira"
+    },
+    {
+      "id": "m-antonio-almeida",
+      "nome": "Antônio Almeida",
+      "regionalId": "r-alto-do-parnaiba"
+    },
+    {
+      "id": "m-baixa-grande-do-ribeiro",
+      "nome": "Baixa Grande do Ribeiro",
+      "regionalId": "r-alto-do-parnaiba"
+    },
+    {
+      "id": "m-ribeiro-goncalves",
+      "nome": "Ribeiro Gonçalves",
+      "regionalId": "r-alto-do-parnaiba"
+    },
+    {
+      "id": "m-sebastiao-leal",
+      "nome": "Sebastião Leal",
+      "regionalId": "r-alto-do-parnaiba"
+    },
+    {
+      "id": "m-urucui",
+      "nome": "Uruçuí",
+      "regionalId": "r-alto-do-parnaiba"
+    },
+    {
+      "id": "m-campo-alegre-do-fidalgo",
+      "nome": "Campo Alegre do Fidalgo",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-capitao-gervasio-oliveira",
+      "nome": "Capitão Gervásio Oliveira",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-joao-costa",
+      "nome": "João Costa",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-lagoa-do-barro-do-piaui",
+      "nome": "Lagoa do Barro do Piauí",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-sao-joao-do-piaui",
+      "nome": "São João do Piauí",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-anisio-de-abreu",
+      "nome": "Anísio de Abreu",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-bonfim-do-piaui",
+      "nome": "Bonfim do Piauí",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-caracol",
+      "nome": "Caracol",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-guaribas",
+      "nome": "Guaribas",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-jurema",
+      "nome": "Jurema",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-sao-braz-do-piaui",
+      "nome": "São Braz do Piauí",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-varzea-branca",
+      "nome": "Várzea Branca",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-coronel-jose-dias",
+      "nome": "Coronel José Dias",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-dom-inocencio",
+      "nome": "Dom Inocêncio",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-dirceu-arcoverde",
+      "nome": "Dirceu Arcoverde",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-fartura-do-piaui",
+      "nome": "Fartura do Piauí",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-sao-lourenco-do-piaui",
+      "nome": "São Lourenço do Piauí",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-sao-raimundo-nonato",
+      "nome": "São Raimundo Nonato",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-nova-santa-rita",
+      "nome": "Nova Santa Rita",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-pedro-laurentino",
+      "nome": "Pedro Laurentino",
+      "regionalId": "r-serra-da-capivara"
+    },
+    {
+      "id": "m-alvorada-do-gurgueia",
+      "nome": "Alvorada do Gurguéia",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-avelino-lopes",
+      "nome": "Avelino Lopes",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-barreiras-do-piaui",
+      "nome": "Barreiras do Piauí",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-bom-jesus",
+      "nome": "Bom Jesus",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-corrente",
+      "nome": "Corrente",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-cristalandia-do-piaui",
+      "nome": "Cristalândia do Piauí",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-cristino-castro",
+      "nome": "Cristino Castro",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-curimata",
+      "nome": "Curimatá",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-currais",
+      "nome": "Currais",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-gilbues",
+      "nome": "Gilbués",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-julio-borges",
+      "nome": "Júlio Borges",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-monte-alegre-do-piaui",
+      "nome": "Monte Alegre do Piauí",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-morro-cabeca-no-tempo",
+      "nome": "Morro Cabeça no Tempo",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-palmeira-do-piaui",
+      "nome": "Palmeira do Piauí",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-parnagua",
+      "nome": "Parnaguá",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-redencao-do-gurgueia",
+      "nome": "Redenção do Gurguéia",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-riacho-frio",
+      "nome": "Riacho Frio",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-santa-filomena",
+      "nome": "Santa Filomena",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-santa-luz",
+      "nome": "Santa Luz",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-sao-goncalo-do-gurgueia",
+      "nome": "São Gonçalo do Gurguéia",
+      "regionalId": "r-mangabeiras"
+    },
+    {
+      "id": "m-sebastiao-barros",
+      "nome": "Sebastião Barros",
+      "regionalId": "r-mangabeiras"
+    }
+  ]
+}

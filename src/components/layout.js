@@ -1,44 +1,19 @@
-const NAV_ADMIN = [
-  { route: 'dashboard', icon: '▦', label: 'Dashboard' },
-  { route: 'programacoes', icon: '📅', label: 'Programações' },
-  { route: 'coordenacoes', icon: '🏢', label: 'Coordenações' },
-  { route: 'municipios', icon: '📍', label: 'Municípios' },
-  { route: 'logistica', icon: '🚗', label: 'Logística' },
-  { route: 'equipes', icon: '👥', label: 'Equipes' },
-  { route: 'recursos-financeiros', icon: '💰', label: 'Recursos Financeiros' },
-  { route: 'indicadores', icon: '📊', label: 'Indicadores' },
-  { route: 'relatorios', icon: '📄', label: 'Relatórios' },
-  { route: 'documentos', icon: '📁', label: 'Documentos' },
-  { route: 'administracao', icon: '⚙', label: 'Administração' },
-];
-
-const NAV_CADASTRO = [
+const NAV_ITEMS = [
   { route: 'dashboard', icon: '▦', label: 'Dashboard' },
   { route: 'programacoes', icon: '📅', label: 'Programações' },
   { route: 'nova-programacao', icon: '➕', label: 'Nova Programação' },
   { route: 'calendario', icon: '📆', label: 'Calendário' },
+  { route: 'coordenacoes', icon: '🏢', label: 'Coordenações' },
+  { route: 'municipios', icon: '📍', label: 'Municípios' },
+  { route: 'logistica', icon: '🚗', label: 'Logística' },
   { route: 'equipes', icon: '👥', label: 'Equipes' },
-  { route: 'documentos', icon: '📁', label: 'Documentos' },
+  { route: 'indicadores', icon: '📊', label: 'Indicadores' },
   { route: 'relatorios', icon: '📄', label: 'Relatórios' },
+  { route: 'administracao', icon: '⚙', label: 'Administração' },
 ];
-
-const NAV_CONSULTA = [
-  { route: 'dashboard', icon: '▦', label: 'Dashboard' },
-  { route: 'programacoes', icon: '📅', label: 'Programações' },
-  { route: 'calendario', icon: '📆', label: 'Calendário' },
-  { route: 'relatorios', icon: '📄', label: 'Relatórios' },
-  { route: 'documentos', icon: '📁', label: 'Documentos' },
-];
-
-function getNavItems(user) {
-  if (user.perfil === 'Administrador') return NAV_ADMIN;
-  if (user.perfil === 'Gerência') return NAV_CADASTRO;
-  return NAV_CONSULTA;
-}
 
 export function renderSidebar(user, currentRoute) {
   const initials = user.nome.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-  const items = getNavItems(user);
 
   return `
     <aside class="sidebar sidebar-v2" id="sidebar">
@@ -47,15 +22,12 @@ export function renderSidebar(user, currentRoute) {
           <img src="/assets/logo-sesapi.svg" alt="SESAPI" class="sidebar-logo" />
           <img src="/assets/logo-duvas.svg" alt="DUVAS" class="sidebar-logo" />
         </div>
-        <div class="sidebar-brand">
-          <strong>SIGP-VS</strong>
-        </div>
+        <div class="sidebar-brand"><strong>SIGP-VS</strong></div>
       </div>
       <nav class="sidebar-nav">
-        ${items.map((item) => `
+        ${NAV_ITEMS.map((item) => `
           <button class="nav-item ${currentRoute === item.route ? 'active' : ''}" data-route="${item.route}">
-            <span class="nav-icon">${item.icon}</span>
-            ${item.label}
+            <span class="nav-icon">${item.icon}</span>${item.label}
           </button>
         `).join('')}
       </nav>
@@ -64,7 +36,7 @@ export function renderSidebar(user, currentRoute) {
           <div class="user-avatar user-avatar-photo">${initials}</div>
           <div class="user-details">
             <strong>${user.nome}</strong>
-            <span>${user.perfil}</span>
+            <span>${user.email || ''}</span>
           </div>
         </div>
         <button class="btn btn-sidebar-logout btn-sm btn-block" id="btn-logout">Sair</button>
@@ -73,25 +45,19 @@ export function renderSidebar(user, currentRoute) {
   `;
 }
 
-export function renderTopbar(title, breadcrumb = '', user) {
-  const isCadastroForm = title === 'Nova Programação';
-  const crumbs = isCadastroForm
-    ? `<nav class="breadcrumb-nav"><a href="#dashboard">Início</a> / <a href="#programacoes">Programações</a> / <strong>Nova Programação</strong></nav>`
-    : breadcrumb
-      ? `<span class="breadcrumb">${breadcrumb}</span>`
-      : '';
-
+export function renderTopbar(title, breadcrumb = '') {
+  const crumbs = breadcrumb || (title ? `<h1 class="page-title">${title}</h1>` : '');
   return `
     <header class="topbar topbar-v2">
       <div class="topbar-left">
         <button class="menu-toggle" id="menu-toggle" aria-label="Menu">☰</button>
-        ${crumbs || `<h1 class="page-title">${title}</h1>`}
+        ${typeof breadcrumb === 'string' && breadcrumb.includes('/') 
+          ? `<nav class="breadcrumb-nav">${breadcrumb}</nav>` 
+          : crumbs}
       </div>
       <div class="topbar-right">
-        <button class="topbar-icon-btn" title="Notificações" aria-label="Notificações">
-          🔔<span class="notif-badge">3</span>
-        </button>
-        <button class="topbar-icon-btn" title="Ajuda" aria-label="Ajuda">?</button>
+        <button class="topbar-icon-btn" title="Notificações">🔔</button>
+        <button class="topbar-icon-btn" title="Ajuda">?</button>
       </div>
     </header>
   `;
@@ -99,31 +65,30 @@ export function renderTopbar(title, breadcrumb = '', user) {
 
 export function bindLayoutEvents(onNavigate, onLogout) {
   document.querySelectorAll('.nav-item[data-route]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const route = btn.dataset.route;
-      if (route === 'recursos-financeiros' || route === 'indicadores') {
-        window.location.hash = 'relatorios';
-        return;
-      }
-      onNavigate(route);
-    });
+    btn.addEventListener('click', () => onNavigate(btn.dataset.route));
   });
-
   document.getElementById('btn-logout')?.addEventListener('click', onLogout);
-
   document.getElementById('menu-toggle')?.addEventListener('click', () => {
     document.getElementById('sidebar')?.classList.toggle('open');
   });
 }
 
 export function renderAppShell(user, route, title, content, breadcrumb) {
+  const bc = breadcrumb || '';
   return `
-    <div class="app-layout ${user.perfil === 'Administrador' ? 'layout-admin' : 'layout-cadastro'}">
+    <div class="app-layout layout-admin">
       ${renderSidebar(user, route)}
       <div class="main-content">
-        ${renderTopbar(title, breadcrumb, user)}
+        ${renderTopbar(title, bc || title)}
         <main class="page-content">${content}</main>
       </div>
     </div>
   `;
+}
+
+export function breadcrumbHtml(parts) {
+  return parts.map((p, i) => {
+    if (i === parts.length - 1) return `<strong>${p.label}</strong>`;
+    return `<a href="${p.href}">${p.label}</a>`;
+  }).join(' / ');
 }
