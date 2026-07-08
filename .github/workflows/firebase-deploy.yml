@@ -2,17 +2,15 @@
 #
 # Secrets obrigatórios em: GitHub → Settings → Secrets and variables → Actions
 #
-# FIREBASE_SERVICE_ACCOUNT  → JSON completo da conta de serviço (Firebase Console)
-# FIREBASE_PROJECT_ID       → ID do projeto Firebase (ex: sigp-vs-cadastro)
-# VITE_FIREBASE_API_KEY
-# VITE_FIREBASE_AUTH_DOMAIN
-# VITE_FIREBASE_PROJECT_ID
-# VITE_FIREBASE_STORAGE_BUCKET
-# VITE_FIREBASE_MESSAGING_SENDER_ID
-# VITE_FIREBASE_APP_ID
+# FIREBASE_SERVICE_ACCOUNT  → JSON completo da conta de serviço (sem aspas extras)
+# FIREBASE_PROJECT_ID       → ID do projeto (ex: sigp-vs) — igual ao project_id do JSON
+# VITE_FIREBASE_*
 #
-# Como gerar FIREBASE_SERVICE_ACCOUNT:
-# Firebase Console → Configurações → Contas de serviço → Gerar nova chave privada
+# Papéis IAM na MESMA conta cujo e-mail aparece no passo "Verify authentication":
+#   - Firebase Admin
+#   - Firebase Rules Admin
+#   - Firebase Hosting Admin
+#   - Service Usage Consumer
 
 name: Deploy Firebase
 
@@ -56,9 +54,54 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
 
-      - name: Deploy Hosting and Firestore Rules
-        run: npx firebase-tools@latest deploy --only hosting,firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify authentication
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          SA=$(python3 -c "import json; print(json.load(open('${GOOGLE_APPLICATION_CREDENTIALS}'))['client_email'])")
+          JSON_PROJECT=$(python3 -c "import json; print(json.load(open('${GOOGLE_APPLICATION_CREDENTIALS}'))['project_id'])")
+          echo "Conta de serviço do secret: $SA"
+          echo "project_id no JSON: $JSON_PROJECT"
+          echo "FIREBASE_PROJECT_ID secret: $PROJECT_ID"
+          if [ "$JSON_PROJECT" != "$PROJECT_ID" ]; then
+            echo "::error::FIREBASE_PROJECT_ID ($PROJECT_ID) difere do project_id no JSON ($JSON_PROJECT)"
+            exit 1
+          fi
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud config set project "$PROJECT_ID"
+          echo "Testando API de Firestore Rules..."
+          TOKEN=$(gcloud auth print-access-token)
+          HTTP=$(curl -s -o /tmp/rules-test.json -w "%{http_code}" \
+            -X POST "https://firebaserules.googleapis.com/v1/projects/${PROJECT_ID}:test" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"source":{"files":[{"name":"firestore.rules","content":"rules_version = \"2\"; service cloud.firestore { match /databases/{db}/documents { match /{document=**} { allow read, write: if false; } } }"}]}}')
+          echo "Resposta HTTP da API de Rules: $HTTP"
+          cat /tmp/rules-test.json || true
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::A conta $SA não tem permissão para publicar regras em $PROJECT_ID."
+            echo "No IAM, adicione 'Firebase Rules Admin' e 'Firebase Admin' a ESSA conta (não outra)."
+            exit 1
+          fi
+
+      - name: Deploy Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: npx firebase-tools@latest deploy --only hosting --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+
+      - name: Deploy Firestore Rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: npx firebase-tools@latest deploy --only firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
