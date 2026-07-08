@@ -11,8 +11,11 @@ import {
   syncLogisticaFromProgramacao,
   updateLogisticaSituacao,
   upsertUserProfile,
+  subscribeUserRole,
+  fetchUserRole,
 } from './programacoes-service.js';
 import { COORDENACOES, MUNICIPIOS, REGIONAIS, EQUIPES } from '../data/seed.js';
+import { canEdit, canApprove, isAdmin, canDeleteProgramacao } from './roles.js';
 
 export {
   subscribeProgramacoes,
@@ -25,6 +28,12 @@ export {
   syncLogisticaFromProgramacao,
   updateLogisticaSituacao,
   upsertUserProfile,
+  subscribeUserRole,
+  fetchUserRole,
+  canEdit,
+  canApprove,
+  isAdmin,
+  canDeleteProgramacao,
 };
 
 export function getCollection(name) {
@@ -47,10 +56,6 @@ export function getItemById(collection, id) {
 export function deleteItem(collection, id) {
   if (collection === 'programacoes') return removeProgramacao(id);
 }
-
-export const canEdit = () => true;
-export const canApprove = () => true;
-export const isAdmin = () => true;
 
 export function updateItem(collection, id, updates) {
   if (collection === 'logistica') return updateLogisticaSituacao(id, updates.situacao);

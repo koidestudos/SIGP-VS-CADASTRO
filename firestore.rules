@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Negar tudo por padrão — nada é público
     match /{document=**} {
       allow read, write: if false;
     }
@@ -14,6 +13,22 @@ service cloud.firestore {
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrapAdminEmail() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'sandgyferreira@gmail.com';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrapAdminEmail()
+        || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
     }
 
     function validStatus(status) {
@@ -40,7 +55,18 @@ service cloud.firestore {
         && (!('equipe' in data) || data.equipe.size() <= 50);
     }
 
-    // Programações — somente usuários autenticados
+    function validUserProfile(data) {
+      return data.nome is string
+        && data.nome.size() <= 200
+        && data.email is string
+        && data.email.size() <= 320
+        && (!('role' in data) || data.role in ['admin', 'usuario']);
+    }
+
+    function canSetAdminRole(data) {
+      return isBootstrapAdminEmail() && data.role == 'admin';
+    }
+
     match /programacoes/{programacaoId} {
       allow read: if isSignedIn();
 
@@ -52,11 +78,14 @@ service cloud.firestore {
         && validProgramacaoFields(request.resource.data)
         && request.resource.data.criadoPor == resource.data.criadoPor;
 
-      allow delete: if isSignedIn()
-        && resource.data.criadoPor == request.auth.uid;
+      allow update: if isAdmin()
+        && validProgramacaoFields(request.resource.data)
+        && request.resource.data.criadoPor == resource.data.criadoPor;
+
+      allow delete: if isSignedIn() && resource.data.criadoPor == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
-    // Logística — somente autenticados
     match /logistica/{logisticaId} {
       allow read: if isSignedIn();
 
@@ -69,20 +98,23 @@ service cloud.firestore {
         && request.resource.data.alimentacao is bool;
 
       allow delete: if isSignedIn();
+      allow delete: if isAdmin();
     }
 
-    // Perfil do usuário — cada um só acessa o próprio documento
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
 
-      allow create, update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['nome', 'email', 'atualizadoEm'])
-        && request.resource.data.nome is string
-        && request.resource.data.nome.size() <= 200
-        && request.resource.data.email is string
-        && request.resource.data.email.size() <= 320;
+      allow create: if isOwner(userId)
+        && validUserProfile(request.resource.data)
+        && (!('role' in request.resource.data) || canSetAdminRole(request.resource.data));
 
-      allow delete: if false;
+      allow update: if isOwner(userId)
+        && validUserProfile(request.resource.data)
+        && (
+          !('role' in request.resource.data)
+          || request.resource.data.role == resource.data.get('role', 'usuario')
+          || canSetAdminRole(request.resource.data)
+        );
     }
   }
 }

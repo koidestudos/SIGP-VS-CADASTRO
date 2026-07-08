@@ -1,5 +1,9 @@
 import { watchAuth, logoutUser, loginWithEmail, registerAccount, resetPassword, getAuthErrorMessage } from './services/auth.js';
-import { initProgramacoesSync, subscribeProgramacoes, subscribeLogistica, upsertUserProfile } from './services/programacoes-service.js';
+import {
+  initProgramacoesSync, subscribeProgramacoes, subscribeLogistica,
+  upsertUserProfile, subscribeUserRole,
+} from './services/programacoes-service.js';
+import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
 import { isFirebaseConfigured } from './firebase/config.js';
@@ -8,6 +12,7 @@ const app = document.getElementById('app');
 let currentUser = null;
 let currentRoute = 'dashboard';
 let routeParams = [];
+let unsubUserRole = null;
 
 function render() {
   if (!currentUser) {
@@ -86,17 +91,27 @@ function bindLogin() {
 }
 
 watchAuth(async (user) => {
-  currentUser = user;
+  if (unsubUserRole) {
+    unsubUserRole();
+    unsubUserRole = null;
+  }
+
   if (user && isFirebaseConfigured) {
     try {
       initProgramacoesSync();
       await upsertUserProfile(user);
-      handleHash();
+      unsubUserRole = subscribeUserRole(user.uid, (role) => {
+        currentUser = { ...user, role };
+        handleHash();
+      });
     } catch (err) {
       console.error(err);
+      currentUser = user;
       render();
     }
   } else {
+    setUserRole('usuario');
+    currentUser = user;
     render();
   }
 });

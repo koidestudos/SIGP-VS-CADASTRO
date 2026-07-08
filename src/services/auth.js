@@ -8,12 +8,13 @@ import {
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '../firebase/config.js';
 
-export function mapUser(fbUser) {
+export function mapUser(fbUser, role = 'usuario') {
   if (!fbUser) return null;
   return {
     uid: fbUser.uid,
     email: fbUser.email,
     nome: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário',
+    role: role === 'admin' ? 'admin' : 'usuario',
   };
 }
 
