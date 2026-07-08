@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" role="img" aria-label="SESAPI">
+  <rect width="200" height="60" rx="4" fill="#1351B4"/>
+  <text x="100" y="28" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">SESAPI</text>
+  <text x="100" y="46" text-anchor="middle" fill="#B3D4FC" font-family="Inter, Arial, sans-serif" font-size="9">Secretaria de Saúde do Piauí</text>
+</svg>
