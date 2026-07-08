@@ -1,9 +1,11 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp, setDoc,
+  onSnapshot, serverTimestamp, setDoc, getDoc,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
+import { isBootstrapAdminEmail } from '../config/admins.js';
+import { setUserRole } from './roles.js';
 
 let programacoesCache = [];
 let logisticaCache = [];
@@ -179,9 +181,37 @@ export function syncLogisticaFromProgramacao(programacao) {
 /** Salva perfil mínimo do usuário (somente o próprio uid) */
 export async function upsertUserProfile(user) {
   if (!db || !user?.uid) return;
-  await setDoc(doc(db, 'users', user.uid), {
+  const payload = {
     nome: user.nome || '',
     email: user.email || '',
     atualizadoEm: new Date().toISOString(),
-  }, { merge: true });
+  };
+  if (isBootstrapAdminEmail(user.email)) {
+    payload.role = 'admin';
+  }
+  await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+}
+
+/** Carrega papel do usuário e mantém sincronizado */
+export function subscribeUserRole(uid, callback) {
+  if (!db || !uid) {
+    callback('usuario');
+    return () => {};
+  }
+  return onSnapshot(doc(db, 'users', uid), (snap) => {
+    const role = snap.exists() && snap.data().role === 'admin' ? 'admin' : 'usuario';
+    setUserRole(role);
+    callback(role);
+  }, () => {
+    setUserRole('usuario');
+    callback('usuario');
+  });
+}
+
+export async function fetchUserRole(uid) {
+  if (!db || !uid) return 'usuario';
+  const snap = await getDoc(doc(db, 'users', uid));
+  const role = snap.exists() && snap.data().role === 'admin' ? 'admin' : 'usuario';
+  setUserRole(role);
+  return role;
 }

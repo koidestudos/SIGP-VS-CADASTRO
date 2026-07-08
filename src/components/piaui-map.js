@@ -1,20 +1,20 @@
 /** Mapa do Piauí com marcadores de programações */
 import { getMunicipioById } from '../data/seed.js';
 import { getProgramacoes } from '../services/programacoes-service.js';
+import { PIAUI_PATH, PIAUI_VIEWBOX } from '../data/piaui-outline.js';
 
-// Posições aproximadas (x%, y%) no contorno do Piauí
+// Posições (x%, y%) calibradas sobre o contorno real do Piauí
 const CITY_COORDS = {
-  'm-teresina': { x: 52, y: 18, nome: 'Teresina' },
-  'm-parnaiba': { x: 78, y: 8, nome: 'Parnaíba' },
-  'm-picos': { x: 58, y: 48, nome: 'Picos' },
-  'm-floriano': { x: 42, y: 62, nome: 'Floriano' },
-  'm-sao-raimundo-nonato': { x: 28, y: 78, nome: 'São Raimundo Nonato' },
-  'm-pedro-ii': { x: 48, y: 28, nome: 'Pedro II' },
-  'm-piripiri': { x: 55, y: 22, nome: 'Piripiri' },
-  'm-campo-maior': { x: 50, y: 24, nome: 'Campo Maior' },
-  'm-oeiras': { x: 54, y: 55, nome: 'Oeiras' },
-  'm-bom-jesus': { x: 35, y: 85, nome: 'Bom Jesus' },
-  'm-parnaiba': { x: 78, y: 8, nome: 'Parnaíba' },
+  'm-teresina': { x: 54.6, y: 28.9, nome: 'Teresina' },
+  'm-parnaiba': { x: 73.6, y: 1.9, nome: 'Parnaíba' },
+  'm-picos': { x: 79.3, y: 53.4, nome: 'Picos' },
+  'm-floriano': { x: 50.6, y: 49.6, nome: 'Floriano' },
+  'm-sao-raimundo-nonato': { x: 56.5, y: 76.7, nome: 'São Raimundo Nonato' },
+  'm-pedro-ii': { x: 79.5, y: 20.7, nome: 'Pedro II' },
+  'm-piripiri': { x: 73.6, y: 18.8, nome: 'Piripiri' },
+  'm-campo-maior': { x: 66.3, y: 25.7, nome: 'Campo Maior' },
+  'm-oeiras': { x: 67.0, y: 52.8, nome: 'Oeiras' },
+  'm-bom-jesus': { x: 25.8, y: 78.0, nome: 'Bom Jesus' },
 };
 
 function defaultCoords(index) {
@@ -27,7 +27,7 @@ function defaultCoords(index) {
 
 const STATUS_COLORS = { Publicada: '#168821', Pendente: '#ca8a04', Aprovada: '#168821', Rascunho: '#1351B4' };
 
-export function renderPiauiMap(onCityClick) {
+export function renderPiauiMap() {
   const programacoes = getProgramacoes();
   const byMunicipio = {};
 
@@ -50,16 +50,8 @@ export function renderPiauiMap(onCityClick) {
 
   return `
     <div class="piaui-map-container" id="piaui-map">
-      <svg class="piaui-outline" viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" aria-label="Mapa do Piauí">
-        <path fill="#c8e6c9" stroke="#81c784" stroke-width="1.5" d="
-          M95,8 L130,12 L155,25 L168,45 L175,70 L180,95 L178,120 L172,145
-          L165,170 L158,195 L145,215 L125,235 L100,250 L75,258 L55,252 L40,235
-          L28,210 L22,185 L20,160 L22,135 L28,110 L35,85 L45,65 L55,45 L65,30 L80,18 Z
-        "/>
-        <path fill="#a5d6a7" stroke="none" opacity="0.5" d="
-          M60,80 L90,75 L110,90 L105,120 L85,140 L60,130 Z
-          M100,100 L140,95 L150,120 L135,150 L105,145 Z
-        "/>
+      <svg class="piaui-outline" viewBox="${PIAUI_VIEWBOX}" xmlns="http://www.w3.org/2000/svg" aria-label="Mapa do Piauí">
+        <path fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2" stroke-linejoin="round" d="${PIAUI_PATH}" />
       </svg>
       <div class="piaui-pins-layer">${pins}</div>
       <div class="piaui-tooltip hidden" id="piaui-tooltip"></div>

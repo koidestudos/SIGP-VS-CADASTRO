@@ -1,11 +1,12 @@
 import { getProgramacoes, removeProgramacao, approveProgramacao, getProgramacaoById } from '../services/programacoes-service.js';
+import { canApprove, canDeleteProgramacao } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
   getGerenciaByProgramacao, COORDENACOES, MUNICIPIOS,
 } from '../data/seed.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 
-export function renderProgramacoes() {
+export function renderProgramacoes(user) {
   const programacoes = getProgramacoes();
   const now = new Date();
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -27,17 +28,19 @@ export function renderProgramacoes() {
     <div class="card"><div class="card-body"><div class="table-wrapper">
       <table id="tabela-programacoes"><thead><tr>
         <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Responsável</th><th>Status</th><th>Ações</th>
-      </tr></thead><tbody>${renderRows(programacoes)}</tbody></table>
+      </tr></thead><tbody>${renderRows(programacoes, user)}</tbody></table>
     </div></div></div>`;
 }
 
-function renderRows(items) {
+function renderRows(items, user) {
   if (!items.length) return '<tr><td colspan="9" class="text-center text-muted">Nenhuma programação.</td></tr>';
   return items.map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
     const mun = getMunicipioById(p.municipioId);
     const ger = getGerenciaByProgramacao(p);
-    const approve = p.status === 'Pendente' ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Aprovar">✔</button>` : '';
+    const approve = canApprove(user) && p.status === 'Pendente'
+      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Aprovar">✔</button>`
+      : '';
     return `<tr>
       <td>${p.titulo}</td>
       <td><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
@@ -45,7 +48,7 @@ function renderRows(items) {
       <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
       <td>${p.responsavel}</td>
       <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
-      <td>${renderActionButtons(p.id, { extra: approve + `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` })}</td>
+      <td>${renderActionButtons(p.id, { del: canDeleteProgramacao(user, p), extra: approve + `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` })}</td>
     </tr>`;
   }).join('');
 }
@@ -63,10 +66,10 @@ function applyFilters() {
   return items;
 }
 
-export function bindProgramacoes() {
+export function bindProgramacoes(user) {
   const refresh = () => {
     const tbody = document.querySelector('#tabela-programacoes tbody');
-    if (tbody) tbody.innerHTML = renderRows(applyFilters());
+    if (tbody) tbody.innerHTML = renderRows(applyFilters(), user);
   };
   ['filtro-mes', 'filtro-coord', 'filtro-mun', 'filtro-status'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', refresh);

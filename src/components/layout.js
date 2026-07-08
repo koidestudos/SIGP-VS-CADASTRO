@@ -14,6 +14,8 @@ const NAV_ITEMS = [
 
 export function renderSidebar(user, currentRoute) {
   const initials = user.nome.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  const roleLabel = user.role === 'admin' ? 'Administrador' : 'Usuário';
+  const navItems = NAV_ITEMS.filter((item) => item.route !== 'administracao' || user.role === 'admin');
 
   return `
     <aside class="sidebar sidebar-v2" id="sidebar">
@@ -25,7 +27,7 @@ export function renderSidebar(user, currentRoute) {
         <div class="sidebar-brand"><strong>SIGP-VS</strong></div>
       </div>
       <nav class="sidebar-nav">
-        ${NAV_ITEMS.map((item) => `
+        ${navItems.map((item) => `
           <button class="nav-item ${currentRoute === item.route ? 'active' : ''}" data-route="${item.route}">
             <span class="nav-icon">${item.icon}</span>${item.label}
           </button>
@@ -36,6 +38,7 @@ export function renderSidebar(user, currentRoute) {
           <div class="user-avatar user-avatar-photo">${initials}</div>
           <div class="user-details">
             <strong>${user.nome}</strong>
+            <span class="user-role-badge ${user.role === 'admin' ? 'role-admin' : ''}">${roleLabel}</span>
             <span>${user.email || ''}</span>
           </div>
         </div>
