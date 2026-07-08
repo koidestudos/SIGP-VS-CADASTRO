@@ -1,6 +1,6 @@
 import { renderAppShell, bindLayoutEvents } from './components/layout.js';
 import { clearAuth } from './services/storage.js';
-import { renderDashboard } from './pages/dashboard.js';
+import { renderDashboard, bindDashboard } from './pages/dashboard.js';
 import { renderProgramacoes, bindProgramacoes } from './pages/programacoes.js';
 import { renderNovaProgramacao, bindNovaProgramacao } from './pages/nova-programacao.js';
 import { renderCalendario, bindCalendario } from './pages/calendario.js';
@@ -13,7 +13,7 @@ import { renderDocumentos, bindDocumentos } from './pages/documentos.js';
 import { renderAdministracao, bindAdministracao } from './pages/administracao.js';
 
 const PAGE_META = {
-  dashboard: { title: 'Dashboard', render: renderDashboard },
+  dashboard: { title: 'Dashboard', render: renderDashboard, bind: bindDashboard },
   programacoes: { title: 'Programações', render: renderProgramacoes, bind: bindProgramacoes },
   'nova-programacao': { title: 'Nova Programação', render: renderNovaProgramacao, bind: bindNovaProgramacao },
   calendario: { title: 'Calendário', render: renderCalendario, bind: bindCalendario },
