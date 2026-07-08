@@ -1,27 +1,30 @@
 import {
   subscribeProgramacoes,
+  subscribeLogistica,
   getProgramacoes,
+  getLogistica,
   getProgramacaoById,
   initProgramacoesSync,
   saveProgramacao,
   removeProgramacao,
   approveProgramacao,
   syncLogisticaFromProgramacao,
-  getLogistica,
   updateLogisticaSituacao,
+  upsertUserProfile,
 } from './programacoes-service.js';
 import { COORDENACOES, MUNICIPIOS, REGIONAIS, EQUIPES } from '../data/seed.js';
 
 export {
   subscribeProgramacoes,
+  subscribeLogistica,
   getProgramacoes,
   initProgramacoesSync,
   saveProgramacao,
   removeProgramacao,
   approveProgramacao,
   syncLogisticaFromProgramacao,
-  getLogistica,
   updateLogisticaSituacao,
+  upsertUserProfile,
 };
 
 export function getCollection(name) {
@@ -50,9 +53,7 @@ export const canApprove = () => true;
 export const isAdmin = () => true;
 
 export function updateItem(collection, id, updates) {
-  if (collection === 'logistica') {
-    updateLogisticaSituacao(id, updates.situacao);
-  }
+  if (collection === 'logistica') return updateLogisticaSituacao(id, updates.situacao);
 }
 
 export function addItem() {}

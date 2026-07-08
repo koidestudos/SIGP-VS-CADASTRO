@@ -1,5 +1,5 @@
 import { watchAuth, logoutUser, loginWithEmail, registerAccount, resetPassword, getAuthErrorMessage } from './services/auth.js';
-import { initProgramacoesSync, subscribeProgramacoes } from './services/programacoes-service.js';
+import { initProgramacoesSync, subscribeProgramacoes, subscribeLogistica, upsertUserProfile } from './services/programacoes-service.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
 import { isFirebaseConfigured } from './firebase/config.js';
@@ -22,10 +22,7 @@ function handleHash() {
   const parts = (window.location.hash.slice(1) || 'dashboard').split('/').filter(Boolean);
   currentRoute = parts[0] || 'dashboard';
   routeParams = parts.slice(1);
-
-  if (currentRoute === 'login') {
-    currentUser = null;
-  }
+  if (currentRoute === 'login') currentUser = null;
   render();
 }
 
@@ -63,13 +60,19 @@ function bindLogin() {
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!isFirebaseConfigured) {
+      errorEl.className = 'alert alert-error';
+      errorEl.textContent = 'Configure o Firebase no arquivo .env antes de usar o sistema.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     const nome = document.getElementById('nome')?.value.trim();
-
     try {
       if (mode === 'register') {
-        await registerAccount({ email, password, nome });
+        const user = await registerAccount({ email, password, nome });
+        await upsertUserProfile(user);
       } else {
         await loginWithEmail(email, password);
       }
@@ -82,26 +85,27 @@ function bindLogin() {
   });
 }
 
-watchAuth((user) => {
+watchAuth(async (user) => {
   currentUser = user;
-  if (user) {
-    initProgramacoesSync();
-    handleHash();
-  } else if (!isFirebaseConfigured) {
-    render();
+  if (user && isFirebaseConfigured) {
+    try {
+      initProgramacoesSync();
+      await upsertUserProfile(user);
+      handleHash();
+    } catch (err) {
+      console.error(err);
+      render();
+    }
   } else {
     render();
   }
 });
 
-subscribeProgramacoes(() => {
-  if (currentUser) render();
-});
+subscribeProgramacoes(() => { if (currentUser) render(); });
+subscribeLogistica(() => { if (currentUser) render(); });
 
 window.addEventListener('hashchange', handleHash);
 
 if (!isFirebaseConfigured) {
-  initProgramacoesSync();
-  currentUser = { uid: 'local', email: 'local@sigp.local', nome: 'Usuário Local' };
-  handleHash();
+  render();
 }

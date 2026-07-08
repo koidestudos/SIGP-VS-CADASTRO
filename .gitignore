@@ -2,5 +2,21 @@ node_modules/
 dist/
 .DS_Store
 *.log
+
+# Segredos — NUNCA commitar
 .env
+.env.*
+!.env.example
 .firebaserc
+
+# Chaves Firebase / Google Cloud
+*-firebase-adminsdk-*.json
+firebase-service-account.json
+serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+
+# IDE
+.idea/
+.vscode/
+*.swp

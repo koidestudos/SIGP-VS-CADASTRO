@@ -1,102 +1,139 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp,
+  onSnapshot, serverTimestamp, setDoc,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
-import { PROGRAMACOES as SEED_PROGRAMACOES } from '../data/seed.js';
+import { auth } from '../firebase/config.js';
 
-const LS_KEY = 'sigp_vs_programacoes';
-let cache = [];
-const listeners = new Set();
-let unsubscribeFirestore = null;
+let programacoesCache = [];
+let logisticaCache = [];
+const progListeners = new Set();
+const logListeners = new Set();
+let unsubProg = null;
+let unsubLog = null;
 
-function notify() {
-  listeners.forEach((fn) => fn([...cache]));
-}
-
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    cache = raw ? JSON.parse(raw) : [...SEED_PROGRAMACOES];
-  } catch {
-    cache = [...SEED_PROGRAMACOES];
+function requireDb() {
+  if (!isFirebaseConfigured || !db) {
+    throw new Error('Firebase não configurado. Defina as variáveis VITE_FIREBASE_* no .env');
   }
-  notify();
+  return db;
 }
 
-function saveLocal() {
-  localStorage.setItem(LS_KEY, JSON.stringify(cache));
-  notify();
+function requireUser() {
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Usuário não autenticado.');
+  return uid;
+}
+
+function notifyProg() {
+  progListeners.forEach((fn) => fn([...programacoesCache]));
+}
+
+function notifyLog() {
+  logListeners.forEach((fn) => fn([...logisticaCache]));
 }
 
 export function subscribeProgramacoes(callback) {
-  listeners.add(callback);
-  callback([...cache]);
-  return () => listeners.delete(callback);
+  progListeners.add(callback);
+  callback([...programacoesCache]);
+  return () => progListeners.delete(callback);
+}
+
+export function subscribeLogistica(callback) {
+  logListeners.add(callback);
+  callback([...logisticaCache]);
+  return () => logListeners.delete(callback);
 }
 
 export function getProgramacoes() {
-  return [...cache];
+  return [...programacoesCache];
+}
+
+export function getLogistica() {
+  return [...logisticaCache];
 }
 
 export function getProgramacaoById(id) {
-  return cache.find((p) => p.id === id) || null;
+  return programacoesCache.find((p) => p.id === id) || null;
 }
 
 export function initProgramacoesSync() {
-  if (!isFirebaseConfigured || !db) {
-    loadLocal();
-    return;
-  }
+  const database = requireDb();
 
-  if (unsubscribeFirestore) unsubscribeFirestore();
+  if (unsubProg) unsubProg();
+  if (unsubLog) unsubLog();
 
-  const q = collection(db, 'programacoes');
-  unsubscribeFirestore = onSnapshot(q, (snap) => {
-    cache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    notify();
-  }, () => {
-    loadLocal();
+  unsubProg = onSnapshot(collection(database, 'programacoes'), (snap) => {
+    programacoesCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    notifyProg();
+  });
+
+  unsubLog = onSnapshot(collection(database, 'logistica'), (snap) => {
+    logisticaCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    notifyLog();
   });
 }
 
-export async function saveProgramacao(data, existingId = null) {
-  const payload = {
-    ...data,
+function sanitizeProgramacao(data, uid, isNew) {
+  const allowed = {
+    titulo: data.titulo || '',
+    tipoAtividade: data.tipoAtividade || '',
+    coordenacaoId: data.coordenacaoId || '',
+    responsavel: data.responsavel || '',
+    objetivo: data.objetivo || '',
+    publicoAlvo: data.publicoAlvo || '',
+    semana: data.semana || '',
+    dataInicial: data.dataInicial || '',
+    dataFinal: data.dataFinal || '',
+    duracao: data.duracao || '',
+    regionalId: data.regionalId || '',
+    municipioId: data.municipioId || '',
+    localAtividade: data.localAtividade || '',
+    necessitaTransporte: Boolean(data.necessitaTransporte),
+    necessitaAlimentacao: Boolean(data.necessitaAlimentacao),
+    obsLogistica: data.obsLogistica || '',
+    equipe: Array.isArray(data.equipe) ? data.equipe.slice(0, 50) : [],
+    codigoOrcamentario: data.codigoOrcamentario || '',
+    fonteRecurso: data.fonteRecurso || '',
+    observacoes: data.observacoes || '',
+    status: data.status || 'Rascunho',
+    criadoPor: isNew ? uid : (data.criadoPor || uid),
     atualizadoEm: new Date().toISOString(),
-    criadoEm: data.criadoEm || new Date().toISOString(),
   };
-
-  if (isFirebaseConfigured && db) {
-    if (existingId) {
-      await updateDoc(doc(db, 'programacoes', existingId), payload);
-      return { id: existingId, ...payload };
-    }
-    const ref = await addDoc(collection(db, 'programacoes'), {
-      ...payload,
-      criadoEm: serverTimestamp(),
-    });
-    return { id: ref.id, ...payload };
+  if (isNew) {
+    allowed.criadoEm = new Date().toISOString();
   }
+  return allowed;
+}
+
+export async function saveProgramacao(data, existingId = null) {
+  const database = requireDb();
+  const uid = requireUser();
+  const payload = sanitizeProgramacao(data, uid, !existingId);
 
   if (existingId) {
-    const idx = cache.findIndex((p) => p.id === existingId);
-    if (idx >= 0) cache[idx] = { id: existingId, ...payload };
-  } else {
-    const id = `p_${Date.now()}`;
-    cache.push({ id, ...payload });
+    await updateDoc(doc(database, 'programacoes', existingId), payload);
+    const saved = { id: existingId, ...payload };
+    await syncLogisticaToFirestore(saved);
+    return saved;
   }
-  saveLocal();
-  return existingId ? cache.find((p) => p.id === existingId) : cache[cache.length - 1];
+
+  const { criadoEm, ...createPayload } = payload;
+  const ref = await addDoc(collection(database, 'programacoes'), {
+    ...createPayload,
+    criadoEm: serverTimestamp(),
+  });
+  const saved = { id: ref.id, ...payload };
+  await syncLogisticaToFirestore(saved);
+  return saved;
 }
 
 export async function removeProgramacao(id) {
-  if (isFirebaseConfigured && db) {
-    await deleteDoc(doc(db, 'programacoes', id));
-    return;
-  }
-  cache = cache.filter((p) => p.id !== id);
-  saveLocal();
+  const database = requireDb();
+  requireUser();
+  await deleteDoc(doc(database, 'programacoes', id));
+  const logItem = logisticaCache.find((l) => l.programacaoId === id);
+  if (logItem) await deleteDoc(doc(database, 'logistica', logItem.id));
 }
 
 export async function approveProgramacao(id) {
@@ -105,30 +142,46 @@ export async function approveProgramacao(id) {
   return saveProgramacao({ ...prog, status: 'Publicada', aprovadoEm: new Date().toISOString() }, id);
 }
 
-export function syncLogisticaFromProgramacao(programacao) {
+async function syncLogisticaToFirestore(programacao) {
   if (!programacao.necessitaTransporte && !programacao.necessitaAlimentacao) return;
-  const logistica = JSON.parse(localStorage.getItem('sigp_vs_logistica') || '[]');
-  const existing = logistica.find((l) => l.programacaoId === programacao.id);
+
+  const database = requireDb();
+  const existing = logisticaCache.find((l) => l.programacaoId === programacao.id);
   const entry = {
-    id: existing?.id || `l_${Date.now()}`,
     programacaoId: programacao.id,
-    municipioId: programacao.municipioId,
-    transporte: programacao.necessitaTransporte,
-    alimentacao: programacao.necessitaAlimentacao,
+    municipioId: programacao.municipioId || '',
+    transporte: Boolean(programacao.necessitaTransporte),
+    alimentacao: Boolean(programacao.necessitaAlimentacao),
     situacao: existing?.situacao || 'Solicitado',
+    atualizadoEm: new Date().toISOString(),
   };
-  if (existing) Object.assign(existing, entry);
-  else logistica.push(entry);
-  localStorage.setItem('sigp_vs_logistica', JSON.stringify(logistica));
+
+  if (existing) {
+    await updateDoc(doc(database, 'logistica', existing.id), entry);
+  } else {
+    await addDoc(collection(database, 'logistica'), entry);
+  }
 }
 
-export function getLogistica() {
-  return JSON.parse(localStorage.getItem('sigp_vs_logistica') || '[]');
+export async function updateLogisticaSituacao(id, situacao) {
+  const database = requireDb();
+  requireUser();
+  await updateDoc(doc(database, 'logistica', id), {
+    situacao,
+    atualizadoEm: new Date().toISOString(),
+  });
 }
 
-export function updateLogisticaSituacao(id, situacao) {
-  const logistica = getLogistica();
-  const item = logistica.find((l) => l.id === id);
-  if (item) item.situacao = situacao;
-  localStorage.setItem('sigp_vs_logistica', JSON.stringify(logistica));
+export function syncLogisticaFromProgramacao(programacao) {
+  return syncLogisticaToFirestore(programacao);
+}
+
+/** Salva perfil mínimo do usuário (somente o próprio uid) */
+export async function upsertUserProfile(user) {
+  if (!db || !user?.uid) return;
+  await setDoc(doc(db, 'users', user.uid), {
+    nome: user.nome || '',
+    email: user.email || '',
+    atualizadoEm: new Date().toISOString(),
+  }, { merge: true });
 }
