@@ -13,6 +13,19 @@
 #
 # Como gerar FIREBASE_SERVICE_ACCOUNT:
 # Firebase Console → Configurações → Contas de serviço → Gerar nova chave privada
+#
+# Papéis IAM obrigatórios na conta de serviço (Google Cloud → IAM):
+#   - Firebase Admin                    (deploy geral)
+#   - Firebase Rules Admin              (publicar/testar firestore.rules)
+#   - Firebase Hosting Admin            (publicar o site)
+#   - Service Usage Consumer            (consultar APIs — evita 403 em firestore.googleapis.com)
+#
+# APIs que devem estar ativas (APIs & Services → Library):
+#   - Cloud Firestore API
+#   - Firebase Rules API
+#   - Service Usage API
+#
+# Firestore Database deve existir no Firebase Console antes do primeiro deploy.
 
 name: Deploy Firebase
 
@@ -60,5 +73,8 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Deploy Hosting and Firestore Rules
-        run: npx firebase-tools@latest deploy --only hosting,firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+      - name: Deploy Hosting
+        run: npx firebase-tools@latest deploy --only hosting --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+
+      - name: Deploy Firestore Rules
+        run: npx firebase-tools@latest deploy --only firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
