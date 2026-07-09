@@ -1,8 +1,9 @@
-import { getCollection } from '../services/storage.js';
+import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed } from '../services/storage.js';
+import { isAdmin } from '../services/roles.js';
 import { GERENCIAS } from '../data/seed.js';
 import { confirmDialog, toast } from '../components/ui.js';
 
-export function renderAdministracao() {
+export function renderAdministracao(user) {
   const coordenacoes = getCollection('coordenacoes');
   const municipios = getCollection('municipios');
   const regionais = getCollection('regionais');
@@ -45,12 +46,26 @@ export function renderAdministracao() {
         </tbody></table></div>
     </div>
     <div class="card mt-3"><div class="card-body">
+      <h3>Programações do PDF (GAS — Jun a Set/2026)</h3>
+      <p class="text-sm text-muted">${getSeedProgramacoesCount()} ações cadastradas no arquivo de importação. A importação para o Firestore ocorre automaticamente no login do administrador.</p>
+      ${isAdmin(user) ? `<button class="btn btn-outline btn-sm mt-2" id="btn-reimport-seed">Reimportar programações do PDF</button>` : ''}
+    </div></div>
+    <div class="card mt-3"><div class="card-body">
       <h3>Gerências</h3>
       <p class="text-sm text-muted">${GERENCIAS.join(' · ')} — DUVAS</p>
     </div></div>`;
 }
 
-export function bindAdministracao() {
+export function bindAdministracao(user) {
+  document.getElementById('btn-reimport-seed')?.addEventListener('click', async () => {
+    if ((await confirmDialog('Reimportar todas as programações do PDF? Itens existentes serão atualizados.')) !== 'confirm') return;
+    try {
+      const res = await importProgramacoesSeed({ force: true });
+      toast(`${res.count} programações importadas.`, 'success');
+    } catch (err) {
+      toast(err.message || 'Erro ao importar.', 'error');
+    }
+  });
   document.getElementById('admin-tabs')?.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       const tabs = document.getElementById('admin-tabs');

@@ -45,43 +45,6 @@ export const EQUIPES = [
   { id: 'e3', nome: 'Teodoro Cordela', cargo: 'Técnico', coordenacaoId: 'gas-crianca' },
 ];
 
-function makeDate(dayOffset) {
-  const d = new Date();
-  d.setDate(d.getDate() + dayOffset);
-  return d.toISOString().split('T')[0];
-}
-
-export const PROGRAMACOES = [
-  {
-    id: 'p1', titulo: 'Supervisão Tb', tipoAtividade: 'Supervisão', coordenacaoId: 'gas-dt',
-    responsavel: 'Ivone Venâncio', objetivo: 'Supervisão de TB', publicoAlvo: 'Equipe APS',
-    semana: '1ª Semana', dataInicial: makeDate(3), dataFinal: makeDate(5), duracao: '3 dias',
-    regionalId: 'r-serra-da-capivara', municipioId: 'm-sao-raimundo-nonato',
-    localAtividade: 'SMS', necessitaTransporte: true, necessitaAlimentacao: true,
-    obsLogistica: '', equipe: [{ nome: 'Ivone Venâncio', cargo: 'Coordenadora' }],
-    codigoOrcamentario: '2026.001', fonteRecurso: 'Fundo Estadual de Saúde',
-    observacoes: '', status: 'Publicada', criadoEm: makeDate(-10),
-  },
-  {
-    id: 'p2', titulo: 'Visita CER II', tipoAtividade: 'Visita técnica', coordenacaoId: 'gvs-epi',
-    responsavel: 'Maria Boa Ventura', objetivo: 'Visita técnica', publicoAlvo: 'Equipe',
-    semana: '2ª Semana', dataInicial: makeDate(8), dataFinal: makeDate(10), duracao: '3 dias',
-    regionalId: 'r-entre-rios', municipioId: 'm-teresina', localAtividade: 'UBS Central',
-    necessitaTransporte: true, necessitaAlimentacao: false, obsLogistica: '',
-    equipe: [{ nome: 'Maria Boa Ventura', cargo: 'Enfermeira' }],
-    codigoOrcamentario: '2026.002', fonteRecurso: 'Fundo Nacional de Saúde',
-    observacoes: '', status: 'Publicada', criadoEm: makeDate(-5),
-  },
-  {
-    id: 'p3', titulo: 'Oficina Vigilância Alimentar', tipoAtividade: 'Capacitação', coordenacaoId: 'gvs-cvsa',
-    responsavel: 'Ana Paula Silva', objetivo: 'Capacitar equipes', publicoAlvo: 'Profissionais',
-    semana: '3ª Semana', dataInicial: makeDate(15), dataFinal: makeDate(17), duracao: '3 dias',
-    regionalId: 'r-vale-rios-piaui-itaueira', municipioId: 'm-floriano', localAtividade: 'Auditório SMS',
-    necessitaTransporte: true, necessitaAlimentacao: true, obsLogistica: '',
-    equipe: [], codigoOrcamentario: '', fonteRecurso: 'Recursos próprios',
-    observacoes: '', status: 'Pendente', criadoEm: makeDate(-2),
-  },
-];
 
 export function getCoordenacaoById(id) {
   return COORDENACOES.find((c) => c.id === id);

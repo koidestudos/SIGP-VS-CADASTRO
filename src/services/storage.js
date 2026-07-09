@@ -13,6 +13,8 @@ import {
   upsertUserProfile,
   subscribeUserRole,
   fetchUserRole,
+  importProgramacoesSeed,
+  getSeedProgramacoesCount,
 } from './programacoes-service.js';
 import { COORDENACOES, MUNICIPIOS, REGIONAIS, EQUIPES } from '../data/seed.js';
 import { canEdit, canApprove, isAdmin, canDeleteProgramacao } from './roles.js';
@@ -30,6 +32,8 @@ export {
   upsertUserProfile,
   subscribeUserRole,
   fetchUserRole,
+  importProgramacoesSeed,
+  getSeedProgramacoesCount,
   canEdit,
   canApprove,
   isAdmin,

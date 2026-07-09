@@ -1,7 +1,7 @@
 import { watchAuth, logoutUser, loginWithEmail, registerAccount, resetPassword, getAuthErrorMessage } from './services/auth.js';
 import {
   initProgramacoesSync, subscribeProgramacoes, subscribeLogistica,
-  upsertUserProfile, subscribeUserRole,
+  upsertUserProfile, subscribeUserRole, importProgramacoesSeed,
 } from './services/programacoes-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
@@ -100,8 +100,15 @@ watchAuth(async (user) => {
     try {
       initProgramacoesSync();
       await upsertUserProfile(user);
-      unsubUserRole = subscribeUserRole(user.uid, (role) => {
+      unsubUserRole = subscribeUserRole(user.uid, async (role) => {
         currentUser = { ...user, role };
+        if (role === 'admin') {
+          try {
+            await importProgramacoesSeed();
+          } catch (err) {
+            console.warn('Importação de programações:', err.message);
+          }
+        }
         handleHash();
       });
     } catch (err) {
