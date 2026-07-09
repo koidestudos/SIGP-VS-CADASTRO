@@ -1,4 +1,4 @@
-import { renderAppShell, bindLayoutEvents, breadcrumbHtml } from './components/layout.js';
+import { renderAppShell, bindLayoutEvents, breadcrumbHtml, refreshNotificationBadge } from './components/layout.js';
 import { logoutUser } from './services/auth.js';
 import { renderDashboard, bindDashboard } from './pages/dashboard.js';
 import { renderProgramacoes, bindProgramacoes } from './pages/programacoes.js';
@@ -8,13 +8,14 @@ import { renderCoordenacoes, bindCoordenacoes } from './pages/coordenacoes.js';
 import { renderMunicipios, bindMunicipios } from './pages/municipios.js';
 import { renderLogistica, bindLogistica } from './pages/logistica.js';
 import { renderEquipes, bindEquipes } from './pages/equipes.js';
-import { renderRelatorios, bindRelatorios } from './pages/relatorios.js';
-import { renderIndicadores, bindIndicadores } from './pages/indicadores.js';
+import { renderBiGerencial, bindBiGerencial } from './pages/bi-gerencial.js';
 import { renderAdministracao, bindAdministracao } from './pages/administracao.js';
+import { canViewBI } from './services/roles.js';
 
 const PAGE_META = {
   dashboard: { title: 'Dashboard', render: renderDashboard, bind: bindDashboard },
   programacoes: { title: 'Programações', render: renderProgramacoes, bind: bindProgramacoes },
+  'bi-gerencial': { title: 'BI Gerencial', render: renderBiGerencial, bind: bindBiGerencial },
   'nova-programacao': {
     title: 'Nova Programação',
     render: renderNovaProgramacao,
@@ -39,12 +40,13 @@ const PAGE_META = {
   municipios: { title: 'Municípios', render: renderMunicipios, bind: bindMunicipios },
   logistica: { title: 'Logística', render: renderLogistica, bind: bindLogistica },
   equipes: { title: 'Equipes', render: renderEquipes, bind: bindEquipes },
-  indicadores: { title: 'Indicadores', render: renderIndicadores, bind: bindIndicadores },
-  relatorios: { title: 'Relatórios', render: renderRelatorios, bind: bindRelatorios },
   administracao: { title: 'Administração', render: renderAdministracao, bind: bindAdministracao },
 };
 
 export function renderApp(user, route, params) {
+  if ((route === 'bi-gerencial' || route === 'administracao') && !canViewBI(user)) {
+    route = 'dashboard';
+  }
   const page = PAGE_META[route] || PAGE_META.dashboard;
   const content = page.render(user, params);
   const breadcrumb = page.breadcrumb ? page.breadcrumb() : (params.length ? params.join(' / ') : '');

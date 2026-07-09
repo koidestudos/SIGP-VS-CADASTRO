@@ -3,6 +3,7 @@ import {
   initProgramacoesSync, subscribeProgramacoes, subscribeLogistica,
   upsertUserProfile, subscribeUserRole, importProgramacoesSeed, seedImportInProgress,
 } from './services/programacoes-service.js';
+import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
@@ -108,6 +109,7 @@ watchAuth(async (user) => {
   if (user && isFirebaseConfigured) {
     try {
       initProgramacoesSync();
+      initNotificationsSync();
       await upsertUserProfile(user);
       unsubUserRole = subscribeUserRole(user.uid, (role) => {
         currentUser = { ...user, role };
@@ -135,6 +137,7 @@ watchAuth(async (user) => {
 
 subscribeProgramacoes(() => { if (currentUser) scheduleRender(); });
 subscribeLogistica(() => { if (currentUser) scheduleRender(); });
+subscribeNotifications(() => { if (currentUser) refreshNotificationBadge(); });
 
 window.addEventListener('hashchange', handleHash);
 

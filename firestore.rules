@@ -116,5 +116,16 @@ service cloud.firestore {
           || canSetAdminRole(request.resource.data)
         );
     }
+
+    match /notificacoes/{notifId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['tipo', 'titulo', 'lido', 'criadoEm'])
+        && request.resource.data.tipo is string
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() <= 500
+        && request.resource.data.lido is bool;
+      allow update: if isAdmin();
+    }
   }
 }

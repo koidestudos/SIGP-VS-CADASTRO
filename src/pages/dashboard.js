@@ -1,10 +1,44 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao, COORDENACOES, GERENCIAS,
+  getGerenciaByProgramacao,
 } from '../data/seed.js';
-import { renderDonutChart, renderBarChart } from '../components/charts.js';
-import { renderPiauiMap, bindPiauiMap } from '../components/piaui-map.js';
+import { proximasAcoes } from '../utils/bi-metrics.js';
+
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function renderMiniCalendar(programacoes, year, month) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const today = new Date();
+  const countOn = (d) => programacoes.filter((p) => {
+    const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return ds >= p.dataInicial && ds <= (p.dataFinal || p.dataInicial);
+  }).length;
+
+  let html = '<div class="mini-cal-grid">';
+  ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach((h) => { html += `<span class="mini-cal-head">${h}</span>`; });
+  for (let i = 0; i < firstDay; i++) html += '<span class="mini-cal-day empty"></span>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const n = countOn(d);
+    const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+    const heat = n === 0 ? '' : n <= 2 ? 'heat-1' : n <= 5 ? 'heat-2' : 'heat-3';
+    html += `<span class="mini-cal-day ${isToday ? 'today' : ''} ${heat}" title="${n} ação(ões)">${d}</span>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderAcaoList(items, emptyMsg) {
+  if (!items.length) return `<p class="text-muted text-sm">${emptyMsg}</p>`;
+  return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => {
+    const mun = getMunicipioById(p.municipioId);
+    return `<li>
+      <strong>${p.titulo}</strong>
+      <span>${mun?.nome || '—'} · ${formatDate(p.dataInicial)}</span>
+    </li>`;
+  }).join('')}</ul>`;
+}
 
 export function renderDashboard(user) {
   const programacoes = getProgramacoes();
@@ -18,93 +52,105 @@ export function renderDashboard(user) {
   });
 
   const proximas = programacoes
-    .filter((p) => new Date(p.dataInicial) >= now && !['Cancelada', 'Aprovado'].includes(p.status))
+    .filter((p) => new Date(p.dataInicial) >= now && !['Cancelada', 'Rascunho'].includes(p.status))
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial))
-    .slice(0, 8);
+    .slice(0, 6);
 
-  const porGerencia = GERENCIAS.map((g, i) => {
-    const colors = ['#1351B4', '#168821', '#ca8a04'];
-    return { label: g, value: doMes.filter((p) => getGerenciaByProgramacao(p) === g).length, color: colors[i] };
-  });
+  const ultimas = [...programacoes]
+    .sort((a, b) => (b.atualizadoEm || b.criadoEm || '').localeCompare(a.atualizadoEm || a.criadoEm || ''))
+    .slice(0, 6);
 
-  const porSemana = ['1ª Sem', '2ª Sem', '3ª Sem', '4ª Sem'].map((label, i) => ({
-    label,
-    value: doMes.filter((p) => (p.semana || '').includes(`${i + 1}ª`)).length,
-  }));
-
-  const porStatus = [
-    { label: 'Aprovado', value: programacoes.filter((p) => p.status === 'Aprovado').length, color: '#168821' },
-    { label: 'Programada', value: programacoes.filter((p) => p.status === 'Programada').length, color: '#1351B4' },
-    { label: 'Em andamento', value: programacoes.filter((p) => p.status === 'Pendente').length, color: '#ca8a04' },
-  ].filter((s) => s.value > 0);
-
-  const primeiroNome = user.nome.split(' ')[0];
+  const { hoje, amanha, semana } = proximasAcoes(programacoes);
+  const primeiroNome = (user.nome || 'Servidor').split(' ')[0];
 
   return `
-    <div class="admin-dashboard">
+    <div class="operational-dashboard">
       <div class="dash-header">
         <div>
           <h2 class="dash-greeting">Olá, ${primeiroNome}!</h2>
-          <p class="dash-subtitle">Visão geral das programações da Vigilância em Saúde</p>
+          <p class="dash-subtitle">Cadastre e acompanhe suas programações de forma rápida</p>
         </div>
-        <div class="dash-header-actions">
-          <input type="month" class="form-control dash-month-picker" id="dash-mes" value="${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}" />
-          <button class="btn btn-outline btn-sm" id="dash-filtros">Filtrar</button>
-        </div>
+        <button class="btn btn-primary btn-lg" id="dash-nova">+ Nova Programação</button>
       </div>
 
-      <div class="kpi-grid-6">
-        <div class="kpi-card"><div class="kpi-icon blue">📋</div><div><strong>${doMes.length}</strong><span>Ações cadastradas no mês</span></div></div>
-        <div class="kpi-card"><div class="kpi-icon green">🏢</div><div><strong>${new Set(doMes.map((p) => p.coordenacaoId)).size}</strong><span>Coordenações participantes</span></div></div>
-        <div class="kpi-card"><div class="kpi-icon teal">📍</div><div><strong>${new Set(doMes.map((p) => p.municipioId)).size}</strong><span>Municípios envolvidos</span></div></div>
-        <div class="kpi-card"><div class="kpi-icon orange">⏳</div><div><strong>${programacoes.filter((p) => p.status === 'Pendente').length}</strong><span>Ações em andamento</span></div></div>
-        <div class="kpi-card"><div class="kpi-icon purple">🚗</div><div><strong>${programacoes.filter((p) => p.necessitaTransporte).length}</strong><span>Viagens previstas</span></div></div>
-        <div class="kpi-card"><div class="kpi-icon gold">✅</div><div><strong>${programacoes.filter((p) => p.status === 'Aprovado').length}</strong><span>Viagens aprovadas</span></div></div>
-      </div>
-
-      <div class="charts-row-3">
-        <div class="card chart-card"><div class="card-header"><h3>Programações por Gerência</h3></div><div class="card-body">${renderDonutChart(porGerencia.filter((g) => g.value > 0).length ? porGerencia : [{ label: 'GAS', value: 1, color: '#1351B4' }])}</div></div>
-        <div class="card chart-card"><div class="card-header"><h3>Programações por Semana</h3></div><div class="card-body">${renderBarChart(porSemana)}</div></div>
-        <div class="card chart-card"><div class="card-header"><h3>Mapa de Programações</h3></div><div class="card-body">${renderPiauiMap()}</div></div>
-      </div>
-
-      <div class="charts-row-2">
+      <div class="dash-quick-grid">
         <div class="card">
-          <div class="card-header"><h3>Próximas Programações</h3></div>
+          <div class="card-header"><h3>📋 Programações do mês</h3><span class="badge badge-programada">${doMes.length}</span></div>
           <div class="card-body table-compact">
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  ${proximas.length ? proximas.map((p) => {
-                    const coord = getCoordenacaoById(p.coordenacaoId);
-                    const mun = getMunicipioById(p.municipioId);
-                    return `<tr>
-                      <td class="td-action">${p.titulo}</td>
-                      <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
-                      <td>${coord?.sigla || '—'}</td>
-                      <td>${mun?.nome || '—'}</td>
-                      <td>${formatDate(p.dataInicial)}</td>
-                      <td>${formatDate(p.dataFinal)}</td>
-                      <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
-                    </tr>`;
-                  }).join('') : '<tr><td colspan="7" class="text-center text-muted">Nenhuma programação futura.</td></tr>'}
-                </tbody>
-              </table>
+            ${doMes.length ? `<div class="table-wrapper"><table>
+              <thead><tr><th>Ação</th><th>Gerência</th><th>Data</th><th>Status</th></tr></thead>
+              <tbody>${doMes.slice(0, 8).map((p) => `
+                <tr>
+                  <td class="td-action">${p.titulo}</td>
+                  <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
+                  <td>${formatDate(p.dataInicial)}</td>
+                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+                </tr>`).join('')}</tbody>
+            </table></div>` : '<p class="text-muted">Nenhuma programação neste mês.</p>'}
+            ${doMes.length > 8 ? `<a href="#programacoes" class="dash-link">Ver todas →</a>` : ''}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>⏭ Próximas ações</h3></div>
+          <div class="card-body">
+            <div class="proximas-tabs">
+              <div class="proximas-block"><h4>Hoje</h4>${renderAcaoList(hoje, 'Nada para hoje.')}</div>
+              <div class="proximas-block"><h4>Amanhã</h4>${renderAcaoList(amanha, 'Nada para amanhã.')}</div>
+              <div class="proximas-block"><h4>Próxima semana</h4>${renderAcaoList(semana, 'Nada na próxima semana.')}</div>
             </div>
           </div>
         </div>
-        <div class="card chart-card"><div class="card-header"><h3>Ações por Status</h3></div><div class="card-body">${renderDonutChart(porStatus.length ? porStatus : [{ label: 'Sem dados', value: 1, color: '#CED4DA' }])}</div></div>
       </div>
-    </div>
-  `;
+
+      <div class="dash-quick-grid">
+        <div class="card">
+          <div class="card-header"><h3>📆 Calendário — ${MESES[mesAtual]}/${anoAtual}</h3>
+            <a href="#calendario" class="btn btn-ghost btn-sm">Abrir calendário</a></div>
+          <div class="card-body">${renderMiniCalendar(programacoes, anoAtual, mesAtual)}</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>🕐 Últimas programações cadastradas</h3></div>
+          <div class="card-body table-compact">
+            ${ultimas.length ? `<div class="table-wrapper"><table>
+              <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
+              <tbody>${ultimas.map((p) => {
+                const coord = getCoordenacaoById(p.coordenacaoId);
+                return `<tr>
+                  <td class="td-action">${p.titulo}</td>
+                  <td>${coord?.sigla || '—'}</td>
+                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+                </tr>`;
+              }).join('')}</tbody>
+            </table></div>` : '<p class="text-muted">Nenhuma programação cadastrada.</p>'}
+          </div>
+        </div>
+      </div>
+
+      ${proximas.length ? `
+      <div class="card mt-3">
+        <div class="card-header"><h3>Próximas programações</h3></div>
+        <div class="card-body table-compact">
+          <div class="table-wrapper"><table>
+            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Status</th></tr></thead>
+            <tbody>${proximas.map((p) => {
+              const mun = getMunicipioById(p.municipioId);
+              return `<tr>
+                <td class="td-action">${p.titulo}</td>
+                <td>${mun?.nome || '—'}</td>
+                <td>${formatDate(p.dataInicial)}</td>
+                <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>
+        </div>
+      </div>` : ''}
+    </div>`;
 }
 
 export function bindDashboard() {
-  bindPiauiMap();
-  document.getElementById('dash-filtros')?.addEventListener('click', () => {
-    window.location.hash = 'programacoes';
+  document.getElementById('dash-nova')?.addEventListener('click', () => {
+    window.location.hash = 'nova-programacao';
   });
 }

@@ -1,4 +1,5 @@
 import { saveProgramacao, syncLogisticaFromProgramacao, getProgramacaoById } from '../services/programacoes-service.js';
+import { canEditProgramacao } from '../services/roles.js';
 import {
   COORDENACOES, REGIONAIS, TIPOS_ATIVIDADE, formatDate,
   getCoordenacaoById, getMunicipioById, getRegionalById, getMunicipiosByRegional,
@@ -13,8 +14,14 @@ let editId = null;
 export function renderNovaProgramacao(user, params = []) {
   editId = params[0] === 'edit' && params[1] ? params[1] : null;
   currentStep = 0;
-  if (editId) wizardState = { ...getProgramacaoById(editId) };
-  else if (params[0] === 'duplicate' && params[1]) {
+  if (editId) {
+    const existing = getProgramacaoById(editId);
+    if (!existing || !canEditProgramacao(user, existing)) {
+      return `<div class="card"><div class="card-body"><p class="alert alert-error">Você não pode editar esta programação.</p>
+        <button class="btn btn-primary" onclick="window.location.hash='programacoes'">Voltar</button></div></div>`;
+    }
+    wizardState = { ...existing };
+  } else if (params[0] === 'duplicate' && params[1]) {
     const o = getProgramacaoById(params[1]);
     wizardState = { ...o, id: undefined, titulo: o.titulo + ' (Cópia)', status: 'Rascunho', dataInicial: '', dataFinal: '' };
   } else {
@@ -70,8 +77,8 @@ function renderStep(step) {
         <div class="form-group"><label>Coordenação responsável *</label>
           <select class="form-control" id="f-coord"><option value="">Selecione...</option>
           ${COORDENACOES.map((c) => `<option value="${c.id}" ${wizardState.coordenacaoId === c.id ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div>
-        <div class="form-group"><label>Responsável pela ação *</label>
-          <input class="form-control" id="f-responsavel" value="${esc(wizardState.responsavel)}" placeholder="Nome do responsável" /></div>
+        <div class="form-group"><label>Equipe que irá participar da ação *</label>
+          <input class="form-control" id="f-responsavel" value="${esc(wizardState.responsavel)}" placeholder="Nome do responsável ou referência da equipe" /></div>
       </div>
       <div class="form-group"><label>Objetivo</label><textarea class="form-control form-control-lg" id="f-objetivo" rows="4">${esc(wizardState.objetivo)}</textarea></div>
       <div class="form-row">
