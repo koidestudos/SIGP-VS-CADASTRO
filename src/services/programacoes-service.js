@@ -1,13 +1,14 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp, setDoc, getDoc, writeBatch,
+  onSnapshot, serverTimestamp, setDoc, getDoc, writeBatch, getDocs, query, where,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
 
-const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v4';
+const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
+const MIN_PROGRAMACAO_DATE = '2026-07-01';
 const BATCH_SIZE = 400;
 let SEED_COUNT = 135;
 export let seedImportInProgress = false;
@@ -37,9 +38,17 @@ function requireUser() {
   return uid;
 }
 
+function isProgramacaoVisible(p) {
+  return !p.dataInicial || p.dataInicial >= MIN_PROGRAMACAO_DATE;
+}
+
+function visibleProgramacoes(list = programacoesCache) {
+  return list.filter(isProgramacaoVisible);
+}
+
 function notifyProg() {
   if (seedImportInProgress) return;
-  progListeners.forEach((fn) => fn([...programacoesCache]));
+  progListeners.forEach((fn) => fn(visibleProgramacoes()));
 }
 
 function notifyLog() {
@@ -49,7 +58,7 @@ function notifyLog() {
 
 export function subscribeProgramacoes(callback) {
   progListeners.add(callback);
-  callback([...programacoesCache]);
+  callback(visibleProgramacoes());
   return () => progListeners.delete(callback);
 }
 
@@ -60,7 +69,7 @@ export function subscribeLogistica(callback) {
 }
 
 export function getProgramacoes() {
-  return [...programacoesCache];
+  return visibleProgramacoes();
 }
 
 export function getLogistica() {
@@ -68,7 +77,8 @@ export function getLogistica() {
 }
 
 export function getProgramacaoById(id) {
-  return programacoesCache.find((p) => p.id === id) || null;
+  const p = programacoesCache.find((item) => item.id === id) || null;
+  return p && isProgramacaoVisible(p) ? p : null;
 }
 
 export function initProgramacoesSync() {
@@ -228,24 +238,63 @@ export async function fetchUserRole(uid) {
   return role;
 }
 
+/** Remove programações e logística associada em lotes */
+async function batchDeleteProgramacoes(items) {
+  if (!items.length) return 0;
+  const database = requireDb();
+  const logByProg = new Map(logisticaCache.map((l) => [l.programacaoId, l.id]));
+  let deleted = 0;
+
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const chunk = items.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(database);
+    for (const p of chunk) {
+      batch.delete(doc(database, 'programacoes', p.id));
+      const logId = logByProg.get(p.id);
+      if (logId) batch.delete(doc(database, 'logistica', logId));
+    }
+    await batch.commit();
+    deleted += chunk.length;
+  }
+  return deleted;
+}
+
+/** Apaga do Firestore tudo anterior a jul/2026 e seeds obsoletos */
+export async function purgeOutdatedProgramacoes(validSeedIds = new Set()) {
+  const database = requireDb();
+  requireUser();
+
+  const toDelete = new Map();
+
+  const oldSnap = await getDocs(
+    query(collection(database, 'programacoes'), where('dataInicial', '<', MIN_PROGRAMACAO_DATE)),
+  );
+  oldSnap.docs.forEach((d) => toDelete.set(d.id, { id: d.id, ...d.data() }));
+
+  programacoesCache.forEach((p) => {
+    if (!isProgramacaoVisible(p)) toDelete.set(p.id, p);
+    if ((p.id.startsWith('xls-') || p.id.startsWith('pdf-gas-')) && !validSeedIds.has(p.id)) {
+      toDelete.set(p.id, p);
+    }
+  });
+
+  return batchDeleteProgramacoes([...toDelete.values()]);
+}
+
 /** Importa programações da planilha Excel (GAS/GAP/GVS) para o Firestore */
 export async function importProgramacoesSeed({ force = false } = {}) {
-  if (!force && localStorage.getItem(SEED_IMPORT_KEY) === 'done') {
-    return { skipped: true, count: 0 };
-  }
   const database = requireDb();
   const uid = requireUser();
   const SEED_PROGRAMACOES = await loadSeedData();
   SEED_COUNT = SEED_PROGRAMACOES.length;
+  const newIds = new Set(SEED_PROGRAMACOES.map((p) => p.id));
 
   seedImportInProgress = true;
   try {
-    const newIds = new Set(SEED_PROGRAMACOES.map((p) => p.id));
-    const stale = getProgramacoes().filter(
-      (p) => (p.id.startsWith('xls-') || p.id.startsWith('pdf-gas-')) && !newIds.has(p.id),
-    );
-    for (const p of stale) {
-      await deleteDoc(doc(database, 'programacoes', p.id));
+    const deleted = await purgeOutdatedProgramacoes(newIds);
+
+    if (!force && localStorage.getItem(SEED_IMPORT_KEY) === 'done') {
+      return { skipped: true, count: 0, deleted };
     }
 
     for (let i = 0; i < SEED_PROGRAMACOES.length; i += BATCH_SIZE) {
@@ -288,7 +337,7 @@ export async function importProgramacoesSeed({ force = false } = {}) {
     if (logOps > 0) await logBatch.commit();
 
     localStorage.setItem(SEED_IMPORT_KEY, 'done');
-    return { skipped: false, count: SEED_PROGRAMACOES.length };
+    return { skipped: false, count: SEED_PROGRAMACOES.length, deleted };
   } finally {
     seedImportInProgress = false;
     notifyProg();
