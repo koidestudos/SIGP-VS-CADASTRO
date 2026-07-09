@@ -115,6 +115,10 @@ service cloud.firestore {
           || request.resource.data.role == resource.data.get('role', 'usuario')
           || canSetAdminRole(request.resource.data)
         );
+
+      allow update: if isAdmin()
+        && validUserProfile(request.resource.data)
+        && request.resource.data.role in ['admin', 'usuario'];
     }
 
     match /notificacoes/{notifId} {
@@ -152,7 +156,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
 
       match /mensagens/{msgId} {
         allow read: if isSignedIn() && (
@@ -161,7 +165,10 @@ service cloud.firestore {
         allow create: if isSignedIn() && request.resource.data.texto is string
           && request.resource.data.texto.size() > 0
           && request.resource.data.texto.size() <= 2000;
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() || (
+          isSignedIn()
+          && get(/databases/$(database)/documents/suporte_chats/$(chatId)).data.userId == request.auth.uid
+        );
       }
     }
   }

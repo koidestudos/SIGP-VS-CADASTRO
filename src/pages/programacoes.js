@@ -1,8 +1,8 @@
-import { getProgramacoes, removeProgramacao, approveProgramacao, getProgramacaoById } from '../services/programacoes-service.js';
-import { canApprove, canDeleteProgramacao, canEditProgramacao } from '../services/roles.js';
+import { getProgramacoes, removeProgramacao, approveProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
+import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao, COORDENACOES, GERENCIAS,
+  getGerenciaByProgramacao, COORDENACOES, GERENCIAS, STATUS_PROGRAMACAO,
 } from '../data/seed.js';
 import { normalizeStatus } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
@@ -51,13 +51,18 @@ function renderRows(items, user) {
     const approve = canApprove(user) && p.status === 'Pendente'
       ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Autorizar / Programar">✔</button>`
       : '';
+    const statusCell = isAdmin(user)
+      ? `<select class="form-control status-select" data-status-id="${p.id}" style="min-width:120px;padding:2px 6px;font-size:0.75rem">
+          ${STATUS_PROGRAMACAO.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>`
+      : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
     return `<tr>
       <td>${p.titulo}</td>
       <td><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
       <td>${coord?.nome || '—'}</td><td>${mun?.nome || '—'}</td>
       <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
       <td>${equipeLabel(p)}</td>
-      <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+      <td>${statusCell}</td>
       <td>${renderActionButtons(p.id, {
         edit: canEdit,
         del: canDeleteProgramacao(user, p),
@@ -120,6 +125,16 @@ export function bindProgramacoes(user) {
   });
   document.getElementById('filtro-busca')?.addEventListener('input', refresh);
   document.getElementById('btn-nova')?.addEventListener('click', () => { window.location.hash = 'nova-programacao'; });
+  document.getElementById('tabela-programacoes')?.addEventListener('change', async (e) => {
+    const sel = e.target.closest('[data-status-id]');
+    if (!sel || !isAdmin(user)) return;
+    try {
+      await updateProgramacaoStatus(sel.dataset.statusId, sel.value);
+      toast('Status atualizado.', 'success');
+    } catch (err) {
+      toast(err.message || 'Erro ao atualizar status.', 'error');
+    }
+  });
   document.getElementById('tabela-programacoes')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;

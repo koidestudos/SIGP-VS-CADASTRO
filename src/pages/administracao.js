@@ -2,6 +2,7 @@ import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed } from 
 import {
   saveCoordenacao, removeCoordenacao, saveMunicipio, removeMunicipio, saveRegional, removeRegional,
 } from '../services/catalog-service.js';
+import { promoteUserToAdmin } from '../services/suporte-service.js';
 import { isAdmin } from '../services/roles.js';
 import { GERENCIAS } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
@@ -18,6 +19,7 @@ export function renderAdministracao(user) {
       <button class="tab active" data-tab="coords">Coordenações</button>
       <button class="tab" data-tab="muns">Municípios (${municipios.length})</button>
       <button class="tab" data-tab="regs">Regionais (${regionais.length})</button>
+      <button class="tab" data-tab="admins">Administradores</button>
     </div>
     <div class="tab-content active" data-tab-content="coords">
       <div class="page-header" style="margin-top:12px">
@@ -59,6 +61,19 @@ export function renderAdministracao(user) {
           <td><button class="btn-icon" data-edit-reg="${r.id}">✏</button>
           <button class="btn-icon danger" data-del-reg="${r.id}">🗑</button></td></tr>`).join('')}
         </tbody></table></div>
+    </div>
+    <div class="tab-content" data-tab-content="admins">
+      <div class="card" style="margin-top:12px"><div class="card-body">
+        <h3>Adicionar administrador</h3>
+        <p class="text-sm text-muted mb-2">Informe o e-mail de um usuário que já tenha criado conta no sistema.</p>
+        <div class="form-row" style="align-items:flex-end">
+          <div class="form-group flex-2">
+            <label>E-mail do usuário</label>
+            <input type="email" class="form-control" id="promote-admin-email" placeholder="usuario@email.com" />
+          </div>
+          <button class="btn btn-primary" id="btn-promote-admin">Promover a administrador</button>
+        </div>
+      </div></div>
     </div>
     <div class="card mt-3"><div class="card-body">
       <h3>Programações da planilha Excel (GAS · GAP · GVS)</h3>
@@ -139,6 +154,17 @@ export function bindAdministracao(user) {
       tab.classList.add('active');
       tabs.parentElement.querySelector(`[data-tab-content="${tab.dataset.tab}"]`)?.classList.add('active');
     });
+  });
+  document.getElementById('btn-promote-admin')?.addEventListener('click', async () => {
+    const email = document.getElementById('promote-admin-email')?.value?.trim();
+    if (!email) { toast('Informe o e-mail do usuário.', 'error'); return; }
+    try {
+      const res = await promoteUserToAdmin(email);
+      toast(`${res.nome || res.email} agora é administrador.`, 'success');
+      document.getElementById('promote-admin-email').value = '';
+    } catch (err) {
+      toast(err.message || 'Erro ao promover usuário.', 'error');
+    }
   });
   document.getElementById('btn-add-coord')?.addEventListener('click', () => formCoord());
   document.getElementById('btn-add-mun')?.addEventListener('click', () => formMun());

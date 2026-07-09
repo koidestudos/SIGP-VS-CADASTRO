@@ -2,7 +2,8 @@ import { canViewBI } from '../services/roles.js';
 import { getUnreadCount, getNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notifications-service.js';
 import {
   getOpenChats, fetchSuporteAdmins, getOrCreateUserChat, watchSuporteMessages,
-  sendSuporteMessage, finalizarSuporteChat, subscribeSuporteMessages,
+  sendSuporteMessage, finalizarSuporteChat, subscribeSuporteMessages, subscribeSuporteChats,
+  getUnreadSuporteCount, markSuporteChatRead, iniciarConversaAdmin,
 } from '../services/suporte-service.js';
 import { getCoordenacaoById } from '../data/seed.js';
 
@@ -37,12 +38,19 @@ export function renderSidebar(user, currentRoute) {
 
   return `
     <aside class="sidebar sidebar-v2" id="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logos">
-          <img src="/assets/logo-sesapi.svg" alt="SESAPI" class="sidebar-logo" />
-          <img src="/assets/logo-duvas.svg" alt="DUVAS" class="sidebar-logo" />
+      <div class="sidebar-header sidebar-branding">
+        <div class="brand-top-row">
+          <img src="/assets/logo-sesapi.svg" alt="SESAPI" class="sidebar-logo-sesapi" />
+          <div class="brand-divider-v"></div>
+          <div class="brand-duvas">
+            <strong>DUVAS</strong>
+            <span>Diretoria de Vigilância em Saúde</span>
+          </div>
         </div>
-        <div class="sidebar-brand"><strong>SIGP-VS</strong></div>
+        <div class="brand-sigp-block">
+          <strong>SIGP-VS</strong>
+          <span>Sistema Integrado de Gestão de Programações da Vigilância em Saúde</span>
+        </div>
       </div>
       <nav class="sidebar-nav">
         <div class="nav-section-label">Portal Operacional</div>
@@ -74,8 +82,9 @@ export function renderSidebar(user, currentRoute) {
     </aside>`;
 }
 
-export function renderTopbar(title, breadcrumb = '', { showNotifications = false } = {}) {
+export function renderTopbar(title, breadcrumb = '', { showNotifications = false, user = null } = {}) {
   const unread = showNotifications ? getUnreadCount() : 0;
+  const suporteUnread = user ? getUnreadSuporteCount(user.role === 'admin') : 0;
   const crumbs = breadcrumb || (title ? `<h1 class="page-title">${title}</h1>` : '');
   return `
     <header class="topbar topbar-v2">
@@ -100,7 +109,9 @@ export function renderTopbar(title, breadcrumb = '', { showNotifications = false
             </div>
           </div>` : ''}
         <div class="notif-wrap">
-          <button class="topbar-icon-btn" id="btn-suporte" title="Suporte / Ajuda">?</button>
+          <button class="topbar-icon-btn" id="btn-suporte" title="Suporte / Ajuda">?
+            ${suporteUnread ? `<span class="notif-badge">${suporteUnread > 9 ? '9+' : suporteUnread}</span>` : ''}
+          </button>
           <div class="notif-panel suporte-panel hidden" id="suporte-panel">
             <div class="notif-panel-header"><strong>Suporte DUVAS</strong></div>
             <div id="suporte-content"><p class="notif-empty">Carregando...</p></div>
@@ -175,17 +186,57 @@ export function refreshNotificationBadge() {
 }
 
 export function refreshSuporteBadge() {
-  renderSuportePanelContent();
+  const btn = document.getElementById('btn-suporte');
+  if (!btn || !suporteUser) return;
+  const count = getUnreadSuporteCount(suporteUser.role === 'admin');
+  const existing = btn.querySelector('.notif-badge');
+  if (count && !existing) {
+    btn.insertAdjacentHTML('beforeend', `<span class="notif-badge">${count > 9 ? '9+' : count}</span>`);
+  } else if (!count && existing) {
+    existing.remove();
+  } else if (existing) {
+    existing.textContent = count > 9 ? '9+' : count;
+  }
+  if (!document.getElementById('suporte-panel')?.classList.contains('hidden')) {
+    renderSuportePanelContent();
+  }
+}
+
+function bindSuporteInputHandlers() {
+  const input = document.getElementById('suporte-input');
+  const send = () => document.getElementById('suporte-send')?.click();
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
 }
 
 function renderSuporteMessagesHtml() {
   if (!suporteMessages.length) return '<p class="notif-empty">Nenhuma mensagem ainda. Envie sua dúvida.</p>';
-  return suporteMessages.map((m) => `
+  return suporteMessages.map((m) => {
+    if (m.tipo === 'sistema') {
+      return `<div class="chat-msg chat-system"><em>${m.texto}</em></div>`;
+    }
+    return `
     <div class="chat-msg ${m.isAdmin ? 'chat-admin' : 'chat-user'}">
       <strong>${m.autorNome}</strong>
       <p>${m.texto}</p>
       <small>${m.criadoEm ? new Date(m.criadoEm).toLocaleString('pt-BR') : ''}</small>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function renderSuporteCompose(showFinish = true) {
+  return `
+    <div class="suporte-compose">
+      <textarea class="form-control" id="suporte-input" rows="2" placeholder="Digite sua mensagem... (Enter para enviar)"></textarea>
+      <div class="suporte-actions">
+        <button class="btn btn-primary btn-sm" id="suporte-send">Enviar</button>
+        ${showFinish ? '<button class="btn btn-outline btn-sm" id="suporte-finish">Finalizar conversa</button>' : ''}
+      </div>
+    </div>`;
 }
 
 async function renderSuportePanelContent() {
@@ -197,12 +248,22 @@ async function renderSuportePanelContent() {
     const chats = getOpenChats();
     if (!activeSuporteChatId) {
       el.innerHTML = chats.length ? `<div class="suporte-chat-list">${chats.map((c) => `
-        <button type="button" class="notif-item" data-open-chat="${c.id}">
-          <strong>${c.userNome}</strong><span>${c.userEmail || ''}</span>
-        </button>`).join('')}</div>` : '<p class="notif-empty">Nenhum chat aberto.</p>';
-      el.querySelectorAll('[data-open-chat]').forEach((b) => b.addEventListener('click', () => {
+        <div class="suporte-chat-row ${c.naoLidoAdmin ? 'unread' : ''}">
+          <div class="suporte-chat-info">
+            <strong>${c.userNome}${c.naoLidoAdmin ? ' ●' : ''}</strong>
+            <span>${c.ultimaMensagem || c.userEmail || 'Nova conversa'}</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" data-open-chat="${c.id}">Chat</button>
+        </div>`).join('')}</div>` : '<p class="notif-empty">Nenhum chat aberto.</p>';
+      el.querySelectorAll('[data-open-chat]').forEach((b) => b.addEventListener('click', async () => {
         activeSuporteChatId = b.dataset.openChat;
         watchSuporteMessages(activeSuporteChatId);
+        const chat = chats.find((c) => c.id === activeSuporteChatId);
+        if (!chat?.adminIniciou) {
+          await iniciarConversaAdmin(activeSuporteChatId, suporteUser.nome);
+        } else {
+          await markSuporteChatRead(activeSuporteChatId, true);
+        }
         renderSuportePanelContent();
       }));
       return;
@@ -212,13 +273,7 @@ async function renderSuportePanelContent() {
       <div class="suporte-chat-header"><button class="btn btn-ghost btn-sm" id="suporte-back">← Voltar</button>
         <strong>${chat?.userNome || 'Usuário'}</strong></div>
       <div class="suporte-messages" id="suporte-messages">${renderSuporteMessagesHtml()}</div>
-      <div class="suporte-compose">
-        <textarea class="form-control" id="suporte-input" rows="2" placeholder="Responder..."></textarea>
-        <div class="suporte-actions">
-          <button class="btn btn-primary btn-sm" id="suporte-send">Enviar</button>
-          <button class="btn btn-outline btn-sm" id="suporte-finish">Finalizar conversa</button>
-        </div>
-      </div>`;
+      ${renderSuporteCompose(true)}`;
     document.getElementById('suporte-back')?.addEventListener('click', () => { activeSuporteChatId = null; renderSuportePanelContent(); });
     document.getElementById('suporte-send')?.addEventListener('click', async () => {
       const t = document.getElementById('suporte-input')?.value;
@@ -230,6 +285,7 @@ async function renderSuportePanelContent() {
       activeSuporteChatId = null;
       renderSuportePanelContent();
     });
+    bindSuporteInputHandlers();
     document.getElementById('suporte-messages')?.scrollTo(0, 99999);
     return;
   }
@@ -251,27 +307,37 @@ async function renderSuportePanelContent() {
     }));
     return;
   }
+  await markSuporteChatRead(activeSuporteChatId, false);
   el.innerHTML = `
     <div class="suporte-chat-header"><strong>Suporte — Administração</strong></div>
     <div class="suporte-messages" id="suporte-messages">${renderSuporteMessagesHtml()}</div>
-    <div class="suporte-compose">
-      <textarea class="form-control" id="suporte-input" rows="2" placeholder="Digite sua mensagem..."></textarea>
-      <button class="btn btn-primary btn-sm" id="suporte-send">Enviar</button>
-    </div>`;
+    ${renderSuporteCompose(true)}`;
   document.getElementById('suporte-send')?.addEventListener('click', async () => {
     const t = document.getElementById('suporte-input')?.value;
     await sendSuporteMessage(activeSuporteChatId, t, { nome: suporteUser.nome, isAdmin: false });
     document.getElementById('suporte-input').value = '';
   });
+  document.getElementById('suporte-finish')?.addEventListener('click', async () => {
+    await finalizarSuporteChat(activeSuporteChatId);
+    activeSuporteChatId = null;
+    renderSuportePanelContent();
+  });
+  bindSuporteInputHandlers();
   document.getElementById('suporte-messages')?.scrollTo(0, 99999);
 }
 
 export function bindSuporte(user) {
   suporteUser = user;
+  subscribeSuporteChats(() => refreshSuporteBadge());
   subscribeSuporteMessages((msgs) => {
     suporteMessages = msgs;
-    if (!document.getElementById('suporte-panel')?.classList.contains('hidden')) {
-      renderSuportePanelContent();
+    refreshSuporteBadge();
+    if (activeSuporteChatId && !document.getElementById('suporte-panel')?.classList.contains('hidden')) {
+      const msgEl = document.getElementById('suporte-messages');
+      if (msgEl) {
+        msgEl.innerHTML = renderSuporteMessagesHtml();
+        msgEl.scrollTo(0, 99999);
+      }
     }
   });
   const btn = document.getElementById('btn-suporte');
@@ -305,7 +371,7 @@ export function renderAppShell(user, route, title, content, breadcrumb) {
     <div class="app-layout layout-admin">
       ${renderSidebar(user, route)}
       <div class="main-content">
-        ${renderTopbar(title, bc || title, { showNotifications })}
+        ${renderTopbar(title, bc || title, { showNotifications, user })}
         <main class="page-content">${content}</main>
       </div>
     </div>`;
