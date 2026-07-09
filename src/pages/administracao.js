@@ -47,7 +47,7 @@ export function renderAdministracao(user) {
     </div>
     <div class="card mt-3"><div class="card-body">
       <h3>Programações da planilha Excel (GAS · GAP · GVS)</h3>
-      <p class="text-sm text-muted">${getSeedProgramacoesCount()} viagens na planilha. Branco = <strong>Programada</strong>, verde = <strong>Aprovado</strong>. Importação automática no login do administrador.</p>
+      <p class="text-sm text-muted">${getSeedProgramacoesCount()} viagens (Jul/2026 em diante). Branco = <strong>Programada</strong>, verde = <strong>Aprovado</strong>.</p>
       ${isAdmin(user) ? `<button class="btn btn-outline btn-sm mt-2" id="btn-reimport-seed">Reimportar viagens da planilha</button>` : ''}
     </div></div>
     <div class="card mt-3"><div class="card-body">

@@ -1,7 +1,7 @@
 import { watchAuth, logoutUser, loginWithEmail, registerAccount, resetPassword, getAuthErrorMessage } from './services/auth.js';
 import {
   initProgramacoesSync, subscribeProgramacoes, subscribeLogistica,
-  upsertUserProfile, subscribeUserRole, importProgramacoesSeed,
+  upsertUserProfile, subscribeUserRole, importProgramacoesSeed, seedImportInProgress,
 } from './services/programacoes-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
@@ -13,6 +13,8 @@ let currentUser = null;
 let currentRoute = 'dashboard';
 let routeParams = [];
 let unsubUserRole = null;
+let appInitialized = false;
+let renderTimer = null;
 
 function render() {
   if (!currentUser) {
@@ -21,6 +23,12 @@ function render() {
     return;
   }
   app.innerHTML = renderApp(currentUser, currentRoute, routeParams);
+}
+
+function scheduleRender() {
+  if (seedImportInProgress) return;
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => render(), 150);
 }
 
 function handleHash() {
@@ -95,21 +103,23 @@ watchAuth(async (user) => {
     unsubUserRole();
     unsubUserRole = null;
   }
+  appInitialized = false;
 
   if (user && isFirebaseConfigured) {
     try {
       initProgramacoesSync();
       await upsertUserProfile(user);
-      unsubUserRole = subscribeUserRole(user.uid, async (role) => {
+      unsubUserRole = subscribeUserRole(user.uid, (role) => {
         currentUser = { ...user, role };
-        if (role === 'admin') {
-          try {
-            await importProgramacoesSeed();
-          } catch (err) {
-            console.warn('Importação de programações:', err.message);
+        if (!appInitialized) {
+          appInitialized = true;
+          handleHash();
+          if (role === 'admin') {
+            importProgramacoesSeed()
+              .then(() => scheduleRender())
+              .catch((err) => console.warn('Importação:', err.message));
           }
         }
-        handleHash();
       });
     } catch (err) {
       console.error(err);
@@ -123,8 +133,8 @@ watchAuth(async (user) => {
   }
 });
 
-subscribeProgramacoes(() => { if (currentUser) render(); });
-subscribeLogistica(() => { if (currentUser) render(); });
+subscribeProgramacoes(() => { if (currentUser) scheduleRender(); });
+subscribeLogistica(() => { if (currentUser) scheduleRender(); });
 
 window.addEventListener('hashchange', handleHash);
 

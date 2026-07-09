@@ -7,9 +7,10 @@ import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
 
-const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v2';
+const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v4';
 const BATCH_SIZE = 400;
-const SEED_COUNT = 1200;
+let SEED_COUNT = 135;
+export let seedImportInProgress = false;
 
 async function loadSeedData() {
   const mod = await import('../data/programacoes-viagens-xlsx.json');
@@ -37,10 +38,12 @@ function requireUser() {
 }
 
 function notifyProg() {
+  if (seedImportInProgress) return;
   progListeners.forEach((fn) => fn([...programacoesCache]));
 }
 
 function notifyLog() {
+  if (seedImportInProgress) return;
   logListeners.forEach((fn) => fn([...logisticaCache]));
 }
 
@@ -233,36 +236,64 @@ export async function importProgramacoesSeed({ force = false } = {}) {
   const database = requireDb();
   const uid = requireUser();
   const SEED_PROGRAMACOES = await loadSeedData();
+  SEED_COUNT = SEED_PROGRAMACOES.length;
 
-  if (force) {
-    const legacy = getProgramacoes().filter((p) => p.id.startsWith('pdf-gas-'));
-    for (const p of legacy) {
+  seedImportInProgress = true;
+  try {
+    const newIds = new Set(SEED_PROGRAMACOES.map((p) => p.id));
+    const stale = getProgramacoes().filter(
+      (p) => (p.id.startsWith('xls-') || p.id.startsWith('pdf-gas-')) && !newIds.has(p.id),
+    );
+    for (const p of stale) {
       await deleteDoc(doc(database, 'programacoes', p.id));
     }
-  }
 
-  for (let i = 0; i < SEED_PROGRAMACOES.length; i += BATCH_SIZE) {
-    const chunk = SEED_PROGRAMACOES.slice(i, i + BATCH_SIZE);
-    const batch = writeBatch(database);
-    for (const item of chunk) {
-      const payload = sanitizeProgramacao({ ...item, status: item.status || 'Programada' }, uid, true);
-      batch.set(doc(database, 'programacoes', item.id), {
-        ...payload,
-        criadoEm: serverTimestamp(),
-      }, { merge: true });
+    for (let i = 0; i < SEED_PROGRAMACOES.length; i += BATCH_SIZE) {
+      const chunk = SEED_PROGRAMACOES.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(database);
+      for (const item of chunk) {
+        const payload = sanitizeProgramacao({ ...item, status: item.status || 'Programada' }, uid, true);
+        batch.set(doc(database, 'programacoes', item.id), {
+          ...payload,
+          criadoEm: serverTimestamp(),
+        }, { merge: true });
+      }
+      await batch.commit();
     }
-    await batch.commit();
-  }
 
-  for (const item of SEED_PROGRAMACOES) {
-    if (item.necessitaTransporte || item.necessitaAlimentacao) {
-      const saved = { id: item.id, ...sanitizeProgramacao(item, uid, true) };
-      await syncLogisticaToFirestore(saved);
+    let logBatch = writeBatch(database);
+    let logOps = 0;
+    for (const item of SEED_PROGRAMACOES) {
+      if (!item.necessitaTransporte && !item.necessitaAlimentacao) continue;
+      const entry = {
+        programacaoId: item.id,
+        municipioId: item.municipioId || '',
+        transporte: Boolean(item.necessitaTransporte),
+        alimentacao: Boolean(item.necessitaAlimentacao),
+        situacao: 'Solicitado',
+        atualizadoEm: new Date().toISOString(),
+      };
+      const existing = logisticaCache.find((l) => l.programacaoId === item.id);
+      const ref = existing
+        ? doc(database, 'logistica', existing.id)
+        : doc(collection(database, 'logistica'));
+      logBatch.set(ref, entry, { merge: true });
+      logOps += 1;
+      if (logOps >= BATCH_SIZE) {
+        await logBatch.commit();
+        logBatch = writeBatch(database);
+        logOps = 0;
+      }
     }
-  }
+    if (logOps > 0) await logBatch.commit();
 
-  localStorage.setItem(SEED_IMPORT_KEY, 'done');
-  return { skipped: false, count: SEED_PROGRAMACOES.length };
+    localStorage.setItem(SEED_IMPORT_KEY, 'done');
+    return { skipped: false, count: SEED_PROGRAMACOES.length };
+  } finally {
+    seedImportInProgress = false;
+    notifyProg();
+    notifyLog();
+  }
 }
 
 export function getSeedProgramacoesCount() {
