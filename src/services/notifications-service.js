@@ -44,10 +44,10 @@ export function initNotificationsSync() {
   });
 }
 
-export async function notifyProgramacaoPendente(programacao) {
+export async function notifyProgramacaoEnviada(programacao) {
   if (!db || !programacao?.id) return;
   await addDoc(collection(db, 'notificacoes'), {
-    tipo: 'programacao_pendente',
+    tipo: 'programacao_enviada',
     programacaoId: programacao.id,
     titulo: programacao.titulo || 'Nova programação',
     coordenacaoId: programacao.coordenacaoId || '',
@@ -55,6 +55,11 @@ export async function notifyProgramacaoPendente(programacao) {
     lido: false,
     criadoEm: new Date().toISOString(),
   });
+}
+
+/** @deprecated use notifyProgramacaoEnviada */
+export async function notifyProgramacaoPendente(programacao) {
+  return notifyProgramacaoEnviada(programacao);
 }
 
 export async function markNotificationRead(id) {

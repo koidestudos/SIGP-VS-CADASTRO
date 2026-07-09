@@ -1,10 +1,10 @@
-import { getProgramacoes, removeProgramacao, approveProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
+import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao, COORDENACOES, GERENCIAS, STATUS_PROGRAMACAO,
+  getGerenciaByProgramacao, COORDENACOES, GERENCIAS,
 } from '../data/seed.js';
-import { normalizeStatus } from '../utils/status.js';
+import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf, downloadProgramacoesListPdf } from '../utils/programacao-report-pdf.js';
@@ -63,7 +63,7 @@ export function renderProgramacoes(user) {
       <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
         ${COORDENACOES.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
       <div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
-        <option>Rascunho</option><option>Pendente</option><option>Programada</option><option>Autorizado</option></select></div>
+        ${STATUS_PROGRAMACAO.map((s) => `<option>${s}</option>`).join('')}</select></div>
       <div class="form-group">
         <label>&nbsp;</label>
         <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtro">⬇ Baixar relatório do filtro</button>
@@ -90,12 +90,14 @@ function renderRows(items, user) {
     const mun = getMunicipioById(p.municipioId);
     const ger = getGerenciaByProgramacao(p);
     const canEdit = canEditProgramacao(user, p);
-    const approve = canApprove(user) && p.status === 'Pendente'
-      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Autorizar / Programar">✔</button>`
+    const approve = canApprove(user) && needsApproval(p.status)
+      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Analisar programação">✔</button>`
       : '';
-    const statusCell = isAdmin(user)
+    const statusOptions = getStatusOptionsForUser(user, p);
+    const canChangeStatus = isAdmin(user) || (canEdit && statusOptions.length > 1);
+    const statusCell = canChangeStatus
       ? `<select class="form-control status-select" data-status-id="${p.id}" style="min-width:120px;padding:2px 6px;font-size:0.75rem">
-          ${STATUS_PROGRAMACAO.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${statusOptions.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
     return `<tr>
@@ -117,19 +119,23 @@ function renderRows(items, user) {
 
 async function showApproveDialog(id) {
   const action = await showModal({
-    title: 'Definir status da programação',
-    body: '<p>Como deseja registrar esta programação pendente?</p>',
+    title: 'Analisar programação',
+    body: '<p>Como deseja registrar esta programação enviada pela coordenação?</p>',
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
-      <button class="btn btn-outline" data-modal-action="programada">Programada</button>
-      <button class="btn btn-primary" data-modal-action="autorizado">Autorizada</button>`,
+      <button class="btn btn-outline" data-modal-action="analise">Em análise</button>
+      <button class="btn btn-outline" data-modal-action="reprovar">Reprovar</button>
+      <button class="btn btn-primary" data-modal-action="autorizar">Autorizar</button>`,
   });
-  if (action === 'programada') {
-    await approveProgramacao(id, 'Programada');
-    toast('Programação marcada como Programada.', 'success');
-  } else if (action === 'autorizado') {
-    await approveProgramacao(id, 'Autorizado');
-    toast('Programação autorizada!', 'success');
+  if (action === 'analise') {
+    await updateProgramacaoStatus(id, 'Em análise');
+    toast('Programação marcada como Em análise.', 'success');
+  } else if (action === 'reprovar') {
+    await rejectProgramacao(id);
+    toast('Programação reprovada.', 'success');
+  } else if (action === 'autorizar') {
+    await approveProgramacao(id);
+    toast('Programação autorizada! Aparecerá no Dashboard e no BI.', 'success');
   }
 }
 
@@ -189,7 +195,7 @@ export function bindProgramacoes(user) {
   document.getElementById('btn-nova')?.addEventListener('click', () => { window.location.hash = 'nova-programacao'; });
   document.getElementById('tabela-programacoes')?.addEventListener('change', async (e) => {
     const sel = e.target.closest('[data-status-id]');
-    if (!sel || !isAdmin(user)) return;
+    if (!sel || !(isAdmin(user) || canEditProgramacao(user, getProgramacaoById(sel.dataset.statusId)))) return;
     try {
       await updateProgramacaoStatus(sel.dataset.statusId, sel.value);
       toast('Status atualizado.', 'success');

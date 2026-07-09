@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getProgramacoes } from '../services/programacoes-service.js';
+import { getProgramacoesForBI } from './bi-metrics.js';
+import { normalizeStatus } from './status.js';
 import {
   formatDate, getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
 } from '../data/seed.js';
@@ -60,7 +62,7 @@ function kpiBox(doc, x, y, w, h, label, value) {
 }
 
 export async function downloadBiReportPdf() {
-  const programacoes = getProgramacoes();
+  const programacoes = getProgramacoesForBI(getProgramacoes());
   const now = new Date();
   const ano = now.getFullYear();
   const porGerencia = countByGerencia(programacoes).filter((g) => g.value > 0);
@@ -128,7 +130,7 @@ export async function downloadBiReportPdf() {
       (mun?.nome || '—').slice(0, 20),
       formatDate(p.dataInicial),
       formatDate(p.dataFinal),
-      p.status || '—',
+      normalizeStatus(p.status),
       eq.slice(0, 30),
     ];
   });

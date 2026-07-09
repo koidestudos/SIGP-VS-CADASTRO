@@ -7,7 +7,8 @@ import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
 import { getUserRole } from './roles.js';
-import { notifyProgramacaoPendente } from './notifications-service.js';
+import { notifyProgramacaoEnviada } from './notifications-service.js';
+import { normalizeStatus } from '../utils/status.js';
 
 const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
 const MIN_PROGRAMACAO_DATE = '2026-07-01';
@@ -150,14 +151,15 @@ export async function saveProgramacao(data, existingId = null) {
   }
 
   const payload = sanitizeProgramacao(data, uid, !existingId);
-  const wasPending = previous?.status === 'Pendente';
+  const prevStatus = normalizeStatus(previous?.status);
+  const nextStatus = normalizeStatus(payload.status);
 
   if (existingId) {
     await updateDoc(doc(database, 'programacoes', existingId), payload);
     const saved = { id: existingId, ...payload };
     await syncLogisticaToFirestore(saved);
-    if (payload.status === 'Pendente' && !wasPending) {
-      await notifyProgramacaoPendente(saved);
+    if (nextStatus === 'Enviada para Gerência' && prevStatus !== 'Enviada para Gerência') {
+      await notifyProgramacaoEnviada(saved);
     }
     return saved;
   }
@@ -169,8 +171,8 @@ export async function saveProgramacao(data, existingId = null) {
   });
   const saved = { id: ref.id, ...payload };
   await syncLogisticaToFirestore(saved);
-  if (payload.status === 'Pendente') {
-    await notifyProgramacaoPendente(saved);
+  if (nextStatus === 'Enviada para Gerência') {
+    await notifyProgramacaoEnviada(saved);
   }
   return saved;
 }
@@ -183,12 +185,20 @@ export async function removeProgramacao(id) {
   if (logItem) await deleteDoc(doc(database, 'logistica', logItem.id));
 }
 
-export async function approveProgramacao(id, status = 'Autorizado') {
+export async function approveProgramacao(id) {
   const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
   if (!prog) return null;
-  const allowed = ['Programada', 'Autorizado'];
-  const next = allowed.includes(status) ? status : 'Autorizado';
-  return saveProgramacao({ ...prog, status: next, autorizadoEm: new Date().toISOString() }, id);
+  return saveProgramacao({
+    ...prog,
+    status: 'Autorizada',
+    autorizadoEm: new Date().toISOString(),
+  }, id);
+}
+
+export async function rejectProgramacao(id) {
+  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
+  if (!prog) return null;
+  return saveProgramacao({ ...prog, status: 'Reprovada' }, id);
 }
 
 export async function updateProgramacaoStatus(id, status) {
@@ -363,7 +373,10 @@ export async function importProgramacoesSeed({ force = false } = {}) {
       const chunk = SEED_PROGRAMACOES.slice(i, i + BATCH_SIZE);
       const batch = writeBatch(database);
       for (const item of chunk) {
-        const payload = sanitizeProgramacao({ ...item, status: item.status || 'Programada' }, uid, true);
+        const seedStatus = item.status === 'Programada' || item.status === 'Autorizado'
+          ? 'Autorizada'
+          : (item.status || 'Autorizada');
+        const payload = sanitizeProgramacao({ ...item, status: seedStatus }, uid, true);
         batch.set(doc(database, 'programacoes', item.id), {
           ...payload,
           criadoEm: serverTimestamp(),

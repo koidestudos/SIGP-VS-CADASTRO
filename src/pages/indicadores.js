@@ -4,9 +4,13 @@ import {
   GERENCIAS, COORDENACOES, formatDate,
 } from '../data/seed.js';
 import { renderDonutChart, renderBarChart } from '../components/charts.js';
+import { getProgramacoesForBI } from '../utils/bi-metrics.js';
+import { countByStatusGroup, needsApproval } from '../utils/status.js';
 
 export function renderIndicadores() {
-  const programacoes = getProgramacoes();
+  const todas = getProgramacoes();
+  const programacoes = getProgramacoesForBI(todas);
+  const counts = countByStatusGroup(todas);
   const now = new Date();
   const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const doMes = programacoes.filter((p) => p.dataInicial?.startsWith(mes));
@@ -22,17 +26,19 @@ export function renderIndicadores() {
     value: doMes.filter((p) => p.coordenacaoId === c.id).length,
   })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
 
-  const taxaAprovacao = programacoes.length
-    ? Math.round((programacoes.filter((p) => ['Programada', 'Aprovado'].includes(p.status)).length / programacoes.length) * 100)
+  const emAnalise = counts['Em análise'] + counts['Enviada para Gerência'];
+  const autorizadas = counts.Autorizada + counts['Em execução'];
+  const taxaRealizacao = autorizadas + counts.Realizada
+    ? Math.round((counts.Realizada / (autorizadas + counts.Realizada)) * 100)
     : 0;
 
   return `
     <div class="page-header"><h2>Indicadores</h2></div>
 
     <div class="kpi-grid-3 mb-3">
-      <div class="kpi-card kpi-simple"><strong>${doMes.length}</strong><span>Ações no mês</span></div>
-      <div class="kpi-card kpi-simple"><strong>${programacoes.filter((p) => p.status === 'Pendente').length}</strong><span>Aguardando aprovação</span></div>
-      <div class="kpi-card kpi-simple"><strong>${taxaAprovacao}%</strong><span>Taxa de aprovação</span></div>
+      <div class="kpi-card kpi-simple"><strong>${doMes.length}</strong><span>Ações no mês (BI)</span></div>
+      <div class="kpi-card kpi-simple"><strong>${emAnalise}</strong><span>Em análise / aguardando gerência</span></div>
+      <div class="kpi-card kpi-simple"><strong>${taxaRealizacao}%</strong><span>Taxa de realização</span></div>
     </div>
 
     <div class="grid-2">
@@ -47,16 +53,16 @@ export function renderIndicadores() {
     </div>
 
     <div class="card mt-3">
-      <div class="card-header"><h3>Indicadores por status</h3></div>
+      <div class="card-header"><h3>Indicadores por status (todas as programações)</h3></div>
       <div class="card-body">
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Status</th><th>Quantidade</th><th>% do total</th></tr></thead>
+            <thead><tr><th>Status</th><th>Quantidade</th><th>% do total</th><th>Entra no BI?</th></tr></thead>
             <tbody>
-              ${['Rascunho', 'Pendente', 'Programada', 'Aprovado', 'Cancelada'].map((s) => {
-                const q = programacoes.filter((p) => p.status === s).length;
-                const pct = programacoes.length ? Math.round((q / programacoes.length) * 100) : 0;
-                return `<tr><td>${s}</td><td>${q}</td><td>${pct}%</td></tr>`;
+              ${Object.entries(counts).map(([s, q]) => {
+                const pct = todas.length ? Math.round((q / todas.length) * 100) : 0;
+                const inBi = ['Autorizada', 'Em execução', 'Realizada'].includes(s);
+                return `<tr><td>${s}</td><td>${q}</td><td>${pct}%</td><td>${inBi ? '✅ Sim' : '❌ Não'}</td></tr>`;
               }).join('')}
             </tbody>
           </table>
