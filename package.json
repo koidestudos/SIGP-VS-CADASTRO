@@ -12,6 +12,8 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "firebase": "^12.15.0"
+    "firebase": "^12.15.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8"
   }
 }

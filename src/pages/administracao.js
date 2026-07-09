@@ -76,6 +76,15 @@ export function renderAdministracao(user) {
       </div></div>
     </div>
     <div class="card mt-3"><div class="card-body">
+      <h3>Imagens personalizadas</h3>
+      <p class="text-sm text-muted">Coloque seus arquivos na pasta <code>public/assets/custom/</code>:</p>
+      <ul class="text-sm text-muted">
+        <li><strong>logo-sesapi.png</strong> — logo da SESAPI (sidebar e login)</li>
+        <li><strong>mapa-piaui.png</strong> — mapa do Piauí (BI Gerencial)</li>
+      </ul>
+      <p class="text-sm text-muted">Formatos aceitos: PNG, JPG ou WEBP. Se não existir, o SVG padrão é usado.</p>
+    </div></div>
+    <div class="card mt-3"><div class="card-body">
       <h3>Programações da planilha Excel (GAS · GAP · GVS)</h3>
       <p class="text-sm text-muted">${getSeedProgramacoesCount()} viagens (Jul/2026 em diante). Branco = <strong>Programada</strong>, verde = <strong>Autorizado</strong>.</p>
       ${isAdmin(user) ? `<button class="btn btn-outline btn-sm mt-2" id="btn-reimport-seed">Reimportar viagens da planilha</button>` : ''}

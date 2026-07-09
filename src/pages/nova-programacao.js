@@ -201,9 +201,14 @@ function goTo(step) {
   currentStep = step;
   document.querySelector('.wizard-steps').outerHTML = renderSteps();
   document.getElementById('wizard-content').innerHTML = renderStep(step);
-  document.getElementById('wizard-next').textContent = step === 4 ? 'Enviar para Aprovação' : 'Próximo →';
+  const right = document.querySelector('.wizard-actions-right');
+  if (right) {
+    right.innerHTML = `
+      ${currentStep > 0 ? '<button type="button" class="btn btn-ghost" id="wizard-prev">← Anterior</button>' : ''}
+      <button type="button" class="btn btn-outline" id="wizard-save">Salvar rascunho</button>
+      <button type="button" class="btn btn-primary" id="wizard-next">${currentStep === 4 ? 'Enviar para Aprovação' : 'Próximo →'}</button>`;
+  }
   bindStep();
-  bindMain();
 }
 
 function bindStep() {
@@ -219,17 +224,19 @@ function bindStep() {
     wizardState.equipe = wizardState.equipe || [];
     wizardState.equipe.push({ nome: n, cargo: c });
     document.getElementById('wizard-content').innerHTML = renderStep(2);
-    bindStep(); bindMain();
+    bindStep();
   });
   document.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', () => {
     wizardState.equipe.splice(Number(b.dataset.rm), 1);
     document.getElementById('wizard-content').innerHTML = renderStep(2);
-    bindStep(); bindMain();
+    bindStep();
   }));
   document.querySelectorAll('.wizard-step').forEach((el) => el.addEventListener('click', () => {
     if (Number(el.dataset.step) <= currentStep) goTo(Number(el.dataset.step));
   }));
 }
+
+let wizardSubmitting = false;
 
 async function persist(status) {
   collect(currentStep);
@@ -239,16 +246,51 @@ async function persist(status) {
 }
 
 function bindMain() {
-  document.getElementById('wizard-prev')?.addEventListener('click', () => { collect(currentStep); goTo(currentStep - 1); });
-  document.getElementById('wizard-next')?.addEventListener('click', async () => {
-    if (!validate(currentStep)) return;
-    if (currentStep < 4) goTo(currentStep + 1);
-    else { await persist('Pendente'); toast('Enviada para aprovação!', 'success'); window.location.hash = 'programacoes'; }
+  const actions = document.querySelector('.wizard-actions');
+  if (!actions || actions.dataset.bound) return;
+  actions.dataset.bound = '1';
+
+  actions.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn?.id) return;
+
+    if (btn.id === 'wizard-cancel') {
+      window.location.hash = 'programacoes';
+      return;
+    }
+    if (btn.id === 'wizard-prev') {
+      collect(currentStep);
+      goTo(currentStep - 1);
+      return;
+    }
+    if (btn.id === 'wizard-save') {
+      if (wizardSubmitting) return;
+      wizardSubmitting = true;
+      try {
+        await persist('Rascunho');
+        toast('Rascunho salvo!', 'success');
+      } finally {
+        wizardSubmitting = false;
+      }
+      return;
+    }
+    if (btn.id === 'wizard-next') {
+      if (wizardSubmitting) return;
+      if (!validate(currentStep)) return;
+      if (currentStep < 4) {
+        goTo(currentStep + 1);
+        return;
+      }
+      wizardSubmitting = true;
+      try {
+        await persist('Pendente');
+        toast('Enviada para aprovação!', 'success');
+        window.location.hash = 'programacoes';
+      } finally {
+        wizardSubmitting = false;
+      }
+    }
   });
-  document.getElementById('wizard-save')?.addEventListener('click', async () => {
-    await persist('Rascunho'); toast('Rascunho salvo!', 'success');
-  });
-  document.getElementById('wizard-cancel')?.addEventListener('click', () => { window.location.hash = 'programacoes'; });
 }
 
 export function bindNovaProgramacao() { bindStep(); bindMain(); }

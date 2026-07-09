@@ -1,15 +1,18 @@
 import { canViewBI } from '../services/roles.js';
-import { getUnreadCount, getNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notifications-service.js';
+import { getUnreadCount, getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteAllNotifications } from '../services/notifications-service.js';
 import {
   getOpenChats, fetchSuporteAdmins, getOrCreateUserChat, watchSuporteMessages,
   sendSuporteMessage, finalizarSuporteChat, subscribeSuporteMessages, subscribeSuporteChats,
   getUnreadSuporteCount, markSuporteChatRead, iniciarConversaAdmin,
 } from '../services/suporte-service.js';
 import { getCoordenacaoById } from '../data/seed.js';
+import { assetImgHtml, CUSTOM_ASSET_PATHS } from '../config/custom-assets.js';
 
 let suporteUser = null;
 let activeSuporteChatId = null;
 let suporteMessages = [];
+let chatEndedByOther = null;
+let localChatFinalized = false;
 
 const NAV_OPERACIONAL = [
   { route: 'dashboard', icon: '▦', label: 'Dashboard' },
@@ -40,7 +43,7 @@ export function renderSidebar(user, currentRoute) {
     <aside class="sidebar sidebar-v2" id="sidebar">
       <div class="sidebar-header sidebar-branding">
         <div class="brand-top-row">
-          <img src="/assets/logo-sesapi.svg" alt="SESAPI" class="sidebar-logo-sesapi" />
+          ${assetImgHtml(CUSTOM_ASSET_PATHS.logoSesapi, { alt: 'SESAPI', className: 'sidebar-logo-sesapi' })}
           <div class="brand-divider-v"></div>
           <div class="brand-duvas">
             <strong>DUVAS</strong>
@@ -103,7 +106,10 @@ export function renderTopbar(title, breadcrumb = '', { showNotifications = false
             <div class="notif-panel hidden" id="notif-panel">
               <div class="notif-panel-header">
                 <strong>Notificações</strong>
-                <button class="btn btn-ghost btn-sm" id="notif-mark-all">Marcar todas lidas</button>
+                <div class="notif-header-actions">
+                  <button class="btn btn-ghost btn-sm" id="notif-mark-all">Marcar lidas</button>
+                  <button class="btn btn-ghost btn-sm" id="notif-delete-all" title="Excluir todas">🗑</button>
+                </div>
               </div>
               <div class="notif-list" id="notif-list">${renderNotifList()}</div>
             </div>
@@ -128,11 +134,14 @@ function renderNotifList() {
     const coord = getCoordenacaoById(n.coordenacaoId);
     const time = n.criadoEm ? new Date(n.criadoEm).toLocaleString('pt-BR') : '';
     return `
-      <button type="button" class="notif-item ${n.lido ? '' : 'unread'}" data-notif-id="${n.id}" data-prog-id="${n.programacaoId || ''}">
-        <strong>${n.lido ? '' : '● '}${n.titulo}</strong>
-        <span>Nova programação aguardando aprovação${coord ? ` — ${coord.nome}` : ''}</span>
-        <small>${time}</small>
-      </button>`;
+      <div class="notif-item-wrap ${n.lido ? '' : 'unread'}">
+        <button type="button" class="notif-item" data-notif-id="${n.id}" data-prog-id="${n.programacaoId || ''}">
+          <strong>${n.lido ? '' : '● '}${n.titulo}</strong>
+          <span>Nova programação aguardando aprovação${coord ? ` — ${coord.nome}` : ''}</span>
+          <small>${time}</small>
+        </button>
+        <button type="button" class="notif-delete-btn" data-del-notif="${n.id}" title="Excluir">×</button>
+      </div>`;
   }).join('');
 }
 
@@ -155,7 +164,24 @@ export function bindNotifications() {
     btn.querySelector('.notif-badge')?.remove();
   });
 
+  document.getElementById('notif-delete-all')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await deleteAllNotifications();
+    const list = document.getElementById('notif-list');
+    if (list) list.innerHTML = renderNotifList();
+    btn.querySelector('.notif-badge')?.remove();
+  });
+
   panel.addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('[data-del-notif]');
+    if (delBtn) {
+      e.stopPropagation();
+      await deleteNotification(delBtn.dataset.delNotif);
+      const list = document.getElementById('notif-list');
+      if (list) list.innerHTML = renderNotifList();
+      refreshNotificationBadge();
+      return;
+    }
     const item = e.target.closest('.notif-item');
     if (!item) return;
     await markNotificationRead(item.dataset.notifId);
@@ -213,10 +239,35 @@ function bindSuporteInputHandlers() {
   });
 }
 
+function resetSuporteChatView() {
+  activeSuporteChatId = null;
+  chatEndedByOther = null;
+  localChatFinalized = false;
+}
+
+function renderChatEndedView() {
+  const msg = chatEndedByOther === 'user'
+    ? 'O Usuário finalizou a conversa.'
+    : 'O Administrador finalizou a conversa.';
+  return `
+    <div class="suporte-chat-header">
+      <button type="button" class="btn btn-ghost btn-sm" id="suporte-back">← Voltar</button>
+    </div>
+    <div class="chat-ended-alert">${msg}</div>
+    <p class="text-muted text-center" style="padding:16px">Esta conversa foi encerrada. Você pode iniciar uma nova conversa.</p>`;
+}
+
+function bindSuporteBack() {
+  document.getElementById('suporte-back')?.addEventListener('click', () => {
+    resetSuporteChatView();
+    renderSuportePanelContent();
+  });
+}
+
 function renderSuporteMessagesHtml() {
   if (!suporteMessages.length) return '<p class="notif-empty">Nenhuma mensagem ainda. Envie sua dúvida.</p>';
   return suporteMessages.map((m) => {
-    if (m.tipo === 'sistema') {
+    if (m.tipo === 'sistema' || m.tipo === 'finalizado') {
       return `<div class="chat-msg chat-system"><em>${m.texto}</em></div>`;
     }
     return `
@@ -244,8 +295,20 @@ async function renderSuportePanelContent() {
   if (!el || !suporteUser) return;
   const isAdmin = suporteUser.role === 'admin';
 
+  if (activeSuporteChatId && chatEndedByOther) {
+    el.innerHTML = renderChatEndedView();
+    bindSuporteBack();
+    return;
+  }
+
   if (isAdmin) {
     const chats = getOpenChats();
+    if (activeSuporteChatId && !chats.find((c) => c.id === activeSuporteChatId) && !localChatFinalized) {
+      chatEndedByOther = 'user';
+      el.innerHTML = renderChatEndedView();
+      bindSuporteBack();
+      return;
+    }
     if (!activeSuporteChatId) {
       el.innerHTML = chats.length ? `<div class="suporte-chat-list">${chats.map((c) => `
         <div class="suporte-chat-row ${c.naoLidoAdmin ? 'unread' : ''}">
@@ -270,19 +333,20 @@ async function renderSuportePanelContent() {
     }
     const chat = chats.find((c) => c.id === activeSuporteChatId);
     el.innerHTML = `
-      <div class="suporte-chat-header"><button class="btn btn-ghost btn-sm" id="suporte-back">← Voltar</button>
+      <div class="suporte-chat-header"><button type="button" class="btn btn-ghost btn-sm" id="suporte-back">← Voltar</button>
         <strong>${chat?.userNome || 'Usuário'}</strong></div>
       <div class="suporte-messages" id="suporte-messages">${renderSuporteMessagesHtml()}</div>
       ${renderSuporteCompose(true)}`;
-    document.getElementById('suporte-back')?.addEventListener('click', () => { activeSuporteChatId = null; renderSuportePanelContent(); });
+    bindSuporteBack();
     document.getElementById('suporte-send')?.addEventListener('click', async () => {
       const t = document.getElementById('suporte-input')?.value;
       await sendSuporteMessage(activeSuporteChatId, t, { nome: suporteUser.nome, isAdmin: true });
       document.getElementById('suporte-input').value = '';
     });
     document.getElementById('suporte-finish')?.addEventListener('click', async () => {
-      await finalizarSuporteChat(activeSuporteChatId);
-      activeSuporteChatId = null;
+      localChatFinalized = true;
+      await finalizarSuporteChat(activeSuporteChatId, { isAdmin: true });
+      resetSuporteChatView();
       renderSuportePanelContent();
     });
     bindSuporteInputHandlers();
@@ -292,6 +356,12 @@ async function renderSuportePanelContent() {
 
   const admins = await fetchSuporteAdmins();
   const chats = getOpenChats();
+  if (activeSuporteChatId && !chats.find((c) => c.id === activeSuporteChatId) && !localChatFinalized) {
+    chatEndedByOther = 'admin';
+    el.innerHTML = renderChatEndedView();
+    bindSuporteBack();
+    return;
+  }
   if (!activeSuporteChatId) {
     el.innerHTML = `
       <p class="text-sm text-muted" style="padding:12px">Fale com a administração:</p>
@@ -301,6 +371,8 @@ async function renderSuportePanelContent() {
         </button>`).join('') || '<p class="notif-empty">Nenhum administrador disponível.</p>'}
       </div>`;
     el.querySelectorAll('[data-start-admin]').forEach((b) => b.addEventListener('click', async () => {
+      chatEndedByOther = null;
+      localChatFinalized = false;
       activeSuporteChatId = chats[0]?.id || await getOrCreateUserChat(suporteUser);
       watchSuporteMessages(activeSuporteChatId);
       renderSuportePanelContent();
@@ -309,17 +381,22 @@ async function renderSuportePanelContent() {
   }
   await markSuporteChatRead(activeSuporteChatId, false);
   el.innerHTML = `
-    <div class="suporte-chat-header"><strong>Suporte — Administração</strong></div>
+    <div class="suporte-chat-header">
+      <button type="button" class="btn btn-ghost btn-sm" id="suporte-back">← Voltar</button>
+      <strong>Suporte — Administração</strong>
+    </div>
     <div class="suporte-messages" id="suporte-messages">${renderSuporteMessagesHtml()}</div>
     ${renderSuporteCompose(true)}`;
+  bindSuporteBack();
   document.getElementById('suporte-send')?.addEventListener('click', async () => {
     const t = document.getElementById('suporte-input')?.value;
     await sendSuporteMessage(activeSuporteChatId, t, { nome: suporteUser.nome, isAdmin: false });
     document.getElementById('suporte-input').value = '';
   });
   document.getElementById('suporte-finish')?.addEventListener('click', async () => {
-    await finalizarSuporteChat(activeSuporteChatId);
-    activeSuporteChatId = null;
+    localChatFinalized = true;
+    await finalizarSuporteChat(activeSuporteChatId, { isAdmin: false });
+    resetSuporteChatView();
     renderSuportePanelContent();
   });
   bindSuporteInputHandlers();
@@ -328,7 +405,13 @@ async function renderSuportePanelContent() {
 
 export function bindSuporte(user) {
   suporteUser = user;
-  subscribeSuporteChats(() => refreshSuporteBadge());
+  subscribeSuporteChats(() => {
+    if (activeSuporteChatId && !localChatFinalized
+      && !getOpenChats().some((c) => c.id === activeSuporteChatId)) {
+      chatEndedByOther = suporteUser.role === 'admin' ? 'user' : 'admin';
+    }
+    refreshSuporteBadge();
+  });
   subscribeSuporteMessages((msgs) => {
     suporteMessages = msgs;
     refreshSuporteBadge();

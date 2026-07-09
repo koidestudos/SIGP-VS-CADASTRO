@@ -149,8 +149,18 @@ export async function iniciarConversaAdmin(chatId, adminNome) {
   }
 }
 
-export async function finalizarSuporteChat(chatId) {
+export async function finalizarSuporteChat(chatId, { isAdmin = false } = {}) {
   if (!db || !chatId) return;
+  await sendSuporteMessage(chatId, 'Conversa finalizada', {
+    nome: 'Sistema',
+    isAdmin,
+    tipo: 'finalizado',
+  });
+  await updateDoc(doc(db, 'suporte_chats', chatId), {
+    status: 'finalizado',
+    finalizadoPor: isAdmin ? 'admin' : 'user',
+    finalizadoEm: new Date().toISOString(),
+  });
   const msgs = await getDocs(collection(db, 'suporte_chats', chatId, 'mensagens'));
   const batch = writeBatch(db);
   msgs.docs.forEach((d) => batch.delete(d.ref));

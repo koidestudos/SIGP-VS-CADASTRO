@@ -1,6 +1,7 @@
-/** Mapa do Piauí — imagem estática com marcadores */
+/** Mapa do Piauí — imagem personalizável com marcadores */
 import { getMunicipioById } from '../data/seed.js';
 import { getProgramacoes } from '../services/programacoes-service.js';
+import { assetImgHtml, CUSTOM_ASSET_PATHS } from '../config/custom-assets.js';
 
 const CITY_COORDS = {
   'm-teresina': { x: 54.6, y: 28.9, nome: 'Teresina' },
@@ -30,7 +31,7 @@ const STATUS_COLORS = {
 function mapBaseHtml(id) {
   return `
     <div class="piaui-map-container" id="${id}">
-      <img src="/assets/mapa-piaui.svg" alt="Mapa do Piauí" class="piaui-map-img" />
+      ${assetImgHtml(CUSTOM_ASSET_PATHS.mapaPiaui, { alt: 'Mapa do Piauí', className: 'piaui-map-img' })}
       <div class="piaui-pins-layer"></div>
     </div>`;
 }
@@ -85,7 +86,7 @@ export function renderPiauiMap() {
 
   return `
     <div class="piaui-map-container" id="piaui-map">
-      <img src="/assets/mapa-piaui.svg" alt="Mapa do Piauí" class="piaui-map-img" />
+      ${assetImgHtml(CUSTOM_ASSET_PATHS.mapaPiaui, { alt: 'Mapa do Piauí', className: 'piaui-map-img' })}
       <div class="piaui-pins-layer">${pins}</div>
       <div class="piaui-tooltip hidden" id="piaui-tooltip"></div>
     </div>`;

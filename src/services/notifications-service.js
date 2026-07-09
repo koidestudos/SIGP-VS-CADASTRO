@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, limit,
+  collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 
@@ -66,4 +66,14 @@ export async function markAllNotificationsRead() {
   if (!db) return;
   const unread = notifCache.filter((n) => !n.lido);
   await Promise.all(unread.map((n) => updateDoc(doc(db, 'notificacoes', n.id), { lido: true })));
+}
+
+export async function deleteNotification(id) {
+  if (!db || !id) return;
+  await deleteDoc(doc(db, 'notificacoes', id));
+}
+
+export async function deleteAllNotifications() {
+  if (!db) return;
+  await Promise.all(notifCache.map((n) => deleteDoc(doc(db, 'notificacoes', n.id))));
 }
