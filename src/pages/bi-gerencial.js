@@ -1,6 +1,7 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
 import {
-  getProgramacoesForBI, countServidores, countByGerencia, countByCoordenacao, countByMunicipio,
+  getProgramacoesForBI, biExecutiveKpis, formatPercentualExecucao,
+  countServidores, countByGerencia, countByCoordenacao, countByMunicipio,
   countByRegional, countByMonth, countByTipo, countByPublico, countByStatus,
   countByDay, logisticaStats, proximasAcoes,
   municipioStats,
@@ -25,7 +26,9 @@ const BI_TABS = [
 ];
 
 export function renderBiGerencial() {
-  const programacoes = getProgramacoesForBI(getProgramacoes());
+  const todas = getProgramacoes();
+  const { cadastradas, autorizadas, realizadas, percentual } = biExecutiveKpis(todas);
+  const programacoes = getProgramacoesForBI(todas);
   const now = new Date();
   const mesAtual = now.getMonth();
   const anoAtual = now.getFullYear();
@@ -55,8 +58,28 @@ export function renderBiGerencial() {
         <button type="button" class="btn btn-outline" id="btn-download-bi">⬇ Baixar relatório PDF</button>
       </div>
 
+      <div class="bi-kpi-hero">
+        <div class="bi-kpi-hero-card bi-kpi-blue">
+          <span class="bi-kpi-hero-label">🟦 Programações Cadastradas</span>
+          <strong>${cadastradas}</strong>
+        </div>
+        <div class="bi-kpi-hero-card bi-kpi-green">
+          <span class="bi-kpi-hero-label">🟩 Programações Autorizadas</span>
+          <strong>${autorizadas}</strong>
+        </div>
+        <div class="bi-kpi-hero-card bi-kpi-teal">
+          <span class="bi-kpi-hero-label">🟢 Programações Realizadas</span>
+          <strong>${realizadas}</strong>
+        </div>
+        <div class="bi-kpi-hero-card bi-kpi-orange">
+          <span class="bi-kpi-hero-label">🟧 Percentual de Execução</span>
+          <strong>${formatPercentualExecucao(percentual)}%</strong>
+          <small>Realizadas ÷ Autorizadas</small>
+        </div>
+      </div>
+
       <div class="bi-exec-summary">
-        <div class="bi-exec-card"><span>📅 Programações do mês</span><strong>${doMes.length}</strong></div>
+        <div class="bi-exec-card"><span>📅 Programações do mês (BI)</span><strong>${doMes.length}</strong></div>
         <div class="bi-exec-card"><span>📍 Municípios</span><strong>${new Set(programacoes.map((p) => p.municipioId)).size}</strong></div>
         <div class="bi-exec-card"><span>🏢 Coordenações</span><strong>${new Set(programacoes.map((p) => p.coordenacaoId)).size}</strong></div>
         <div class="bi-exec-card"><span>👥 Servidores</span><strong>${countServidores(programacoes)}</strong></div>

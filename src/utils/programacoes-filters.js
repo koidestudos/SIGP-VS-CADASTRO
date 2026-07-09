@@ -1,5 +1,6 @@
 import {
   getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
+  GERENCIAS, COORDENACOES,
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
 
@@ -114,4 +115,85 @@ export function toggleFilterPanels() {
   show('filtro-semana-panel', tipo === 'semana');
   show('filtro-semana-panel-num', tipo === 'semana');
   show('filtro-mes-panel', tipo === 'mes');
+}
+
+/** Barra de filtros compartilhada (Programações, Logística) */
+export function renderProgramacoesFilterBar({
+  mesAtual,
+  showPdfButton = false,
+  resumoId = 'filtro-resumo',
+  statusOptions = [],
+  resumoText = 'Exibindo todas as programações',
+} = {}) {
+  const now = new Date();
+  const mes = mesAtual || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const statusHtml = statusOptions.length
+    ? statusOptions.map((s) => `<option>${s}</option>`).join('')
+    : '';
+
+  return `
+    <div class="filters-bar filters-bar-prog">
+      <div class="form-group"><label>Período</label>
+        <select class="form-control" id="filtro-periodo-tipo">
+          <option value="todas" selected>Todas</option>
+          <option value="intervalo">De / até (datas)</option>
+          <option value="semana">Semana do mês</option>
+          <option value="mes">Mês inteiro</option>
+        </select>
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-intervalo-panel">
+        <label>De</label>
+        <input type="date" class="form-control" id="filtro-data-ini" />
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-intervalo-panel-fim">
+        <label>Até</label>
+        <input type="date" class="form-control" id="filtro-data-fim" />
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-semana-panel">
+        <label>Mês de referência</label>
+        <input type="month" class="form-control" id="filtro-semana-mes" value="${mes}" />
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-semana-panel-num">
+        <label>Semana</label>
+        <select class="form-control" id="filtro-semana-num">
+          <option value="1">1ª Semana</option>
+          <option value="2">2ª Semana</option>
+          <option value="3">3ª Semana</option>
+          <option value="4">4ª Semana</option>
+          <option value="5">5ª Semana</option>
+        </select>
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-mes-panel">
+        <label>Mês</label>
+        <input type="month" class="form-control" id="filtro-mes" value="${mes}" />
+      </div>
+      <div class="form-group flex-2"><label>Buscar</label>
+        <input type="search" class="form-control" id="filtro-busca" placeholder="Título, município, equipe..." /></div>
+      <div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
+        ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
+        ${COORDENACOES.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
+      ${statusOptions.length ? `<div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
+        ${statusHtml}</select></div>` : ''}
+      ${showPdfButton ? `<div class="form-group">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtro">⬇ Baixar relatório do filtro</button>
+      </div>` : ''}
+    </div>
+    <p class="text-sm text-muted mb-2" id="${resumoId}">${resumoText}</p>`;
+}
+
+export function bindProgramacoesFilterBar(refresh) {
+  toggleFilterPanels();
+  document.getElementById('filtro-periodo-tipo')?.addEventListener('change', () => {
+    toggleFilterPanels();
+    refresh();
+  });
+  [
+    'filtro-data-ini', 'filtro-data-fim', 'filtro-semana-mes', 'filtro-semana-num',
+    'filtro-mes', 'filtro-coord', 'filtro-status', 'filtro-gerencia',
+  ].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', refresh);
+  });
+  document.getElementById('filtro-busca')?.addEventListener('input', refresh);
 }

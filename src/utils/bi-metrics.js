@@ -2,9 +2,24 @@ import {
   COORDENACOES, GERENCIAS, REGIONAIS, MUNICIPIOS,
   getCoordenacaoById, getGerenciaByProgramacao, getMunicipioById, getRegionalById,
 } from '../data/seed.js';
-import { normalizeStatus, filterForBI, STATUS_PROGRAMACAO, isInBI } from './status.js';
+import { normalizeStatus, filterForBI, STATUS_PROGRAMACAO, isInBI, countByStatusGroup } from './status.js';
 
 export { filterForBI as getProgramacoesForBI };
+
+export function biExecutiveKpis(allProgramacoes) {
+  const counts = countByStatusGroup(allProgramacoes);
+  const cadastradas = allProgramacoes.length;
+  const autorizadas = counts.Autorizada + counts['Em execução'] + counts.Realizada;
+  const realizadas = counts.Realizada;
+  const percentual = autorizadas > 0
+    ? Math.round((realizadas / autorizadas) * 1000) / 10
+    : 0;
+  return { cadastradas, autorizadas, realizadas, percentual };
+}
+
+export function formatPercentualExecucao(value) {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
 
 export function countServidores(programacoes) {
   const nomes = new Set();

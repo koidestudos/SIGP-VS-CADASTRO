@@ -2,14 +2,15 @@ import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramac
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao, COORDENACOES, GERENCIAS,
+  getGerenciaByProgramacao,
 } from '../data/seed.js';
 import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf, downloadProgramacoesListPdf } from '../utils/programacao-report-pdf.js';
 import {
-  filterProgramacoes, readFilterState, toggleFilterPanels, getFilterDescription,
+  filterProgramacoes, readFilterState, getFilterDescription,
+  renderProgramacoesFilterBar, bindProgramacoesFilterBar,
 } from '../utils/programacoes-filters.js';
 
 export function renderProgramacoes(user) {
@@ -21,55 +22,11 @@ export function renderProgramacoes(user) {
       <h2>Programações</h2>
       <button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>
     </div>
-    <div class="filters-bar filters-bar-prog">
-      <div class="form-group"><label>Período</label>
-        <select class="form-control" id="filtro-periodo-tipo">
-          <option value="todas" selected>Todas</option>
-          <option value="intervalo">De / até (datas)</option>
-          <option value="semana">Semana do mês</option>
-          <option value="mes">Mês inteiro</option>
-        </select>
-      </div>
-      <div class="form-group filtro-panel hidden" id="filtro-intervalo-panel">
-        <label>De</label>
-        <input type="date" class="form-control" id="filtro-data-ini" />
-      </div>
-      <div class="form-group filtro-panel hidden" id="filtro-intervalo-panel-fim">
-        <label>Até</label>
-        <input type="date" class="form-control" id="filtro-data-fim" />
-      </div>
-      <div class="form-group filtro-panel hidden" id="filtro-semana-panel">
-        <label>Mês de referência</label>
-        <input type="month" class="form-control" id="filtro-semana-mes" value="${mesAtual}" />
-      </div>
-      <div class="form-group filtro-panel hidden" id="filtro-semana-panel-num">
-        <label>Semana</label>
-        <select class="form-control" id="filtro-semana-num">
-          <option value="1">1ª Semana</option>
-          <option value="2">2ª Semana</option>
-          <option value="3">3ª Semana</option>
-          <option value="4">4ª Semana</option>
-          <option value="5">5ª Semana</option>
-        </select>
-      </div>
-      <div class="form-group filtro-panel hidden" id="filtro-mes-panel">
-        <label>Mês</label>
-        <input type="month" class="form-control" id="filtro-mes" value="${mesAtual}" />
-      </div>
-      <div class="form-group flex-2"><label>Buscar</label>
-        <input type="search" class="form-control" id="filtro-busca" placeholder="Título, município, equipe..." /></div>
-      <div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
-        ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
-      <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
-        ${COORDENACOES.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
-      <div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
-        ${STATUS_PROGRAMACAO.map((s) => `<option>${s}</option>`).join('')}</select></div>
-      <div class="form-group">
-        <label>&nbsp;</label>
-        <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtro">⬇ Baixar relatório do filtro</button>
-      </div>
-    </div>
-    <p class="text-sm text-muted mb-2" id="filtro-resumo">Exibindo todas as programações</p>
+    ${renderProgramacoesFilterBar({
+      mesAtual,
+      showPdfButton: true,
+      statusOptions: STATUS_PROGRAMACAO,
+    })}
     <div class="card"><div class="card-body"><div class="table-wrapper">
       <table id="tabela-programacoes"><thead><tr>
         <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Equipe</th><th>Status</th><th>Ações</th>
@@ -151,20 +108,7 @@ export function bindProgramacoes(user) {
     }
   };
 
-  toggleFilterPanels();
-
-  document.getElementById('filtro-periodo-tipo')?.addEventListener('change', () => {
-    toggleFilterPanels();
-    refresh();
-  });
-
-  [
-    'filtro-data-ini', 'filtro-data-fim', 'filtro-semana-mes', 'filtro-semana-num',
-    'filtro-mes', 'filtro-coord', 'filtro-status', 'filtro-gerencia',
-  ].forEach((id) => {
-    document.getElementById(id)?.addEventListener('change', refresh);
-  });
-  document.getElementById('filtro-busca')?.addEventListener('input', refresh);
+  bindProgramacoesFilterBar(refresh);
 
   document.getElementById('btn-download-filtro')?.addEventListener('click', () => {
     const state = readFilterState();
