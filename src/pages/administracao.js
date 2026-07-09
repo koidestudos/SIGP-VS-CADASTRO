@@ -61,7 +61,10 @@ export function bindAdministracao(user) {
     if ((await confirmDialog('Reimportar todas as viagens da planilha Excel? Itens existentes serão atualizados.')) !== 'confirm') return;
     try {
       const res = await importProgramacoesSeed({ force: true });
-      toast(`${res.count} programações importadas.`, 'success');
+      const msg = res.deleted
+        ? `${res.count} importadas, ${res.deleted} antigas removidas.`
+        : `${res.count} programações importadas.`;
+      toast(msg, 'success');
     } catch (err) {
       toast(err.message || 'Erro ao importar.', 'error');
     }
