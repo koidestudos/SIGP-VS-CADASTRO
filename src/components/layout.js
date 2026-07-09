@@ -115,8 +115,7 @@ export function renderTopbar(title, breadcrumb = '', { showNotifications = false
             </div>
           </div>` : ''}
         <div class="notif-wrap">
-          <button class="topbar-icon-btn topbar-chat-btn" id="btn-suporte" title="Suporte / Chat">
-            <img src="/assets/icon-chat.svg" alt="" class="topbar-chat-icon" />
+          <button class="topbar-icon-btn topbar-chat-btn" id="btn-suporte" title="Suporte / Chat">💬
             ${suporteUnread ? `<span class="notif-badge">${suporteUnread > 9 ? '9+' : suporteUnread}</span>` : ''}
           </button>
           <div class="notif-panel suporte-panel hidden" id="suporte-panel">

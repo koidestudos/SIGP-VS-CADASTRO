@@ -3,6 +3,7 @@ import { getProgramacaoRawById } from '../services/programacoes-service.js';
 import { getMunicipioById, getStatusBadgeClass, formatDate, getGerenciaByProgramacao } from '../data/seed.js';
 import { toast } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
+import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
 
 export function renderLogistica() {
   const logistica = getCollection('logistica');
@@ -32,6 +33,7 @@ export function renderLogistica() {
                     <td>
                       <div class="table-actions">
                         ${prog ? `<button class="btn-icon" title="Visualizar programação" data-view-prog="${l.programacaoId}">👁</button>` : ''}
+                        ${prog ? `<button class="btn-icon" title="Baixar PDF" data-pdf-prog="${l.programacaoId}">📄</button>` : ''}
                         <select class="form-control btn-sm" data-update-situacao="${l.id}" style="width:auto;padding:4px 8px">
                           <option ${l.situacao === 'Solicitado' ? 'selected' : ''}>Solicitado</option>
                           <option ${l.situacao === 'Confirmado' ? 'selected' : ''}>Confirmado</option>
@@ -52,6 +54,13 @@ export function bindLogistica() {
     btn.addEventListener('click', () => {
       const prog = getProgramacaoRawById(btn.dataset.viewProg);
       showProgramacaoDetail(prog);
+    });
+  });
+  document.querySelectorAll('[data-pdf-prog]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const prog = getProgramacaoRawById(btn.dataset.pdfProg);
+      try { downloadProgramacaoPdf(prog); toast('PDF gerado.', 'success'); }
+      catch (err) { toast(err.message || 'Erro ao gerar PDF.', 'error'); }
     });
   });
   document.querySelectorAll('[data-update-situacao]').forEach((sel) => {
