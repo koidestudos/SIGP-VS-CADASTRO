@@ -7,7 +7,10 @@ import {
 import { normalizeStatus } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
-import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
+import { downloadProgramacaoPdf, downloadProgramacoesListPdf } from '../utils/programacao-report-pdf.js';
+import {
+  filterProgramacoes, readFilterState, toggleFilterPanels, getFilterDescription,
+} from '../utils/programacoes-filters.js';
 
 export function renderProgramacoes(user) {
   const now = new Date();
@@ -18,17 +21,55 @@ export function renderProgramacoes(user) {
       <h2>Programações</h2>
       <button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>
     </div>
-    <div class="filters-bar">
+    <div class="filters-bar filters-bar-prog">
+      <div class="form-group"><label>Período</label>
+        <select class="form-control" id="filtro-periodo-tipo">
+          <option value="todas" selected>Todas</option>
+          <option value="intervalo">De / até (datas)</option>
+          <option value="semana">Semana do mês</option>
+          <option value="mes">Mês inteiro</option>
+        </select>
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-intervalo-panel">
+        <label>De</label>
+        <input type="date" class="form-control" id="filtro-data-ini" />
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-intervalo-panel-fim">
+        <label>Até</label>
+        <input type="date" class="form-control" id="filtro-data-fim" />
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-semana-panel">
+        <label>Mês de referência</label>
+        <input type="month" class="form-control" id="filtro-semana-mes" value="${mesAtual}" />
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-semana-panel-num">
+        <label>Semana</label>
+        <select class="form-control" id="filtro-semana-num">
+          <option value="1">1ª Semana</option>
+          <option value="2">2ª Semana</option>
+          <option value="3">3ª Semana</option>
+          <option value="4">4ª Semana</option>
+          <option value="5">5ª Semana</option>
+        </select>
+      </div>
+      <div class="form-group filtro-panel hidden" id="filtro-mes-panel">
+        <label>Mês</label>
+        <input type="month" class="form-control" id="filtro-mes" value="${mesAtual}" />
+      </div>
       <div class="form-group flex-2"><label>Buscar</label>
         <input type="search" class="form-control" id="filtro-busca" placeholder="Título, município, equipe..." /></div>
       <div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
         ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
-      <div class="form-group"><label>Mês</label><input type="month" class="form-control" id="filtro-mes" value="${mesAtual}" /></div>
       <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
         ${COORDENACOES.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
       <div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
         <option>Rascunho</option><option>Pendente</option><option>Programada</option><option>Autorizado</option></select></div>
+      <div class="form-group">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtro">⬇ Baixar relatório do filtro</button>
+      </div>
     </div>
+    <p class="text-sm text-muted mb-2" id="filtro-resumo">Exibindo todas as programações</p>
     <div class="card"><div class="card-body"><div class="table-wrapper">
       <table id="tabela-programacoes"><thead><tr>
         <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Equipe</th><th>Status</th><th>Ações</th>
@@ -74,31 +115,6 @@ function renderRows(items, user) {
   }).join('');
 }
 
-function applyFilters() {
-  let items = getProgramacoes();
-  const busca = document.getElementById('filtro-busca')?.value?.toLowerCase().trim();
-  const gerencia = document.getElementById('filtro-gerencia')?.value;
-  const mes = document.getElementById('filtro-mes')?.value;
-  const coord = document.getElementById('filtro-coord')?.value;
-  const status = document.getElementById('filtro-status')?.value;
-
-  if (busca) {
-    items = items.filter((p) => {
-      const mun = getMunicipioById(p.municipioId)?.nome || '';
-      const coordNome = getCoordenacaoById(p.coordenacaoId)?.nome || '';
-      const eq = (p.equipe || []).map((e) => e.nome).join(' ');
-      return [p.titulo, p.responsavel, p.objetivo, mun, coordNome, eq].join(' ').toLowerCase().includes(busca);
-    });
-  }
-  if (gerencia) items = items.filter((p) => getGerenciaByProgramacao(p) === gerencia);
-  if (mes) items = items.filter((p) => p.dataInicial?.startsWith(mes));
-  if (coord) items = items.filter((p) => p.coordenacaoId === coord);
-  if (status) {
-    items = items.filter((p) => normalizeStatus(p.status) === status);
-  }
-  return items;
-}
-
 async function showApproveDialog(id) {
   const action = await showModal({
     title: 'Definir status da programação',
@@ -119,13 +135,57 @@ async function showApproveDialog(id) {
 
 export function bindProgramacoes(user) {
   const refresh = () => {
+    const items = filterProgramacoes(getProgramacoes());
     const tbody = document.querySelector('#tabela-programacoes tbody');
-    if (tbody) tbody.innerHTML = renderRows(applyFilters(), user);
+    if (tbody) tbody.innerHTML = renderRows(items, user);
+    const resumo = document.getElementById('filtro-resumo');
+    if (resumo) {
+      const desc = getFilterDescription();
+      resumo.textContent = `${desc} — ${items.length} programação(ões)`;
+    }
   };
-  ['filtro-mes', 'filtro-coord', 'filtro-status', 'filtro-gerencia'].forEach((id) => {
+
+  toggleFilterPanels();
+
+  document.getElementById('filtro-periodo-tipo')?.addEventListener('change', () => {
+    toggleFilterPanels();
+    refresh();
+  });
+
+  [
+    'filtro-data-ini', 'filtro-data-fim', 'filtro-semana-mes', 'filtro-semana-num',
+    'filtro-mes', 'filtro-coord', 'filtro-status', 'filtro-gerencia',
+  ].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', refresh);
   });
   document.getElementById('filtro-busca')?.addEventListener('input', refresh);
+
+  document.getElementById('btn-download-filtro')?.addEventListener('click', () => {
+    const state = readFilterState();
+    const items = filterProgramacoes(getProgramacoes(), state);
+    if (state.tipo === 'intervalo' && (!state.dataIni || !state.dataFim)) {
+      toast('Informe as datas De e Até.', 'error');
+      return;
+    }
+    if (state.tipo === 'semana' && !state.semanaMes) {
+      toast('Informe o mês de referência da semana.', 'error');
+      return;
+    }
+    if (state.tipo === 'mes' && !state.mes) {
+      toast('Informe o mês.', 'error');
+      return;
+    }
+    try {
+      downloadProgramacoesListPdf(items, {
+        title: getFilterDescription(state),
+        subtitle: [state.gerencia, state.status].filter(Boolean).join(' · ') || undefined,
+      });
+      toast(`PDF com ${items.length} programação(ões) gerado.`, 'success');
+    } catch (err) {
+      toast(err.message || 'Erro ao gerar PDF.', 'error');
+    }
+  });
+
   document.getElementById('btn-nova')?.addEventListener('click', () => { window.location.hash = 'nova-programacao'; });
   document.getElementById('tabela-programacoes')?.addEventListener('change', async (e) => {
     const sel = e.target.closest('[data-status-id]');

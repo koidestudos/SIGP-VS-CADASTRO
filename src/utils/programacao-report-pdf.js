@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   formatDate, getCoordenacaoById, getMunicipioById, getRegionalById,
   getGerenciaByProgramacao,
@@ -94,4 +95,52 @@ export function downloadProgramacaoPdf(prog) {
 
   const slug = (prog.titulo || 'programacao').slice(0, 30).replace(/[^\w\-]+/g, '-');
   doc.save(`sigp-vs-${slug}-${now.toISOString().slice(0, 10)}.pdf`);
+}
+
+export function downloadProgramacoesListPdf(items, { title = 'Relatório de Programações', subtitle = '' } = {}) {
+  if (!items.length) throw new Error('Nenhuma programação no filtro atual.');
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const now = new Date();
+
+  doc.setFillColor(...BRAND);
+  doc.rect(0, 0, pageW, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SIGP-VS — Programações', 14, 11);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(title, 14, 17);
+  if (subtitle) doc.text(subtitle, 14, 22);
+  doc.text(`${items.length} registro(s) · ${now.toLocaleString('pt-BR')}`, pageW - 14, 17, { align: 'right' });
+
+  const rows = items.map((p) => {
+    const coord = getCoordenacaoById(p.coordenacaoId);
+    const mun = getMunicipioById(p.municipioId);
+    const eq = (p.equipe || []).map((e) => e.nome).filter(Boolean).join(', ') || p.responsavel || '—';
+    return [
+      (p.titulo || '—').slice(0, 50),
+      getGerenciaByProgramacao(p),
+      (coord?.nome || '—').slice(0, 35),
+      (mun?.nome || '—').slice(0, 22),
+      formatDate(p.dataInicial),
+      formatDate(p.dataFinal),
+      normalizeStatus(p.status),
+      eq.slice(0, 35),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: subtitle ? 28 : 26,
+    head: [['Ação', 'Ger.', 'Coordenação', 'Município', 'Ida', 'Volta', 'Status', 'Equipe']],
+    body: rows,
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    headStyles: { fillColor: BRAND, textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    margin: { left: 10, right: 10 },
+  });
+
+  const safe = title.replace(/[^\w\-]+/g, '-').slice(0, 40);
+  doc.save(`sigp-vs-programacoes-${safe}-${now.toISOString().slice(0, 10)}.pdf`);
 }
