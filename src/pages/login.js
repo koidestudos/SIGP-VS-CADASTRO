@@ -1,9 +1,11 @@
+import { assetImgHtml, CUSTOM_ASSET_PATHS } from '../config/custom-assets.js';
+
 export function renderLogin(firebaseMissing = false) {
   return `
     <div class="login-page">
       <div class="login-card login-card-wide">
         <div class="login-logos">
-          <img src="/assets/logo-sesapi.svg" alt="Logo SESAPI" />
+          ${assetImgHtml(CUSTOM_ASSET_PATHS.logoSesapi, { alt: 'Logo SESAPI' })}
           <img src="/assets/logo-duvas.svg" alt="Logo DUVAS" />
         </div>
         <div class="login-title">
