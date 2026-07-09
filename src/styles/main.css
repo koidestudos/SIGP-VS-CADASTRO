@@ -658,6 +658,8 @@ tbody tr:hover { background: var(--gray-50); }
 .notif-delete-btn:hover { color: #dc2626; background: #fef2f2; }
 
 
+.filters-bar-prog { align-items: flex-end; }
+.filters-bar-prog .filtro-panel.hidden { display: none; }
 .filters-bar .flex-2 { flex: 2; min-width: 200px; }
 
 .suporte-panel { width: 380px; }
