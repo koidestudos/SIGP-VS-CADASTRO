@@ -1,12 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" role="img" aria-label="SESAPI">
-  <rect width="120" height="80" fill="#0a1628"/>
-  <g fill="#ffffff">
-    <rect x="8" y="12" width="104" height="4" rx="1"/>
-    <rect x="8" y="20" width="88" height="4" rx="1"/>
-    <rect x="8" y="28" width="96" height="4" rx="1"/>
-    <rect x="8" y="36" width="72" height="4" rx="1"/>
-    <rect x="8" y="44" width="100" height="4" rx="1"/>
-    <rect x="8" y="52" width="80" height="4" rx="1"/>
-    <rect x="8" y="60" width="92" height="4" rx="1"/>
-  </g>
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="296.000000pt" height="501.000000pt" viewBox="0 0 296.000000 501.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,501.000000) scale(0.100000,-0.100000)"
+fill="#000000" stroke="none">
+</g>
 </svg>
