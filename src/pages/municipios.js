@@ -36,8 +36,8 @@ function renderMunicipioDetail(munId) {
   const coord = getCoordenacaoById(mun.coordenacaoId);
   const reg = getRegionalById(mun.regionalId);
   const programacoes = getCollection('programacoes').filter((p) => p.municipioId === munId);
-  const previstas = programacoes.filter((p) => !['Concluída', 'Cancelada'].includes(p.status));
-  const realizadas = programacoes.filter((p) => p.status === 'Concluída');
+  const previstas = programacoes.filter((p) => !['Aprovado', 'Cancelada'].includes(p.status));
+  const realizadas = programacoes.filter((p) => p.status === 'Aprovado');
 
   return `
     <div class="page-header">

@@ -23,7 +23,7 @@ export function renderProgramacoes(user) {
       <div class="form-group"><label>Município</label><select class="form-control" id="filtro-mun"><option value="">Todos</option>
         ${MUNICIPIOS.map((m) => `<option value="${m.id}">${m.nome}</option>`).join('')}</select></div>
       <div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
-        <option>Rascunho</option><option>Pendente</option><option>Publicada</option><option>Concluída</option></select></div>
+        <option>Rascunho</option><option>Pendente</option><option>Programada</option><option>Aprovado</option></select></div>
     </div>
     <div class="card"><div class="card-body"><div class="table-wrapper">
       <table id="tabela-programacoes"><thead><tr>
@@ -85,7 +85,7 @@ export function bindProgramacoes(user) {
     if (action === 'delete' && (await confirmDialog('Excluir programação?')) === 'confirm') {
       await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
     }
-    if (action === 'approve') { await approveProgramacao(id); toast('Aprovada e publicada!', 'success'); refresh(); }
+    if (action === 'approve') { await approveProgramacao(id); toast('Viagem aprovada!', 'success'); refresh(); }
   });
   refresh();
 }

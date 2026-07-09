@@ -23,7 +23,7 @@ export function renderIndicadores() {
   })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
 
   const taxaAprovacao = programacoes.length
-    ? Math.round((programacoes.filter((p) => ['Publicada', 'Aprovada', 'Concluída'].includes(p.status)).length / programacoes.length) * 100)
+    ? Math.round((programacoes.filter((p) => ['Programada', 'Aprovado'].includes(p.status)).length / programacoes.length) * 100)
     : 0;
 
   return `
@@ -53,7 +53,7 @@ export function renderIndicadores() {
           <table>
             <thead><tr><th>Status</th><th>Quantidade</th><th>% do total</th></tr></thead>
             <tbody>
-              ${['Rascunho', 'Pendente', 'Publicada', 'Concluída', 'Cancelada'].map((s) => {
+              ${['Rascunho', 'Pendente', 'Programada', 'Aprovado', 'Cancelada'].map((s) => {
                 const q = programacoes.filter((p) => p.status === s).length;
                 const pct = programacoes.length ? Math.round((q / programacoes.length) * 100) : 0;
                 return `<tr><td>${s}</td><td>${q}</td><td>${pct}%</td></tr>`;

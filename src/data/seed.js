@@ -36,7 +36,7 @@ export const TIPOS_ATIVIDADE = [
 ];
 
 export const STATUS_PROGRAMACAO = [
-  'Rascunho', 'Pendente', 'Aprovada', 'Publicada', 'Concluída', 'Cancelada',
+  'Rascunho', 'Pendente', 'Programada', 'Aprovado', 'Cancelada',
 ];
 
 export const EQUIPES = [
@@ -70,8 +70,8 @@ export function getMunicipiosByRegional(regionalId) {
 
 export function getStatusBadgeClass(status) {
   const map = {
-    Rascunho: 'badge-rascunho', Pendente: 'badge-pendente', Aprovada: 'badge-aprovada',
-    Publicada: 'badge-publicada', Concluída: 'badge-concluida', Cancelada: 'badge-cancelada',
+    Rascunho: 'badge-rascunho', Pendente: 'badge-pendente',
+    Programada: 'badge-programada', Aprovado: 'badge-aprovado', Cancelada: 'badge-cancelada',
     Solicitado: 'badge-solicitado', Confirmado: 'badge-confirmado',
   };
   return map[status] || 'badge-rascunho';

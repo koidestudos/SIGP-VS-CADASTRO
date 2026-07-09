@@ -6,9 +6,15 @@ import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
-import SEED_PROGRAMACOES from '../data/programacoes-gas-jun-set-2026.json';
 
-const SEED_IMPORT_KEY = 'sigp-seed-gas-2026-v1';
+const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v2';
+const BATCH_SIZE = 400;
+const SEED_COUNT = 1200;
+
+async function loadSeedData() {
+  const mod = await import('../data/programacoes-viagens-xlsx.json');
+  return mod.default;
+}
 
 let programacoesCache = [];
 let logisticaCache = [];
@@ -144,7 +150,7 @@ export async function removeProgramacao(id) {
 export async function approveProgramacao(id) {
   const prog = getProgramacaoById(id);
   if (!prog) return null;
-  return saveProgramacao({ ...prog, status: 'Publicada', aprovadoEm: new Date().toISOString() }, id);
+  return saveProgramacao({ ...prog, status: 'Aprovado', aprovadoEm: new Date().toISOString() }, id);
 }
 
 async function syncLogisticaToFirestore(programacao) {
@@ -219,23 +225,34 @@ export async function fetchUserRole(uid) {
   return role;
 }
 
-/** Importa programações do PDF GAS (Jun–Set/2026) para o Firestore */
+/** Importa programações da planilha Excel (GAS/GAP/GVS) para o Firestore */
 export async function importProgramacoesSeed({ force = false } = {}) {
   if (!force && localStorage.getItem(SEED_IMPORT_KEY) === 'done') {
     return { skipped: true, count: 0 };
   }
   const database = requireDb();
   const uid = requireUser();
-  const batch = writeBatch(database);
+  const SEED_PROGRAMACOES = await loadSeedData();
 
-  for (const item of SEED_PROGRAMACOES) {
-    const payload = sanitizeProgramacao({ ...item, status: item.status || 'Publicada' }, uid, true);
-    batch.set(doc(database, 'programacoes', item.id), {
-      ...payload,
-      criadoEm: serverTimestamp(),
-    }, { merge: true });
+  if (force) {
+    const legacy = getProgramacoes().filter((p) => p.id.startsWith('pdf-gas-'));
+    for (const p of legacy) {
+      await deleteDoc(doc(database, 'programacoes', p.id));
+    }
   }
-  await batch.commit();
+
+  for (let i = 0; i < SEED_PROGRAMACOES.length; i += BATCH_SIZE) {
+    const chunk = SEED_PROGRAMACOES.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(database);
+    for (const item of chunk) {
+      const payload = sanitizeProgramacao({ ...item, status: item.status || 'Programada' }, uid, true);
+      batch.set(doc(database, 'programacoes', item.id), {
+        ...payload,
+        criadoEm: serverTimestamp(),
+      }, { merge: true });
+    }
+    await batch.commit();
+  }
 
   for (const item of SEED_PROGRAMACOES) {
     if (item.necessitaTransporte || item.necessitaAlimentacao) {
@@ -249,5 +266,5 @@ export async function importProgramacoesSeed({ force = false } = {}) {
 }
 
 export function getSeedProgramacoesCount() {
-  return SEED_PROGRAMACOES.length;
+  return SEED_COUNT;
 }

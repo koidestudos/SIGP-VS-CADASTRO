@@ -10,7 +10,7 @@ const RELATORIOS = [
   { id: 'coord', nome: 'Programação por Coordenação' },
   { id: 'mun', nome: 'Programação por Município' },
   { id: 'reg', nome: 'Programação por Regional' },
-  { id: 'concluidas', nome: 'Programações Concluídas' },
+  { id: 'aprovadas', nome: 'Viagens Aprovadas' },
   { id: 'pendentes', nome: 'Programações Pendentes' },
 ];
 
@@ -114,7 +114,7 @@ export function bindRelatorios() {
       const now = new Date();
       const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       if (tipo === 'mensal') items = items.filter((p) => p.dataInicial?.startsWith(mes));
-      if (tipo === 'concluidas') items = items.filter((p) => p.status === 'Concluída');
+      if (tipo === 'aprovadas') items = items.filter((p) => p.status === 'Aprovado');
       if (tipo === 'pendentes') items = items.filter((p) => p.status === 'Pendente');
       document.getElementById('relatorio-titulo').textContent = RELATORIOS.find((r) => r.id === tipo).nome;
       document.getElementById('relatorio-conteudo').innerHTML = renderTable(items);
