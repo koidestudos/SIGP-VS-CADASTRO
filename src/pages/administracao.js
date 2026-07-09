@@ -1,4 +1,4 @@
-import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed } from '../services/storage.js';
+import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed, deleteAllProgramacoes } from '../services/storage.js';
 import {
   saveCoordenacao, removeCoordenacao, saveMunicipio, removeMunicipio, saveRegional, removeRegional,
 } from '../services/catalog-service.js';
@@ -87,7 +87,11 @@ export function renderAdministracao(user) {
     <div class="card mt-3"><div class="card-body">
       <h3>Programações da planilha Excel (GAS · GAP · GVS)</h3>
       <p class="text-sm text-muted">${getSeedProgramacoesCount()} viagens (Jul/2026 em diante). Branco = <strong>Programada</strong>, verde = <strong>Autorizado</strong>.</p>
-      ${isAdmin(user) ? `<button class="btn btn-outline btn-sm mt-2" id="btn-reimport-seed">Reimportar viagens da planilha</button>` : ''}
+      ${isAdmin(user) ? `
+        <div class="mt-2" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" id="btn-reimport-seed">Reimportar viagens da planilha</button>
+          <button class="btn btn-danger btn-sm" id="btn-delete-all-prog">Apagar TODAS as programações</button>
+        </div>` : ''}
     </div></div>`;
 }
 
@@ -153,6 +157,15 @@ export function bindAdministracao(user) {
       toast(msg, 'success');
     } catch (err) {
       toast(err.message || 'Erro ao importar.', 'error');
+    }
+  });
+  document.getElementById('btn-delete-all-prog')?.addEventListener('click', async () => {
+    if ((await confirmDialog('Apagar TODAS as programações do sistema? Esta ação não pode ser desfeita.')) !== 'confirm') return;
+    try {
+      const n = await deleteAllProgramacoes();
+      toast(`${n} programação(ões) apagada(s).`, 'success');
+    } catch (err) {
+      toast(err.message || 'Erro ao apagar.', 'error');
     }
   });
   document.getElementById('admin-tabs')?.querySelectorAll('.tab').forEach((tab) => {

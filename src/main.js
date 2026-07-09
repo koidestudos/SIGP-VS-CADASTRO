@@ -123,11 +123,6 @@ watchAuth(async (user) => {
         if (!appInitialized) {
           appInitialized = true;
           handleHash();
-          if (role === 'admin') {
-            importProgramacoesSeed()
-              .then(() => scheduleRender())
-              .catch((err) => console.warn('Importação:', err.message));
-          }
         }
       });
     } catch (err) {

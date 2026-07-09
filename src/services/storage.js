@@ -16,6 +16,7 @@ import {
   fetchUserRole,
   importProgramacoesSeed,
   getSeedProgramacoesCount,
+  deleteAllProgramacoes,
 } from './programacoes-service.js';
 import { getCoordenacoes, getMunicipios, getRegionais } from './catalog-service.js';
 import { EQUIPES } from '../data/seed.js';
@@ -37,6 +38,7 @@ export {
   fetchUserRole,
   importProgramacoesSeed,
   getSeedProgramacoesCount,
+  deleteAllProgramacoes,
   canEdit,
   canApprove,
   isAdmin,
