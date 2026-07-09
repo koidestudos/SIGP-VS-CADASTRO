@@ -16,6 +16,23 @@ function mapHtml(id, pinsHtml = '') {
     </div>`;
 }
 
+/**
+ * Ajusta o aspect-ratio do container para o da imagem carregada,
+ * garantindo que as posições % dos pins coincidam com a imagem.
+ */
+function fitMapAspect(containerId) {
+  const container = document.getElementById(containerId);
+  const img = container?.querySelector('.piaui-map-img');
+  if (!container || !img) return;
+  const apply = () => {
+    if (img.naturalWidth && img.naturalHeight) {
+      container.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+    }
+  };
+  if (img.complete) apply();
+  img.addEventListener('load', apply);
+}
+
 export function renderPiauiHeatMap() {
   const programacoes = getProgramacoes();
   const byMunicipio = {};
@@ -40,6 +57,7 @@ export function renderPiauiHeatMap() {
 }
 
 export function bindPiauiHeatMap(onSelect) {
+  fitMapAspect('piaui-heat-map');
   document.querySelectorAll('#piaui-heat-map .piaui-pin').forEach((pin) => {
     pin.addEventListener('click', () => onSelect?.(pin.dataset.munId, pin.dataset.munName));
   });
@@ -69,6 +87,7 @@ export function renderPiauiMap() {
 }
 
 export function bindPiauiMap() {
+  fitMapAspect('piaui-map');
   const tooltip = document.getElementById('piaui-tooltip');
   document.querySelectorAll('#piaui-map .piaui-pin').forEach((pin) => {
     pin.addEventListener('mouseenter', () => {
