@@ -15,20 +15,26 @@ function drawBarChart(doc, x, y, w, h, items, title) {
   doc.setTextColor(...BRAND.primary);
   doc.setFont('helvetica', 'bold');
   doc.text(title, x, y);
+
+  const labelW = 26;
+  const valueW = 14;
+  const barAreaW = Math.max(w - labelW - valueW - 6, 40);
+  const barH = Math.max(9, Math.min(14, (h - 18) / Math.max(items.length, 1)));
   const max = Math.max(...items.map((i) => i.value), 1);
-  const barH = Math.min(14, (h - 20) / Math.max(items.length, 1));
-  let cy = y + 10;
+  let cy = y + 12;
+
   items.slice(0, 8).forEach((item) => {
-    const bw = ((item.value / max) * (w - 90)) || 2;
-    doc.setFontSize(8);
+    const bw = Math.max(6, (item.value / max) * barAreaW);
+    doc.setFontSize(9);
     doc.setTextColor(...BRAND.gray);
     doc.setFont('helvetica', 'normal');
-    doc.text(String(item.label).slice(0, 18), x, cy + barH * 0.65);
+    doc.text(String(item.label).slice(0, 16), x, cy + barH * 0.72);
     doc.setFillColor(...(item.color ? hexToRgb(item.color) : BRAND.primary));
-    doc.rect(x + 72, cy, bw, barH - 2, 'F');
+    doc.roundedRect(x + labelW, cy, bw, barH - 1, 1.5, 1.5, 'F');
     doc.setTextColor(30, 41, 59);
-    doc.text(String(item.value), x + 74 + bw + 4, cy + barH * 0.65);
-    cy += barH + 2;
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(item.value), x + labelW + bw + 3, cy + barH * 0.72);
+    cy += barH + 4;
   });
 }
 

@@ -312,6 +312,20 @@ export async function purgeOutdatedProgramacoes(validSeedIds = new Set()) {
   return batchDeleteProgramacoes([...toDelete.values()]);
 }
 
+/** Apaga TODAS as programações e logística associada (somente admin) */
+export async function deleteAllProgramacoes() {
+  requireUser();
+  if (getUserRole() !== 'admin') {
+    throw new Error('Apenas administradores podem apagar todas as programações.');
+  }
+  const database = requireDb();
+  const snap = await getDocs(collection(database, 'programacoes'));
+  const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const deleted = await batchDeleteProgramacoes(items);
+  localStorage.removeItem(SEED_IMPORT_KEY);
+  return deleted;
+}
+
 /** Importa programações da planilha Excel (GAS/GAP/GVS) para o Firestore */
 export async function importProgramacoesSeed({ force = false } = {}) {
   const database = requireDb();

@@ -7,6 +7,7 @@ import {
 import { normalizeStatus } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
+import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
 
 export function renderProgramacoes(user) {
   const now = new Date();
@@ -66,7 +67,8 @@ function renderRows(items, user) {
       <td>${renderActionButtons(p.id, {
         edit: canEdit,
         del: canDeleteProgramacao(user, p),
-        extra: approve + (canEdit ? `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` : ''),
+        extra: `<button class="btn-icon" data-action="pdf" data-id="${p.id}" title="Baixar PDF">📄</button>`
+          + approve + (canEdit ? `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` : ''),
       })}</td>
     </tr>`;
   }).join('');
@@ -141,6 +143,10 @@ export function bindProgramacoes(user) {
     const { id, action } = btn.dataset;
     const prog = getProgramacaoById(id);
     if (action === 'view') showProgramacaoDetail(prog);
+    if (action === 'pdf') {
+      try { downloadProgramacaoPdf(prog); toast('PDF gerado.', 'success'); }
+      catch (err) { toast(err.message || 'Erro ao gerar PDF.', 'error'); }
+    }
     if (action === 'edit') {
       if (!canEditProgramacao(user, prog)) { toast('Você só pode editar suas próprias programações.', 'error'); return; }
       window.location.hash = `nova-programacao/edit/${id}`;
