@@ -2,9 +2,11 @@ import { getProgramacoes, removeProgramacao, approveProgramacao, getProgramacaoB
 import { canApprove, canDeleteProgramacao, canEditProgramacao } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao, COORDENACOES, MUNICIPIOS, GERENCIAS,
+  getGerenciaByProgramacao, COORDENACOES, GERENCIAS,
 } from '../data/seed.js';
+import { normalizeStatus } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
+import { showProgramacaoDetail } from '../components/programacao-detail.js';
 
 export function renderProgramacoes(user) {
   const now = new Date();
@@ -22,9 +24,9 @@ export function renderProgramacoes(user) {
         ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
       <div class="form-group"><label>Mês</label><input type="month" class="form-control" id="filtro-mes" value="${mesAtual}" /></div>
       <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
-        ${COORDENACOES.map((c) => `<option value="${c.id}">${c.sigla}</option>`).join('')}</select></div>
+        ${COORDENACOES.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
       <div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
-        <option>Rascunho</option><option>Pendente</option><option>Programada</option><option>Aprovado</option></select></div>
+        <option>Rascunho</option><option>Pendente</option><option>Programada</option><option>Autorizado</option></select></div>
     </div>
     <div class="card"><div class="card-body"><div class="table-wrapper">
       <table id="tabela-programacoes"><thead><tr>
@@ -47,15 +49,15 @@ function renderRows(items, user) {
     const ger = getGerenciaByProgramacao(p);
     const canEdit = canEditProgramacao(user, p);
     const approve = canApprove(user) && p.status === 'Pendente'
-      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Aprovar">✔</button>`
+      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Autorizar / Programar">✔</button>`
       : '';
     return `<tr>
       <td>${p.titulo}</td>
       <td><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
-      <td>${coord?.sigla || '—'}</td><td>${mun?.nome || '—'}</td>
+      <td>${coord?.nome || '—'}</td><td>${mun?.nome || '—'}</td>
       <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
       <td>${equipeLabel(p)}</td>
-      <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+      <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
       <td>${renderActionButtons(p.id, {
         edit: canEdit,
         del: canDeleteProgramacao(user, p),
@@ -76,15 +78,36 @@ function applyFilters() {
   if (busca) {
     items = items.filter((p) => {
       const mun = getMunicipioById(p.municipioId)?.nome || '';
+      const coordNome = getCoordenacaoById(p.coordenacaoId)?.nome || '';
       const eq = (p.equipe || []).map((e) => e.nome).join(' ');
-      return [p.titulo, p.responsavel, p.objetivo, mun, eq].join(' ').toLowerCase().includes(busca);
+      return [p.titulo, p.responsavel, p.objetivo, mun, coordNome, eq].join(' ').toLowerCase().includes(busca);
     });
   }
   if (gerencia) items = items.filter((p) => getGerenciaByProgramacao(p) === gerencia);
   if (mes) items = items.filter((p) => p.dataInicial?.startsWith(mes));
   if (coord) items = items.filter((p) => p.coordenacaoId === coord);
-  if (status) items = items.filter((p) => p.status === status);
+  if (status) {
+    items = items.filter((p) => normalizeStatus(p.status) === status);
+  }
   return items;
+}
+
+async function showApproveDialog(id) {
+  const action = await showModal({
+    title: 'Definir status da programação',
+    body: '<p>Como deseja registrar esta programação pendente?</p>',
+    footer: `
+      <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+      <button class="btn btn-outline" data-modal-action="programada">Programada</button>
+      <button class="btn btn-primary" data-modal-action="autorizado">Autorizada</button>`,
+  });
+  if (action === 'programada') {
+    await approveProgramacao(id, 'Programada');
+    toast('Programação marcada como Programada.', 'success');
+  } else if (action === 'autorizado') {
+    await approveProgramacao(id, 'Autorizado');
+    toast('Programação autorizada!', 'success');
+  }
 }
 
 export function bindProgramacoes(user) {
@@ -102,7 +125,7 @@ export function bindProgramacoes(user) {
     if (!btn) return;
     const { id, action } = btn.dataset;
     const prog = getProgramacaoById(id);
-    if (action === 'view') showDetail(prog);
+    if (action === 'view') showProgramacaoDetail(prog);
     if (action === 'edit') {
       if (!canEditProgramacao(user, prog)) { toast('Você só pode editar suas próprias programações.', 'error'); return; }
       window.location.hash = `nova-programacao/edit/${id}`;
@@ -111,20 +134,7 @@ export function bindProgramacoes(user) {
     if (action === 'delete' && (await confirmDialog('Excluir programação?')) === 'confirm') {
       await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
     }
-    if (action === 'approve') { await approveProgramacao(id); toast('Viagem aprovada!', 'success'); refresh(); }
+    if (action === 'approve') { await showApproveDialog(id); refresh(); }
   });
   refresh();
-}
-
-function showDetail(p) {
-  showModal({
-    title: p.titulo,
-    body: `<div class="detail-grid">
-      <div class="detail-item"><label>Gerência</label><span>${getGerenciaByProgramacao(p)}</span></div>
-      <div class="detail-item"><label>Equipe</label><span>${equipeLabel(p)}</span></div>
-      <div class="detail-item"><label>Data Ida</label><span>${formatDate(p.dataInicial)}</span></div>
-      <div class="detail-item"><label>Data Volta</label><span>${formatDate(p.dataFinal)}</span></div>
-    </div>`,
-    footer: '<button class="btn btn-primary" data-modal-action="close">Fechar</button>',
-  });
 }

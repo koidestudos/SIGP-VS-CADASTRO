@@ -32,7 +32,7 @@ service cloud.firestore {
     }
 
     function validStatus(status) {
-      return status in ['Rascunho', 'Pendente', 'Programada', 'Aprovado', 'Cancelada'];
+      return status in ['Rascunho', 'Pendente', 'Programada', 'Autorizado', 'Aprovado', 'Cancelada'];
     }
 
     function validProgramacaoFields(data) {
@@ -126,6 +126,43 @@ service cloud.firestore {
         && request.resource.data.titulo.size() <= 500
         && request.resource.data.lido is bool;
       allow update: if isAdmin();
+    }
+
+    match /coordenacoes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /municipios/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /regionais/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /suporte_admins/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isOwner(docId);
+    }
+
+    match /suporte_chats/{chatId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+
+      match /mensagens/{msgId} {
+        allow read: if isSignedIn() && (
+          isAdmin() || get(/databases/$(database)/documents/suporte_chats/$(chatId)).data.userId == request.auth.uid
+        );
+        allow create: if isSignedIn() && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 2000;
+        allow delete: if isAdmin();
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ import { getCollection, updateLogisticaSituacao } from '../services/storage.js';
 import { getProgramacaoRawById } from '../services/programacoes-service.js';
 import { getMunicipioById, getStatusBadgeClass, formatDate, getGerenciaByProgramacao } from '../data/seed.js';
 import { toast } from '../components/ui.js';
+import { showProgramacaoDetail } from '../components/programacao-detail.js';
 
 export function renderLogistica() {
   const logistica = getCollection('logistica');
@@ -19,21 +20,23 @@ export function renderLogistica() {
             <tbody>
               ${logistica.length ? logistica.map((l) => {
                 const prog = getProgramacaoRawById(l.programacaoId);
-                const mun = getMunicipioById(l.municipioId || prog?.municipioId);
                 return `
                   <tr data-id="${l.id}">
                     <td class="td-action">${prog?.titulo || '—'}
                       ${prog ? `<br><span class="text-sm text-muted">${formatDate(prog.dataInicial)} — ${formatDate(prog.dataFinal)}</span>` : ''}</td>
                     <td>${prog ? `<span class="gerencia-tag gerencia-${getGerenciaByProgramacao(prog).toLowerCase()}">${getGerenciaByProgramacao(prog)}</span>` : '—'}</td>
-                    <td>${mun?.nome || '—'}</td>
+                    <td>${getMunicipioById(l.municipioId || prog?.municipioId)?.nome || '—'}</td>
                     <td>${l.transporte ? '✔ Sim' : '✖ Não'}</td>
                     <td>${l.alimentacao ? '✔ Sim' : '✖ Não'}</td>
                     <td><span class="badge ${getStatusBadgeClass(l.situacao)}">${l.situacao}</span></td>
                     <td>
-                      <select class="form-control btn-sm" data-update-situacao="${l.id}" style="width:auto;padding:4px 8px">
-                        <option ${l.situacao === 'Solicitado' ? 'selected' : ''}>Solicitado</option>
-                        <option ${l.situacao === 'Confirmado' ? 'selected' : ''}>Confirmado</option>
-                      </select>
+                      <div class="table-actions">
+                        ${prog ? `<button class="btn-icon" title="Visualizar programação" data-view-prog="${l.programacaoId}">👁</button>` : ''}
+                        <select class="form-control btn-sm" data-update-situacao="${l.id}" style="width:auto;padding:4px 8px">
+                          <option ${l.situacao === 'Solicitado' ? 'selected' : ''}>Solicitado</option>
+                          <option ${l.situacao === 'Confirmado' ? 'selected' : ''}>Confirmado</option>
+                        </select>
+                      </div>
                     </td>
                   </tr>`;
               }).join('') : '<tr><td colspan="7" class="text-center text-muted">Nenhuma solicitação.</td></tr>'}
@@ -45,6 +48,12 @@ export function renderLogistica() {
 }
 
 export function bindLogistica() {
+  document.querySelectorAll('[data-view-prog]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const prog = getProgramacaoRawById(btn.dataset.viewProg);
+      showProgramacaoDetail(prog);
+    });
+  });
   document.querySelectorAll('[data-update-situacao]').forEach((sel) => {
     sel.addEventListener('change', async () => {
       try {

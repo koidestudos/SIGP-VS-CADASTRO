@@ -119,7 +119,7 @@ export function renderDashboard(user) {
                 const coord = getCoordenacaoById(p.coordenacaoId);
                 return `<tr>
                   <td class="td-action">${p.titulo}</td>
-                  <td>${coord?.sigla || '—'}</td>
+                  <td>${coord?.nome || '—'}</td>
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
                 </tr>`;
               }).join('')}</tbody>

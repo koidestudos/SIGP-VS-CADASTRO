@@ -145,16 +145,21 @@ export function countByPublico(programacoes) {
 
 export function countByStatus(programacoes) {
   const labels = {
-    Aprovado: { label: 'Concluídas', color: '#168821' },
+    Autorizado: { label: 'Autorizadas', color: '#168821' },
     Pendente: { label: 'Em andamento', color: '#ca8a04' },
     Programada: { label: 'Programadas', color: '#1351B4' },
     Cancelada: { label: 'Canceladas', color: '#E52207' },
     Rascunho: { label: 'Rascunhos', color: '#6C757D' },
   };
+  const counts = { Autorizado: 0, Pendente: 0, Programada: 0, Cancelada: 0, Rascunho: 0 };
+  programacoes.forEach((p) => {
+    const s = p.status === 'Aprovado' ? 'Autorizado' : p.status;
+    if (counts[s] !== undefined) counts[s] += 1;
+  });
   return Object.entries(labels).map(([status, meta]) => ({
     status,
     label: meta.label,
-    value: programacoes.filter((p) => p.status === status).length,
+    value: counts[status],
     color: meta.color,
   })).filter((s) => s.value > 0);
 }
