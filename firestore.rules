@@ -32,7 +32,11 @@ service cloud.firestore {
     }
 
     function validStatus(status) {
-      return status in ['Rascunho', 'Pendente', 'Programada', 'Autorizado', 'Aprovado', 'Cancelada'];
+      return status in [
+        'Rascunho', 'Enviada para Gerência', 'Em análise', 'Autorizada',
+        'Em execução', 'Realizada', 'Cancelada', 'Reprovada',
+        'Pendente', 'Programada', 'Autorizado', 'Aprovado'
+      ];
     }
 
     function validProgramacaoFields(data) {

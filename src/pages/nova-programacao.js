@@ -283,8 +283,8 @@ function bindMain() {
       }
       wizardSubmitting = true;
       try {
-        await persist('Pendente');
-        toast('Enviada para aprovação!', 'success');
+        await persist('Enviada para Gerência');
+        toast('Enviada para a Gerência!', 'success');
         window.location.hash = 'programacoes';
       } finally {
         wizardSubmitting = false;

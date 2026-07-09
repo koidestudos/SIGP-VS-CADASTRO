@@ -71,20 +71,10 @@ export function bindTabs(container) {
   });
 }
 
+import { getStatusBadgeClass, normalizeStatus } from '../utils/status.js';
+
 export function renderStatusBadge(status) {
-  const cls = {
-    Rascunho: 'badge-rascunho',
-    Pendente: 'badge-pendente',
-    Aprovada: 'badge-aprovado',
-    Publicada: 'badge-programada',
-    Concluída: 'badge-aprovado',
-    Programada: 'badge-programada',
-    Aprovado: 'badge-aprovado',
-    Cancelada: 'badge-cancelada',
-    Solicitado: 'badge-solicitado',
-    Confirmado: 'badge-confirmado',
-  }[status] || 'badge-rascunho';
-  return `<span class="badge ${cls}">${status}</span>`;
+  return `<span class="badge ${getStatusBadgeClass(status)}">${normalizeStatus(status)}</span>`;
 }
 
 export function renderActionButtons(id, { view = true, edit = true, del = true, extra = '' } = {}) {

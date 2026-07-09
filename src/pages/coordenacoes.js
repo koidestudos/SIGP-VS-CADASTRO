@@ -1,6 +1,7 @@
 import { getCollection } from '../services/storage.js';
 import { getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass, GERENCIAS } from '../data/seed.js';
 import { bindTabs } from '../components/ui.js';
+import { normalizeStatus, isInBI, needsApproval } from '../utils/status.js';
 
 export function renderCoordenacoes(user, params = []) {
   if (params[0]) {
@@ -66,7 +67,7 @@ function renderCoordDetail(coordId) {
               ${programacoes.length ? programacoes.map((p) => {
                 const mun = getMunicipioById(p.municipioId);
                 return `<tr><td>${p.titulo}</td><td>${mun?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
-                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td></tr>`;
+                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
               }).join('') : '<tr><td colspan="4" class="text-center text-muted">Nenhuma programação.</td></tr>'}
             </tbody>
           </table>
@@ -102,8 +103,8 @@ function renderCoordDetail(coordId) {
         <ul class="mt-2" style="padding-left:20px">
           <li>Programação Mensal — ${programacoes.length} ações</li>
           <li>Programação por Município</li>
-          <li>Viagens Aprovadas — ${programacoes.filter((p) => p.status === 'Aprovado').length}</li>
-          <li>Programações Pendentes — ${programacoes.filter((p) => p.status === 'Pendente').length}</li>
+          <li>Viagens Autorizadas (BI) — ${programacoes.filter((p) => isInBI(p.status)).length}</li>
+          <li>Programações em Análise — ${programacoes.filter((p) => needsApproval(p.status)).length}</li>
         </ul>
         <button class="btn btn-outline btn-sm mt-2" onclick="window.location.hash='relatorios'">Exportar relatórios →</button>
       </div></div>

@@ -1,13 +1,13 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
-import { formatDate, getGerenciaByProgramacao, getCoordenacaoById, getMunicipioById, GERENCIAS } from '../data/seed.js';
-import { renderDonutChart, renderBarChart, renderHorizontalBarChart } from '../components/charts.js';
-import { renderPiauiHeatMap, bindPiauiHeatMap } from '../components/piaui-map.js';
 import {
-  countServidores, countByGerencia, countByCoordenacao, countByMunicipio,
+  getProgramacoesForBI, countServidores, countByGerencia, countByCoordenacao, countByMunicipio,
   countByRegional, countByMonth, countByTipo, countByPublico, countByStatus,
   countByDay, logisticaStats, proximasAcoes,
   municipioStats,
 } from '../utils/bi-metrics.js';
+import { formatDate, getGerenciaByProgramacao, getCoordenacaoById, getMunicipioById, GERENCIAS } from '../data/seed.js';
+import { renderDonutChart, renderBarChart, renderHorizontalBarChart } from '../components/charts.js';
+import { renderPiauiHeatMap, bindPiauiHeatMap } from '../components/piaui-map.js';
 import { bindTabs } from '../components/ui.js';
 import { downloadBiReportPdf } from '../utils/bi-report-pdf.js';
 
@@ -25,7 +25,7 @@ const BI_TABS = [
 ];
 
 export function renderBiGerencial() {
-  const programacoes = getProgramacoes();
+  const programacoes = getProgramacoesForBI(getProgramacoes());
   const now = new Date();
   const mesAtual = now.getMonth();
   const anoAtual = now.getFullYear();
@@ -50,7 +50,7 @@ export function renderBiGerencial() {
       <div class="bi-hero">
         <div>
           <h2>📊 BI Gerencial</h2>
-          <p class="text-muted">BI da Diretoria de Vigilância — atualizado em tempo real conforme as gerências cadastram programações</p>
+          <p class="text-muted">Inclui apenas programações Autorizadas, Em execução e Realizadas — atualizado em tempo real</p>
         </div>
         <button type="button" class="btn btn-outline" id="btn-download-bi">⬇ Baixar relatório PDF</button>
       </div>
@@ -186,7 +186,7 @@ export function bindBiGerencial() {
   if (tabs) bindTabs(tabs.parentElement);
 
   bindPiauiHeatMap((munId, munName) => {
-    const stats = municipioStats(getProgramacoes(), munId);
+    const stats = municipioStats(getProgramacoesForBI(getProgramacoes()), munId);
     const el = document.getElementById('bi-mun-detail');
     if (!el) return;
     el.innerHTML = `

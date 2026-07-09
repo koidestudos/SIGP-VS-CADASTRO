@@ -4,6 +4,7 @@ import {
   getGerenciaColor, shortTitle, formatDate, GERENCIAS,
 } from '../data/seed.js';
 import { showModal } from '../components/ui.js';
+import { normalizeStatus, isAutorizada, isRealizada } from '../utils/status.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const DIAS_SEM = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
@@ -53,8 +54,9 @@ export function renderCalendario() {
             return `<span class="cal-legend-item"><i style="background:${c.border}"></i>${g}</span>`;
           }).join('')}
           <span class="cal-legend-item"><i style="background:#7c3aed"></i>DUVAS</span>
-          <span class="cal-legend-item"><i style="border:2px dashed #1351B4;background:#fff"></i>Programada</span>
-          <span class="cal-legend-item"><i style="background:#168821"></i>Autorizado ✓</span>
+          <span class="cal-legend-item"><i style="border:2px dashed #1351B4;background:#fff"></i>Autorizada</span>
+          <span class="cal-legend-item"><i style="background:#168821"></i>Realizada ✓</span>
+          <span class="cal-legend-item"><i style="background:#0d9488"></i>Em execução</span>
         </div>
       </div>
     </div>
@@ -62,7 +64,7 @@ export function renderCalendario() {
 }
 
 function getFiltered() {
-  return getProgramacoes().filter((p) => p.status !== 'Cancelada');
+  return getProgramacoes().filter((p) => !['Cancelada', 'Reprovada', 'Rascunho'].includes(normalizeStatus(p.status)));
 }
 
 function eventsOnDate(ds, items) {
@@ -73,13 +75,15 @@ function renderEventBlock(p, large = false) {
   const ger = getGerenciaByProgramacao(p);
   const c = getGerenciaColor(ger);
   const mun = getMunicipioById(p.municipioId);
-  const autorizado = p.status === 'Autorizado' || p.status === 'Aprovado';
-  const borderStyle = autorizado ? 'solid' : 'dashed';
-  const opacity = autorizado ? '1' : '0.92';
+  const autorizada = isAutorizada(p.status);
+  const realizada = isRealizada(p.status);
+  const borderStyle = realizada ? 'solid' : autorizada ? 'solid' : 'dashed';
+  const opacity = realizada ? '1' : autorizada ? '0.95' : '0.88';
+  const statusLabel = realizada ? ' (Realizada)' : autorizada ? ' (Autorizada)' : ` (${normalizeStatus(p.status)})`;
   const cls = large ? 'cal-event-block cal-event-lg' : 'cal-event-block';
-  return `<div class="${cls}" style="background:${c.bg};border-left:3px ${borderStyle} ${c.border};color:${c.text};opacity:${opacity}"
-    data-event-id="${p.id}" title="${p.titulo}${autorizado ? ' (Autorizado)' : ' (Programada)'}">
-    <strong>${large ? p.titulo : shortTitle(p.titulo)}</strong><span>${mun?.nome || ''}${autorizado ? ' ✓' : ''}</span>
+  return `<div class="${cls}" style="background:${c.bg};border-left:3px ${borderStyle} ${realizada ? '#0d9488' : c.border};color:${c.text};opacity:${opacity}"
+    data-event-id="${p.id}" title="${p.titulo}${statusLabel}">
+    <strong>${large ? p.titulo : shortTitle(p.titulo)}</strong><span>${mun?.nome || ''}${realizada ? ' ✓' : ''}</span>
   </div>`;
 }
 

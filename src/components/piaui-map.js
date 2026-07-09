@@ -4,8 +4,20 @@ import { getProgramacoes } from '../services/programacoes-service.js';
 import { assetImgHtml, CUSTOM_ASSET_PATHS } from '../config/custom-assets.js';
 import { getMunicipioMapCoordsWithName } from '../data/piaui-municipio-coords.js';
 
+import { getProgramacoesForBI } from '../utils/bi-metrics.js';
+import { normalizeStatus } from '../utils/status.js';
+
 const STATUS_COLORS = {
-  Programada: '#1351B4', Autorizado: '#168821', Aprovado: '#168821', Pendente: '#ca8a04', Rascunho: '#6C757D',
+  Autorizada: '#1351B4',
+  'Em execução': '#0d9488',
+  Realizada: '#168821',
+  'Em análise': '#ca8a04',
+  'Enviada para Gerência': '#6366f1',
+  Rascunho: '#6C757D',
+  Programada: '#1351B4',
+  Autorizado: '#168821',
+  Aprovado: '#168821',
+  Pendente: '#ca8a04',
 };
 
 function mapHtml(id, pinsHtml = '') {
@@ -34,7 +46,7 @@ function fitMapAspect(containerId) {
 }
 
 export function renderPiauiHeatMap() {
-  const programacoes = getProgramacoes();
+  const programacoes = getProgramacoesForBI(getProgramacoes());
   const byMunicipio = {};
   programacoes.forEach((p) => {
     if (!p.municipioId) return;
@@ -64,7 +76,7 @@ export function bindPiauiHeatMap(onSelect) {
 }
 
 export function renderPiauiMap() {
-  const programacoes = getProgramacoes();
+  const programacoes = getProgramacoesForBI(getProgramacoes());
   const byMunicipio = {};
   programacoes.forEach((p) => {
     if (!p.municipioId) return;
@@ -74,7 +86,7 @@ export function renderPiauiMap() {
 
   const pins = Object.entries(byMunicipio).map(([munId, progs]) => {
     const coords = getMunicipioMapCoordsWithName(munId);
-    const color = STATUS_COLORS[progs[0].status] || '#1351B4';
+    const color = STATUS_COLORS[normalizeStatus(progs[0].status)] || '#1351B4';
     return `
       <button type="button" class="piaui-pin" style="left:${coords.x}%;top:${coords.y}%;background:${color}"
         data-mun-id="${munId}" data-mun-name="${coords.nome}" data-count="${progs.length}" title="${coords.nome}: ${progs.length} ação(ões)">

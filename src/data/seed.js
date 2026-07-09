@@ -2,7 +2,9 @@ import {
   GERENCIAS, COORDENACOES, REGIONAIS, MUNICIPIOS, EQUIPES,
 } from './reference-data.js';
 import { getCoordenacoes, getMunicipios, getRegionais } from '../services/catalog-service.js';
-import { normalizeStatus } from '../utils/status.js';
+import {
+  STATUS_PROGRAMACAO, getStatusBadgeClass as statusBadgeClass,
+} from '../utils/status.js';
 
 export { GERENCIAS, COORDENACOES, REGIONAIS, MUNICIPIOS, EQUIPES };
 
@@ -19,9 +21,7 @@ export const TIPOS_ATIVIDADE = [
   'Auditoria', 'Palestra / Oficina', 'Monitoramento',
 ];
 
-export const STATUS_PROGRAMACAO = [
-  'Rascunho', 'Pendente', 'Programada', 'Autorizado', 'Cancelada',
-];
+export { STATUS_PROGRAMACAO };
 
 export function getCoordenacaoById(id) {
   return getCoordenacoes().find((c) => c.id === id) || COORDENACOES.find((c) => c.id === id);
@@ -47,13 +47,7 @@ export function getMunicipiosByRegional(regionalId) {
 }
 
 export function getStatusBadgeClass(status) {
-  const s = normalizeStatus(status);
-  const map = {
-    Rascunho: 'badge-rascunho', Pendente: 'badge-pendente',
-    Programada: 'badge-programada', Autorizado: 'badge-aprovado', Cancelada: 'badge-cancelada',
-    Solicitado: 'badge-solicitado', Confirmado: 'badge-confirmado',
-  };
-  return map[s] || 'badge-rascunho';
+  return statusBadgeClass(status);
 }
 
 export function formatDate(dateStr) {

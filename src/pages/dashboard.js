@@ -4,6 +4,7 @@ import {
   getGerenciaByProgramacao,
 } from '../data/seed.js';
 import { proximasAcoes } from '../utils/bi-metrics.js';
+import { countByStatusGroup, filterForBI, normalizeStatus } from '../utils/status.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -41,7 +42,12 @@ function renderAcaoList(items, emptyMsg) {
 }
 
 export function renderDashboard(user) {
-  const programacoes = getProgramacoes();
+  const todas = getProgramacoes();
+  const programacoes = filterForBI(todas);
+  const counts = countByStatusGroup(todas);
+  const autorizadas = counts.Autorizada + counts['Em execução'];
+  const realizadas = counts.Realizada;
+
   const now = new Date();
   const mesAtual = now.getMonth();
   const anoAtual = now.getFullYear();
@@ -52,7 +58,7 @@ export function renderDashboard(user) {
   });
 
   const proximas = programacoes
-    .filter((p) => new Date(p.dataInicial) >= now && !['Cancelada', 'Rascunho'].includes(p.status))
+    .filter((p) => new Date(p.dataInicial) >= now && !['Realizada', 'Cancelada', 'Reprovada'].includes(normalizeStatus(p.status)))
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial))
     .slice(0, 6);
 
@@ -68,14 +74,32 @@ export function renderDashboard(user) {
       <div class="dash-header">
         <div>
           <h2 class="dash-greeting">Olá, ${primeiroNome}!</h2>
-          <p class="dash-subtitle">Cadastre e acompanhe suas programações de forma rápida</p>
+          <p class="dash-subtitle">Acompanhe programações autorizadas e realizadas</p>
         </div>
         <button class="btn btn-primary btn-lg" id="dash-nova">+ Nova Programação</button>
       </div>
 
+      <div class="dash-kpi-row">
+        <div class="dash-kpi-card dash-kpi-blue">
+          <span class="dash-kpi-icon">📊</span>
+          <div>
+            <strong>${autorizadas}</strong>
+            <span>Programações autorizadas</span>
+          </div>
+        </div>
+        <div class="dash-kpi-card dash-kpi-green">
+          <span class="dash-kpi-icon">✅</span>
+          <div>
+            <strong>${realizadas}</strong>
+            <span>Programações realizadas</span>
+          </div>
+        </div>
+      </div>
+      <p class="text-sm text-muted mb-3">Demais status (rascunho, em análise, canceladas etc.) ficam disponíveis em <a href="#programacoes">Programações</a>.</p>
+
       <div class="dash-quick-grid">
         <div class="card">
-          <div class="card-header"><h3>📋 Programações do mês</h3><span class="badge badge-programada">${doMes.length}</span></div>
+          <div class="card-header"><h3>📋 Programações do mês</h3><span class="badge badge-autorizada">${doMes.length}</span></div>
           <div class="card-body table-compact">
             ${doMes.length ? `<div class="table-wrapper"><table>
               <thead><tr><th>Ação</th><th>Gerência</th><th>Data</th><th>Status</th></tr></thead>
@@ -84,9 +108,9 @@ export function renderDashboard(user) {
                   <td class="td-action">${p.titulo}</td>
                   <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
                   <td>${formatDate(p.dataInicial)}</td>
-                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 </tr>`).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação neste mês.</p>'}
+            </table></div>` : '<p class="text-muted">Nenhuma programação autorizada neste mês.</p>'}
             ${doMes.length > 8 ? `<a href="#programacoes" class="dash-link">Ver todas →</a>` : ''}
           </div>
         </div>
@@ -111,7 +135,7 @@ export function renderDashboard(user) {
         </div>
 
         <div class="card">
-          <div class="card-header"><h3>🕐 Últimas programações cadastradas</h3></div>
+          <div class="card-header"><h3>🕐 Últimas programações no BI</h3></div>
           <div class="card-body table-compact">
             ${ultimas.length ? `<div class="table-wrapper"><table>
               <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
@@ -120,10 +144,10 @@ export function renderDashboard(user) {
                 return `<tr>
                   <td class="td-action">${p.titulo}</td>
                   <td>${coord?.nome || '—'}</td>
-                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 </tr>`;
               }).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação cadastrada.</p>'}
+            </table></div>` : '<p class="text-muted">Nenhuma programação autorizada ainda.</p>'}
           </div>
         </div>
       </div>
@@ -140,7 +164,7 @@ export function renderDashboard(user) {
                 <td class="td-action">${p.titulo}</td>
                 <td>${mun?.nome || '—'}</td>
                 <td>${formatDate(p.dataInicial)}</td>
-                <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td>
+                <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
               </tr>`;
             }).join('')}</tbody>
           </table></div>

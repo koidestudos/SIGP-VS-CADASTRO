@@ -2,6 +2,9 @@ import {
   COORDENACOES, GERENCIAS, REGIONAIS, MUNICIPIOS,
   getCoordenacaoById, getGerenciaByProgramacao, getMunicipioById, getRegionalById,
 } from '../data/seed.js';
+import { normalizeStatus, filterForBI, STATUS_PROGRAMACAO, isInBI } from './status.js';
+
+export { filterForBI as getProgramacoesForBI };
 
 export function countServidores(programacoes) {
   const nomes = new Set();
@@ -98,9 +101,8 @@ export function countByMonth(programacoes, year = new Date().getFullYear()) {
   return meses.map((label, i) => ({
     label,
     value: programacoes.filter((p) => {
-      if (!p.dataInicial?.startsWith(String(year))) return false;
-      const m = new Date(p.dataInicial + 'T12:00:00').getMonth();
-      return m === i;
+      const d = new Date(p.dataInicial + 'T12:00:00');
+      return d.getFullYear() === year && d.getMonth() === i;
     }).length,
   }));
 }
@@ -108,20 +110,18 @@ export function countByMonth(programacoes, year = new Date().getFullYear()) {
 export function countByTipo(programacoes) {
   const map = new Map();
   programacoes.forEach((p) => {
-    const t = p.tipoAtividade || 'Outros';
+    const t = p.tipoAtividade || 'Não informado';
     map.set(t, (map.get(t) || 0) + 1);
   });
-  const colors = ['#1351B4', '#168821', '#ca8a04', '#7c3aed', '#E52207', '#0d9488', '#64748b'];
+  const colors = ['#1351B4', '#168821', '#ca8a04', '#7c3aed', '#E52207', '#0d9488'];
   return [...map.entries()].map(([label, value], i) => ({ label, value, color: colors[i % colors.length] }))
     .sort((a, b) => b.value - a.value);
 }
 
 const PUBLICO_RULES = [
-  ['aps', 'APS'], ['atenção prim', 'APS'], ['atencao prim', 'APS'],
-  ['hospital', 'Hospitais'], ['municíp', 'Municípios'], ['municip', 'Municípios'],
-  ['profission', 'Profissionais'], ['gestante', 'Gestantes'],
-  ['acs', 'ACS'], ['agente comunit', 'ACS'],
-  ['ace', 'ACE'], ['agente de endem', 'ACE'],
+  ['escola', 'Escolas'], ['creche', 'Escolas'], ['unidade de saúde', 'Unidades de Saúde'],
+  ['ubs', 'Unidades de Saúde'], ['hospital', 'Hospitais'], ['comunidade', 'Comunidade'],
+  ['servidor', 'Servidores'], ['população', 'População geral'],
 ];
 
 export function countByPublico(programacoes) {
@@ -145,21 +145,24 @@ export function countByPublico(programacoes) {
 
 export function countByStatus(programacoes) {
   const labels = {
-    Autorizado: { label: 'Autorizadas', color: '#168821' },
-    Pendente: { label: 'Em andamento', color: '#ca8a04' },
-    Programada: { label: 'Programadas', color: '#1351B4' },
-    Cancelada: { label: 'Canceladas', color: '#E52207' },
+    Autorizada: { label: 'Autorizadas', color: '#168821' },
+    'Em execução': { label: 'Em execução', color: '#1351B4' },
+    Realizada: { label: 'Realizadas', color: '#0d9488' },
+    'Em análise': { label: 'Em análise', color: '#ca8a04' },
+    'Enviada para Gerência': { label: 'Enviadas', color: '#6366f1' },
     Rascunho: { label: 'Rascunhos', color: '#6C757D' },
+    Cancelada: { label: 'Canceladas', color: '#E52207' },
+    Reprovada: { label: 'Reprovadas', color: '#dc2626' },
   };
-  const counts = { Autorizado: 0, Pendente: 0, Programada: 0, Cancelada: 0, Rascunho: 0 };
+  const counts = Object.fromEntries(STATUS_PROGRAMACAO.map((s) => [s, 0]));
   programacoes.forEach((p) => {
-    const s = p.status === 'Aprovado' ? 'Autorizado' : p.status;
+    const s = normalizeStatus(p.status);
     if (counts[s] !== undefined) counts[s] += 1;
   });
   return Object.entries(labels).map(([status, meta]) => ({
     status,
     label: meta.label,
-    value: counts[status],
+    value: counts[status] || 0,
     color: meta.color,
   })).filter((s) => s.value > 0);
 }
@@ -205,7 +208,8 @@ export function proximasAcoes(programacoes) {
   weekEnd.setDate(weekEnd.getDate() + 7);
 
   const upcoming = programacoes
-    .filter((p) => !['Cancelada', 'Rascunho'].includes(p.status))
+    .filter((p) => isInBI(p.status))
+    .filter((p) => !['Realizada', 'Cancelada', 'Reprovada'].includes(normalizeStatus(p.status)))
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial));
 
   const toDate = (s) => new Date(s + 'T12:00:00');

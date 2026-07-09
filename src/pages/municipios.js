@@ -1,6 +1,6 @@
 import { getCollection } from '../services/storage.js';
 import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass } from '../data/seed.js';
-import { isAutorizado } from '../utils/status.js';
+import { isAutorizada, isRealizada, normalizeStatus } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
 
 function renderMunicipioCards(municipios, programacoes) {
@@ -58,8 +58,8 @@ function renderMunicipioDetail(munId) {
   const coord = getCoordenacaoById(mun.coordenacaoId);
   const reg = getRegionalById(mun.regionalId);
   const programacoes = getCollection('programacoes').filter((p) => p.municipioId === munId);
-  const previstas = programacoes.filter((p) => !isAutorizado(p.status) && p.status !== 'Cancelada');
-  const realizadas = programacoes.filter((p) => isAutorizado(p.status));
+  const previstas = programacoes.filter((p) => isAutorizada(p.status) && !isRealizada(p.status));
+  const realizadas = programacoes.filter((p) => isRealizada(p.status));
 
   return `
     <div class="page-header">
@@ -114,7 +114,7 @@ function renderProgTable(items) {
             ${items.length ? items.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
               return `<tr><td>${p.titulo}</td><td>${coord?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
-                <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td></tr>`;
+                <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
             }).join('') : '<tr><td colspan="4" class="text-center text-muted">Nenhuma programação.</td></tr>'}
           </tbody>
         </table>
