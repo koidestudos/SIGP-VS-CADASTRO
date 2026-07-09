@@ -17,6 +17,16 @@ export function canEdit(user) {
   return Boolean(user);
 }
 
+export function canEditProgramacao(user, programacao) {
+  if (!user || !programacao) return false;
+  if (isAdmin(user)) return true;
+  return programacao.criadoPor === user.uid;
+}
+
+export function canViewBI(user) {
+  return isAdmin(user);
+}
+
 export function canApprove(user) {
   return isAdmin(user);
 }

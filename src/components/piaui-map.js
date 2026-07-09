@@ -29,6 +29,43 @@ const STATUS_COLORS = {
   Programada: '#1351B4', Aprovado: '#168821', Pendente: '#ca8a04', Rascunho: '#6C757D',
 };
 
+export function renderPiauiHeatMap() {
+  const programacoes = getProgramacoes();
+  const byMunicipio = {};
+  programacoes.forEach((p) => {
+    if (!p.municipioId) return;
+    byMunicipio[p.municipioId] = (byMunicipio[p.municipioId] || 0) + 1;
+  });
+  const max = Math.max(...Object.values(byMunicipio), 1);
+
+  const pins = Object.entries(byMunicipio).map(([munId, count], i) => {
+    const mun = getMunicipioById(munId);
+    const coords = CITY_COORDS[munId] || { ...defaultCoords(i), nome: mun?.nome || 'Município' };
+    const intensity = Math.ceil((count / max) * 4) || 1;
+    return `
+      <button type="button" class="piaui-pin piaui-heat-${intensity}" style="left:${coords.x}%;top:${coords.y}%"
+        data-mun-id="${munId}" data-mun-name="${coords.nome}" data-count="${count}" title="${coords.nome}: ${count} programação(ões)">
+        <span class="pin-count">${count}</span>
+      </button>`;
+  }).join('');
+
+  return `
+    <div class="piaui-map-container" id="piaui-heat-map">
+      <svg class="piaui-outline" viewBox="${PIAUI_VIEWBOX}" xmlns="http://www.w3.org/2000/svg" aria-label="Mapa do Piauí">
+        <path fill="#f8fafc" stroke="#1a1a1a" stroke-width="1.2" stroke-linejoin="round" d="${PIAUI_PATH}" />
+      </svg>
+      <div class="piaui-pins-layer">${pins}</div>
+    </div>`;
+}
+
+export function bindPiauiHeatMap(onSelect) {
+  document.querySelectorAll('#piaui-heat-map .piaui-pin').forEach((pin) => {
+    pin.addEventListener('click', () => {
+      onSelect?.(pin.dataset.munId, pin.dataset.munName);
+    });
+  });
+}
+
 export function renderPiauiMap() {
   const programacoes = getProgramacoes();
   const byMunicipio = {};

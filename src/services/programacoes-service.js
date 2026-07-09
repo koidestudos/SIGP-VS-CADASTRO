@@ -6,6 +6,8 @@ import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
+import { getUserRole } from './roles.js';
+import { notifyProgramacaoPendente } from './notifications-service.js';
 
 const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
 const MIN_PROGRAMACAO_DATE = '2026-07-01';
@@ -81,6 +83,10 @@ export function getProgramacaoById(id) {
   return p && isProgramacaoVisible(p) ? p : null;
 }
 
+export function getProgramacaoRawById(id) {
+  return programacoesCache.find((item) => item.id === id) || null;
+}
+
 export function initProgramacoesSync() {
   const database = requireDb();
 
@@ -133,12 +139,26 @@ function sanitizeProgramacao(data, uid, isNew) {
 export async function saveProgramacao(data, existingId = null) {
   const database = requireDb();
   const uid = requireUser();
+  const previous = existingId ? programacoesCache.find((p) => p.id === existingId) : null;
+
+  if (existingId && previous) {
+    const isOwner = previous.criadoPor === uid;
+    const isAdmin = getUserRole() === 'admin';
+    if (!isOwner && !isAdmin) {
+      throw new Error('Você só pode editar suas próprias programações.');
+    }
+  }
+
   const payload = sanitizeProgramacao(data, uid, !existingId);
+  const wasPending = previous?.status === 'Pendente';
 
   if (existingId) {
     await updateDoc(doc(database, 'programacoes', existingId), payload);
     const saved = { id: existingId, ...payload };
     await syncLogisticaToFirestore(saved);
+    if (payload.status === 'Pendente' && !wasPending) {
+      await notifyProgramacaoPendente(saved);
+    }
     return saved;
   }
 
@@ -149,6 +169,9 @@ export async function saveProgramacao(data, existingId = null) {
   });
   const saved = { id: ref.id, ...payload };
   await syncLogisticaToFirestore(saved);
+  if (payload.status === 'Pendente') {
+    await notifyProgramacaoPendente(saved);
+  }
   return saved;
 }
 

@@ -35,6 +35,21 @@ export function renderDonutChart(data, size = 140) {
   `;
 }
 
+export function renderHorizontalBarChart(data, maxValue) {
+  const max = maxValue || Math.max(...data.map((d) => d.value), 1);
+  return `
+    <div class="hbar-chart">
+      ${data.map((d) => `
+        <div class="hbar-item">
+          <span class="hbar-label">${d.label}</span>
+          <div class="hbar-track">
+            <div class="hbar-fill" style="width:${(d.value / max) * 100}%;background:${d.color || '#1351B4'}"></div>
+          </div>
+          <span class="hbar-value">${d.value}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
 export function renderBarChart(data, maxValue) {
   const max = maxValue || Math.max(...data.map((d) => d.value), 1);
   return `
