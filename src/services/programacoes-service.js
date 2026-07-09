@@ -191,6 +191,12 @@ export async function approveProgramacao(id, status = 'Autorizado') {
   return saveProgramacao({ ...prog, status: next, autorizadoEm: new Date().toISOString() }, id);
 }
 
+export async function updateProgramacaoStatus(id, status) {
+  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
+  if (!prog) return null;
+  return saveProgramacao({ ...prog, status }, id);
+}
+
 async function syncLogisticaToFirestore(programacao) {
   if (!programacao.necessitaTransporte && !programacao.necessitaAlimentacao) return;
 

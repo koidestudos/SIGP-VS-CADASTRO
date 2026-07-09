@@ -1,9 +1,7 @@
-/** Mapa do Piauí com marcadores de programações */
+/** Mapa do Piauí — imagem estática com marcadores */
 import { getMunicipioById } from '../data/seed.js';
 import { getProgramacoes } from '../services/programacoes-service.js';
-import { PIAUI_PATH, PIAUI_VIEWBOX } from '../data/piaui-outline.js';
 
-// Posições (x%, y%) calibradas sobre o contorno real do Piauí
 const CITY_COORDS = {
   'm-teresina': { x: 54.6, y: 28.9, nome: 'Teresina' },
   'm-parnaiba': { x: 73.6, y: 1.9, nome: 'Parnaíba' },
@@ -29,6 +27,14 @@ const STATUS_COLORS = {
   Programada: '#1351B4', Autorizado: '#168821', Aprovado: '#168821', Pendente: '#ca8a04', Rascunho: '#6C757D',
 };
 
+function mapBaseHtml(id) {
+  return `
+    <div class="piaui-map-container" id="${id}">
+      <img src="/assets/mapa-piaui.svg" alt="Mapa do Piauí" class="piaui-map-img" />
+      <div class="piaui-pins-layer"></div>
+    </div>`;
+}
+
 export function renderPiauiHeatMap() {
   const programacoes = getProgramacoes();
   const byMunicipio = {};
@@ -49,27 +55,18 @@ export function renderPiauiHeatMap() {
       </button>`;
   }).join('');
 
-  return `
-    <div class="piaui-map-container" id="piaui-heat-map">
-      <svg class="piaui-outline" viewBox="${PIAUI_VIEWBOX}" xmlns="http://www.w3.org/2000/svg" aria-label="Mapa do Piauí">
-        <path fill="#f8fafc" stroke="#1a1a1a" stroke-width="1.2" stroke-linejoin="round" d="${PIAUI_PATH}" />
-      </svg>
-      <div class="piaui-pins-layer">${pins}</div>
-    </div>`;
+  return mapBaseHtml('piaui-heat-map').replace('</div></div>', `${pins}</div></div>`);
 }
 
 export function bindPiauiHeatMap(onSelect) {
   document.querySelectorAll('#piaui-heat-map .piaui-pin').forEach((pin) => {
-    pin.addEventListener('click', () => {
-      onSelect?.(pin.dataset.munId, pin.dataset.munName);
-    });
+    pin.addEventListener('click', () => onSelect?.(pin.dataset.munId, pin.dataset.munName));
   });
 }
 
 export function renderPiauiMap() {
   const programacoes = getProgramacoes();
   const byMunicipio = {};
-
   programacoes.forEach((p) => {
     if (!p.municipioId) return;
     if (!byMunicipio[p.municipioId]) byMunicipio[p.municipioId] = [];
@@ -83,19 +80,15 @@ export function renderPiauiMap() {
     return `
       <button type="button" class="piaui-pin" style="left:${coords.x}%;top:${coords.y}%;background:${color}"
         data-mun-id="${munId}" data-mun-name="${coords.nome}" data-count="${progs.length}" title="${coords.nome}: ${progs.length} ação(ões)">
-      </button>
-    `;
+      </button>`;
   }).join('');
 
   return `
     <div class="piaui-map-container" id="piaui-map">
-      <svg class="piaui-outline" viewBox="${PIAUI_VIEWBOX}" xmlns="http://www.w3.org/2000/svg" aria-label="Mapa do Piauí">
-        <path fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2" stroke-linejoin="round" d="${PIAUI_PATH}" />
-      </svg>
+      <img src="/assets/mapa-piaui.svg" alt="Mapa do Piauí" class="piaui-map-img" />
       <div class="piaui-pins-layer">${pins}</div>
       <div class="piaui-tooltip hidden" id="piaui-tooltip"></div>
-    </div>
-  `;
+    </div>`;
 }
 
 export function bindPiauiMap() {
@@ -107,12 +100,9 @@ export function bindPiauiMap() {
       tooltip.innerHTML = `
         <strong>${pin.dataset.munName}</strong>
         <span>${pin.dataset.count} ações previstas</span>
-        <a href="#municipios/${pin.dataset.munId}">Ver detalhes</a>
-      `;
+        <a href="#municipios/${pin.dataset.munId}">Ver detalhes</a>`;
     });
     pin.addEventListener('mouseleave', () => tooltip?.classList.add('hidden'));
-    pin.addEventListener('click', () => {
-      window.location.hash = `municipios/${pin.dataset.munId}`;
-    });
+    pin.addEventListener('click', () => { window.location.hash = `municipios/${pin.dataset.munId}`; });
   });
 }

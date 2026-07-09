@@ -3,29 +3,50 @@ import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass } 
 import { isAutorizado } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
 
+function renderMunicipioCards(municipios, programacoes) {
+  if (!municipios.length) {
+    return '<p class="text-muted text-center" style="grid-column:1/-1;padding:24px">Nenhum município nesta regional.</p>';
+  }
+  return municipios.map((m) => {
+    const count = programacoes.filter((p) => p.municipioId === m.id).length;
+    const coord = getCoordenacaoById(m.coordenacaoId);
+    const reg = getRegionalById(m.regionalId);
+    return `
+      <div class="coord-card" data-mun-id="${m.id}">
+        <h3>${m.nome}</h3>
+        <p>${reg?.nome || ''}</p>
+        <p class="text-sm text-muted">${coord?.nome || '—'} · ${count} programações</p>
+      </div>
+    `;
+  }).join('');
+}
+
 export function renderMunicipios(user, params = []) {
   if (params[0]) {
     return renderMunicipioDetail(params[0]);
   }
 
   const municipios = getCollection('municipios');
+  const regionais = getCollection('regionais');
   const programacoes = getCollection('programacoes');
 
   return `
     <div class="page-header"><h2>Municípios</h2></div>
+    <div class="filters-bar mb-3">
+      <div class="form-group">
+        <label>Regional de Saúde</label>
+        <select class="form-control" id="filtro-regional">
+          <option value="">Todas as regionais</option>
+          ${regionais.map((r) => `<option value="${r.id}">${r.nome}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group flex-2">
+        <label>Buscar município</label>
+        <input type="search" class="form-control" id="filtro-mun-busca" placeholder="Nome do município..." />
+      </div>
+    </div>
     <div class="grid-3" id="grid-municipios">
-      ${municipios.map((m) => {
-        const count = programacoes.filter((p) => p.municipioId === m.id).length;
-        const coord = getCoordenacaoById(m.coordenacaoId);
-        const reg = getRegionalById(m.regionalId);
-        return `
-          <div class="coord-card" data-mun-id="${m.id}">
-            <h3>${m.nome}</h3>
-            <p>${reg?.nome || ''}</p>
-            <p class="text-sm text-muted">${coord?.nome || '—'} · ${count} programações</p>
-          </div>
-        `;
-      }).join('')}
+      ${renderMunicipioCards(municipios, programacoes)}
     </div>
   `;
 }
@@ -108,6 +129,26 @@ export function bindMunicipios(user, params) {
     if (container) bindTabs(container);
     return;
   }
+
+  const refresh = () => {
+    const grid = document.getElementById('grid-municipios');
+    if (!grid) return;
+    let municipios = getCollection('municipios');
+    const programacoes = getCollection('programacoes');
+    const regional = document.getElementById('filtro-regional')?.value;
+    const busca = document.getElementById('filtro-mun-busca')?.value?.toLowerCase().trim();
+    if (regional) municipios = municipios.filter((m) => m.regionalId === regional);
+    if (busca) municipios = municipios.filter((m) => m.nome.toLowerCase().includes(busca));
+    grid.innerHTML = renderMunicipioCards(municipios, programacoes);
+    grid.querySelectorAll('.coord-card[data-mun-id]').forEach((card) => {
+      card.addEventListener('click', () => {
+        window.location.hash = `municipios/${card.dataset.munId}`;
+      });
+    });
+  };
+
+  document.getElementById('filtro-regional')?.addEventListener('change', refresh);
+  document.getElementById('filtro-mun-busca')?.addEventListener('input', refresh);
 
   document.querySelectorAll('.coord-card[data-mun-id]').forEach((card) => {
     card.addEventListener('click', () => {

@@ -51,6 +51,7 @@ export function renderBiGerencial() {
           <h2>📊 BI Gerencial</h2>
           <p class="text-muted">BI da Diretoria de Vigilância — atualizado em tempo real conforme as gerências cadastram programações</p>
         </div>
+        <button type="button" class="btn btn-outline" id="btn-download-bi">⬇ Baixar relatório</button>
       </div>
 
       <div class="bi-exec-summary">
@@ -177,7 +178,47 @@ function renderCalHeat(dayCounts, year, month) {
   return html;
 }
 
+function csvEscape(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function downloadBiReport() {
+  const programacoes = getProgramacoes();
+  const now = new Date();
+  const lines = [
+    'SIGP-VS — Relatório BI Gerencial',
+    `Gerado em: ${now.toLocaleString('pt-BR')}`,
+    `Total de programações: ${programacoes.length}`,
+    '',
+    'Título;Gerência;Coordenação;Município;Data Ida;Data Volta;Status;Equipe',
+  ];
+  programacoes.forEach((p) => {
+    const coord = getCoordenacaoById(p.coordenacaoId);
+    const mun = getMunicipioById(p.municipioId);
+    const eq = (p.equipe || []).map((e) => e.nome).filter(Boolean).join(', ') || p.responsavel || '';
+    lines.push([
+      csvEscape(p.titulo),
+      csvEscape(getGerenciaByProgramacao(p)),
+      csvEscape(coord?.nome),
+      csvEscape(mun?.nome),
+      csvEscape(formatDate(p.dataInicial)),
+      csvEscape(formatDate(p.dataFinal)),
+      csvEscape(p.status),
+      csvEscape(eq),
+    ].join(';'));
+  });
+  const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sigp-vs-bi-${now.toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function bindBiGerencial() {
+  document.getElementById('btn-download-bi')?.addEventListener('click', downloadBiReport);
+
   const tabs = document.getElementById('bi-tabs');
   if (tabs) bindTabs(tabs.parentElement);
 
