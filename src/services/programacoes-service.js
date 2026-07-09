@@ -1,11 +1,14 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp, setDoc, getDoc,
+  onSnapshot, serverTimestamp, setDoc, getDoc, writeBatch,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
+import SEED_PROGRAMACOES from '../data/programacoes-gas-jun-set-2026.json';
+
+const SEED_IMPORT_KEY = 'sigp-seed-gas-2026-v1';
 
 let programacoesCache = [];
 let logisticaCache = [];
@@ -214,4 +217,37 @@ export async function fetchUserRole(uid) {
   const role = snap.exists() && snap.data().role === 'admin' ? 'admin' : 'usuario';
   setUserRole(role);
   return role;
+}
+
+/** Importa programações do PDF GAS (Jun–Set/2026) para o Firestore */
+export async function importProgramacoesSeed({ force = false } = {}) {
+  if (!force && localStorage.getItem(SEED_IMPORT_KEY) === 'done') {
+    return { skipped: true, count: 0 };
+  }
+  const database = requireDb();
+  const uid = requireUser();
+  const batch = writeBatch(database);
+
+  for (const item of SEED_PROGRAMACOES) {
+    const payload = sanitizeProgramacao({ ...item, status: item.status || 'Publicada' }, uid, true);
+    batch.set(doc(database, 'programacoes', item.id), {
+      ...payload,
+      criadoEm: serverTimestamp(),
+    }, { merge: true });
+  }
+  await batch.commit();
+
+  for (const item of SEED_PROGRAMACOES) {
+    if (item.necessitaTransporte || item.necessitaAlimentacao) {
+      const saved = { id: item.id, ...sanitizeProgramacao(item, uid, true) };
+      await syncLogisticaToFirestore(saved);
+    }
+  }
+
+  localStorage.setItem(SEED_IMPORT_KEY, 'done');
+  return { skipped: false, count: SEED_PROGRAMACOES.length };
+}
+
+export function getSeedProgramacoesCount() {
+  return SEED_PROGRAMACOES.length;
 }
