@@ -90,7 +90,7 @@ export function renderAdministracao(user) {
       ${isAdmin(user) ? `
         <div class="mt-2" style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-outline btn-sm" id="btn-reimport-seed">Reimportar viagens da planilha</button>
-          <button class="btn btn-danger btn-sm" id="btn-delete-all-prog">Apagar TODAS as programações</button>
+          <button class="btn btn-danger btn-sm" id="btn-delete-all-prog">Apagar programações e logística</button>
         </div>` : ''}
     </div></div>`;
 }
@@ -160,10 +160,10 @@ export function bindAdministracao(user) {
     }
   });
   document.getElementById('btn-delete-all-prog')?.addEventListener('click', async () => {
-    if ((await confirmDialog('Apagar TODAS as programações do sistema? Esta ação não pode ser desfeita.')) !== 'confirm') return;
+    if ((await confirmDialog('Apagar TODAS as programações e TODA a logística do sistema? Esta ação não pode ser desfeita.')) !== 'confirm') return;
     try {
-      const n = await deleteAllProgramacoes();
-      toast(`${n} programação(ões) apagada(s).`, 'success');
+      const { programacoes, logistica } = await deleteAllProgramacoes();
+      toast(`${programacoes} programação(ões) e ${logistica} registro(s) de logística apagados.`, 'success');
     } catch (err) {
       toast(err.message || 'Erro ao apagar.', 'error');
     }
