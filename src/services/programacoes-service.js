@@ -290,6 +290,22 @@ async function batchDeleteProgramacoes(items) {
   return deleted;
 }
 
+/** Apaga TODOS os registros da coleção logistica (inclui órfãos) */
+async function batchDeleteAllLogistica() {
+  const database = requireDb();
+  const snap = await getDocs(collection(database, 'logistica'));
+  if (!snap.docs.length) return 0;
+  let deleted = 0;
+  for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+    const chunk = snap.docs.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(database);
+    chunk.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    deleted += chunk.length;
+  }
+  return deleted;
+}
+
 /** Apaga do Firestore tudo anterior a jul/2026 e seeds obsoletos */
 export async function purgeOutdatedProgramacoes(validSeedIds = new Set()) {
   const database = requireDb();
@@ -312,7 +328,7 @@ export async function purgeOutdatedProgramacoes(validSeedIds = new Set()) {
   return batchDeleteProgramacoes([...toDelete.values()]);
 }
 
-/** Apaga TODAS as programações e logística associada (somente admin) */
+/** Apaga TODAS as programações e TODA a logística (somente admin) */
 export async function deleteAllProgramacoes() {
   requireUser();
   if (getUserRole() !== 'admin') {
@@ -321,9 +337,10 @@ export async function deleteAllProgramacoes() {
   const database = requireDb();
   const snap = await getDocs(collection(database, 'programacoes'));
   const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const deleted = await batchDeleteProgramacoes(items);
+  const programacoes = await batchDeleteProgramacoes(items);
+  const logistica = await batchDeleteAllLogistica();
   localStorage.removeItem(SEED_IMPORT_KEY);
-  return deleted;
+  return { programacoes, logistica };
 }
 
 /** Importa programações da planilha Excel (GAS/GAP/GVS) para o Firestore */
