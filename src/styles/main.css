@@ -217,7 +217,10 @@ tbody tr:hover { background: var(--gray-50); }
 .badge-rascunho { background: var(--gray-200); color: var(--gray-700); }
 .badge-pendente { background: var(--warning-light); color: #856404; }
 .badge-aprovada { background: var(--success-light); color: var(--success); }
-.badge-publicada { background: var(--primary-light); color: var(--primary-dark); }
+.badge-programada { background: #E3F2FD; color: #1351B4; }
+.badge-aprovado { background: #E8F5E9; color: #2E7D32; }
+.badge-publicada, .badge-aprovada { background: #E8F5E9; color: #2E7D32; }
+.badge-concluida { background: #E8F5E9; color: #2E7D32; }
 .badge-concluida { background: #E8F5E9; color: #2E7D32; }
 .badge-cancelada { background: var(--danger-light); color: var(--danger); }
 .badge-solicitado { background: var(--warning-light); color: #856404; }

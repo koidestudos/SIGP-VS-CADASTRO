@@ -25,7 +25,9 @@ function defaultCoords(index) {
   return positions[index % positions.length];
 }
 
-const STATUS_COLORS = { Publicada: '#168821', Pendente: '#ca8a04', Aprovada: '#168821', Rascunho: '#1351B4' };
+const STATUS_COLORS = {
+  Programada: '#1351B4', Aprovado: '#168821', Pendente: '#ca8a04', Rascunho: '#6C757D',
+};
 
 export function renderPiauiMap() {
   const programacoes = getProgramacoes();

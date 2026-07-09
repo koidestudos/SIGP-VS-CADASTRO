@@ -102,7 +102,7 @@ function renderCoordDetail(coordId) {
         <ul class="mt-2" style="padding-left:20px">
           <li>Programação Mensal — ${programacoes.length} ações</li>
           <li>Programação por Município</li>
-          <li>Programações Concluídas — ${programacoes.filter((p) => p.status === 'Concluída').length}</li>
+          <li>Viagens Aprovadas — ${programacoes.filter((p) => p.status === 'Aprovado').length}</li>
           <li>Programações Pendentes — ${programacoes.filter((p) => p.status === 'Pendente').length}</li>
         </ul>
         <button class="btn btn-outline btn-sm mt-2" onclick="window.location.hash='relatorios'">Exportar relatórios →</button>

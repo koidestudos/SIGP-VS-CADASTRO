@@ -14,7 +14,7 @@ export function renderAdministracao(user) {
       <span class="step">Cadastra programação</span><span class="arrow">→</span>
       <span class="step">Revisa</span><span class="arrow">→</span>
       <span class="step">Aprova</span><span class="arrow">→</span>
-      <span class="step">Publicada no calendário</span>
+      <span class="step">Programada no calendário</span>
     </div>
     <div class="tabs" id="admin-tabs">
       <button class="tab active" data-tab="coords">Coordenações</button>
@@ -46,9 +46,9 @@ export function renderAdministracao(user) {
         </tbody></table></div>
     </div>
     <div class="card mt-3"><div class="card-body">
-      <h3>Programações do PDF (GAS — Jun a Set/2026)</h3>
-      <p class="text-sm text-muted">${getSeedProgramacoesCount()} ações cadastradas no arquivo de importação. A importação para o Firestore ocorre automaticamente no login do administrador.</p>
-      ${isAdmin(user) ? `<button class="btn btn-outline btn-sm mt-2" id="btn-reimport-seed">Reimportar programações do PDF</button>` : ''}
+      <h3>Programações da planilha Excel (GAS · GAP · GVS)</h3>
+      <p class="text-sm text-muted">${getSeedProgramacoesCount()} viagens na planilha. Branco = <strong>Programada</strong>, verde = <strong>Aprovado</strong>. Importação automática no login do administrador.</p>
+      ${isAdmin(user) ? `<button class="btn btn-outline btn-sm mt-2" id="btn-reimport-seed">Reimportar viagens da planilha</button>` : ''}
     </div></div>
     <div class="card mt-3"><div class="card-body">
       <h3>Gerências</h3>
@@ -58,7 +58,7 @@ export function renderAdministracao(user) {
 
 export function bindAdministracao(user) {
   document.getElementById('btn-reimport-seed')?.addEventListener('click', async () => {
-    if ((await confirmDialog('Reimportar todas as programações do PDF? Itens existentes serão atualizados.')) !== 'confirm') return;
+    if ((await confirmDialog('Reimportar todas as viagens da planilha Excel? Itens existentes serão atualizados.')) !== 'confirm') return;
     try {
       const res = await importProgramacoesSeed({ force: true });
       toast(`${res.count} programações importadas.`, 'success');
