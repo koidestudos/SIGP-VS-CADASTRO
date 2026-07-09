@@ -16,6 +16,7 @@ MONTHS = {
     'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12,
 }
 GERENCIA_SHEETS = ('GAS', 'GAP', 'GVS')
+MIN_DATE = '2026-07-01'  # apenas julho/2026 em diante
 PROGRAMADA_COLORS = {
     'FFFFFF', 'F3F3F3', 'F2F2F2', 'F1EFC1', 'D9E1F2', 'FBD4B4',
     'FFE599', 'FFD966', 'F9CB9C', 'E06666', 'FFFF00', 'FFF000',
@@ -124,12 +125,16 @@ def parse_dates(val, month_n, default_year=2026):
         yr = 2000 + int(m.group(3))
         d1 = fmt_date(yr, int(m.group(2)), int(m.group(1)))
         return d1, d1
-    m = re.search(r'(\d{1,2})\s*[aAàÀeE]\s*(\d{1,2})[/\-.](\d{2,4})', s)
+    m = re.search(r'(\d{1,2})\s*[aAàÀeE]\s*(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?', s)
     if m:
-        d1, d2, yr = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        d1, d2 = int(m.group(1)), int(m.group(2))
+        mon = int(m.group(3))
+        yr = int(m.group(4)) if m.group(4) else default_year
         if yr < 100:
             yr += 2000
-        return fmt_date(yr, month_n, d1), fmt_date(yr, month_n, d2)
+        if mon <= 12:
+            return fmt_date(yr, mon, d1), fmt_date(yr, mon, d2)
+        return fmt_date(default_year, month_n, d1), fmt_date(default_year, month_n, d2)
     m = re.search(r'(\d{1,2})\s*[aAàÀeE]\s*(\d{1,2})', s)
     if m:
         d1, d2 = int(m.group(1)), int(m.group(2))
@@ -150,6 +155,14 @@ def parse_dates(val, month_n, default_year=2026):
     if m:
         return fmt_date(int(m.group(2)), month_n, int(m.group(1))), fmt_date(int(m.group(2)), month_n, int(m.group(1)))
     return fmt_date(year, month_n, 1), fmt_date(year, month_n, 1)
+
+
+def clamp_schedule_year(d_str, default_year=2026):
+    y, m, d = d_str.split('-')
+    yi = int(y)
+    if yi < default_year:
+        return fmt_date(default_year, int(m), int(d))
+    return d_str
 
 
 COORD_RULES = [
@@ -232,6 +245,10 @@ def parse_workbook(xlsx_path, geo_path):
             titulo = re.sub(r'\s+', ' ', str(b)).strip()
             local = str(ws.cell(r, 7).value or '').strip()
             d1, d2 = parse_dates(ws.cell(r, 6).value, current_month_num)
+            d1 = clamp_schedule_year(d1)
+            d2 = clamp_schedule_year(d2)
+            if d1 < MIN_DATE:
+                continue
             mid = find_municipio(local, municipios)
             regional = next((m['regionalId'] for m in municipios if m['id'] == mid), '')
             equipe_raw = str(ws.cell(r, 10).value or '')
@@ -272,6 +289,10 @@ def main():
     out = root / 'src' / 'data' / 'programacoes-viagens-xlsx.json'
     geo = root / 'src' / 'data' / 'regions-municipios.json'
     rows = parse_workbook(xlsx, geo)
+    # Reindexar IDs após filtro de datas
+    for i, row in enumerate(rows, 1):
+        ger = row['observacoes'].split('Gerência ')[1].split(' |')[0].lower()
+        row['id'] = f'xls-{ger}-{i:04d}'
     out.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
     stats = Counter(r['status'] for r in rows)
     print(f'Gerado {out} — {len(rows)} programações ({dict(stats)})')
