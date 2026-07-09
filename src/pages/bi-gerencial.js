@@ -5,7 +5,7 @@ import { renderPiauiHeatMap, bindPiauiHeatMap } from '../components/piaui-map.js
 import {
   countServidores, countByGerencia, countByCoordenacao, countByMunicipio,
   countByRegional, countByMonth, countByTipo, countByPublico, countByStatus,
-  countByDay, logisticaStats, countServidoresList, countByCargo, proximasAcoes,
+  countByDay, logisticaStats, proximasAcoes,
   municipioStats,
 } from '../utils/bi-metrics.js';
 import { bindTabs } from '../components/ui.js';
@@ -19,7 +19,6 @@ const BI_TABS = [
   { id: 'tipo', label: 'Tipo de Ação' },
   { id: 'publico', label: 'Público-Alvo' },
   { id: 'log', label: 'Logístico' },
-  { id: 'equipe', label: 'Equipes' },
   { id: 'status', label: 'Status' },
   { id: 'cal', label: 'Calendário' },
 ];
@@ -42,9 +41,6 @@ export function renderBiGerencial() {
   const porPublico = countByPublico(programacoes);
   const porStatus = countByStatus(programacoes);
   const { transporte, alimentacao } = logisticaStats(programacoes);
-  const servidores = countServidoresList(programacoes);
-  const topServidor = servidores[0];
-  const porCargo = countByCargo(programacoes);
   const dayCounts = countByDay(programacoes);
   const { hoje, amanha, semana } = proximasAcoes(programacoes);
 
@@ -149,16 +145,6 @@ export function renderBiGerencial() {
           <div class="card chart-card"><div class="card-header"><h3>Transporte por gerência</h3></div>
             <div class="card-body">${renderHorizontalBarChart(countByGerencia(transporte))}</div></div>
         </div>
-      </div>
-
-      <div class="tab-content" data-tab-content="equipe">
-        <div class="kpi-grid-3 mb-3">
-          <div class="kpi-card kpi-simple"><strong>${countServidores(programacoes)}</strong><span>Servidores participando</span></div>
-          <div class="kpi-card kpi-simple"><strong>${topServidor?.nome || '—'}</strong><span>Mais participou (${topServidor?.count || 0}×)</span></div>
-          <div class="kpi-card kpi-simple"><strong>${porCargo.length}</strong><span>Cargos distintos</span></div>
-        </div>
-        <div class="card"><div class="card-header"><h3>Quantidade por cargo</h3></div>
-          <div class="card-body">${renderHorizontalBarChart(porCargo.slice(0, 10).map((c) => ({ label: c.label, value: c.value, color: '#1351B4' })))}</div></div>
       </div>
 
       <div class="tab-content" data-tab-content="status">

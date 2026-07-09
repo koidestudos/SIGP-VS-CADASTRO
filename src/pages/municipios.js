@@ -1,5 +1,6 @@
 import { getCollection } from '../services/storage.js';
 import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass } from '../data/seed.js';
+import { isAutorizado } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
 
 export function renderMunicipios(user, params = []) {
@@ -21,7 +22,7 @@ export function renderMunicipios(user, params = []) {
           <div class="coord-card" data-mun-id="${m.id}">
             <h3>${m.nome}</h3>
             <p>${reg?.nome || ''}</p>
-            <p class="text-sm text-muted">${coord?.sigla || '—'} · ${count} programações</p>
+            <p class="text-sm text-muted">${coord?.nome || '—'} · ${count} programações</p>
           </div>
         `;
       }).join('')}
@@ -36,8 +37,8 @@ function renderMunicipioDetail(munId) {
   const coord = getCoordenacaoById(mun.coordenacaoId);
   const reg = getRegionalById(mun.regionalId);
   const programacoes = getCollection('programacoes').filter((p) => p.municipioId === munId);
-  const previstas = programacoes.filter((p) => !['Aprovado', 'Cancelada'].includes(p.status));
-  const realizadas = programacoes.filter((p) => p.status === 'Aprovado');
+  const previstas = programacoes.filter((p) => !isAutorizado(p.status) && p.status !== 'Cancelada');
+  const realizadas = programacoes.filter((p) => isAutorizado(p.status));
 
   return `
     <div class="page-header">
@@ -91,7 +92,7 @@ function renderProgTable(items) {
           <tbody>
             ${items.length ? items.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
-              return `<tr><td>${p.titulo}</td><td>${coord?.sigla || '—'}</td><td>${formatDate(p.dataInicial)}</td>
+              return `<tr><td>${p.titulo}</td><td>${coord?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${p.status}</span></td></tr>`;
             }).join('') : '<tr><td colspan="4" class="text-center text-muted">Nenhuma programação.</td></tr>'}
           </tbody>

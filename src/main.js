@@ -3,7 +3,10 @@ import {
   initProgramacoesSync, subscribeProgramacoes, subscribeLogistica,
   upsertUserProfile, subscribeUserRole, importProgramacoesSeed, seedImportInProgress,
 } from './services/programacoes-service.js';
+import { refreshNotificationBadge, refreshSuporteBadge } from './components/layout.js';
+import { initCatalogSync, seedCatalogIfEmpty, subscribeCatalog } from './services/catalog-service.js';
 import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
+import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './services/suporte-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
@@ -109,10 +112,14 @@ watchAuth(async (user) => {
   if (user && isFirebaseConfigured) {
     try {
       initProgramacoesSync();
+      initCatalogSync();
       initNotificationsSync();
       await upsertUserProfile(user);
+      await seedCatalogIfEmpty();
       unsubUserRole = subscribeUserRole(user.uid, (role) => {
         currentUser = { ...user, role };
+        initSuporteSync(role === 'admin');
+        if (role === 'admin') registerSuporteAdmin(user);
         if (!appInitialized) {
           appInitialized = true;
           handleHash();
@@ -138,6 +145,8 @@ watchAuth(async (user) => {
 subscribeProgramacoes(() => { if (currentUser) scheduleRender(); });
 subscribeLogistica(() => { if (currentUser) scheduleRender(); });
 subscribeNotifications(() => { if (currentUser) refreshNotificationBadge(); });
+subscribeCatalog(() => { if (currentUser) scheduleRender(); });
+subscribeSuporteChats(() => { if (currentUser) refreshSuporteBadge(); });
 
 window.addEventListener('hashchange', handleHash);
 

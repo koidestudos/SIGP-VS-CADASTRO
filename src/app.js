@@ -55,7 +55,8 @@ export function renderApp(user, route, params) {
   setTimeout(() => {
     bindLayoutEvents(
       (r) => { window.location.hash = r; },
-      async () => { await logoutUser(); window.location.hash = 'login'; }
+      async () => { await logoutUser(); window.location.hash = 'login'; },
+      user,
     );
     page.bind?.(user, params);
   }, 0);

@@ -71,7 +71,7 @@ export function subscribeLogistica(callback) {
 }
 
 export function getProgramacoes() {
-  return visibleProgramacoes();
+  return visibleProgramacoes().sort((a, b) => (a.dataInicial || '').localeCompare(b.dataInicial || ''));
 }
 
 export function getLogistica() {
@@ -183,10 +183,12 @@ export async function removeProgramacao(id) {
   if (logItem) await deleteDoc(doc(database, 'logistica', logItem.id));
 }
 
-export async function approveProgramacao(id) {
-  const prog = getProgramacaoById(id);
+export async function approveProgramacao(id, status = 'Autorizado') {
+  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
   if (!prog) return null;
-  return saveProgramacao({ ...prog, status: 'Aprovado', aprovadoEm: new Date().toISOString() }, id);
+  const allowed = ['Programada', 'Autorizado'];
+  const next = allowed.includes(status) ? status : 'Autorizado';
+  return saveProgramacao({ ...prog, status: next, autorizadoEm: new Date().toISOString() }, id);
 }
 
 async function syncLogisticaToFirestore(programacao) {

@@ -16,7 +16,8 @@ import {
   importProgramacoesSeed,
   getSeedProgramacoesCount,
 } from './programacoes-service.js';
-import { COORDENACOES, MUNICIPIOS, REGIONAIS, EQUIPES } from '../data/seed.js';
+import { getCoordenacoes, getMunicipios, getRegionais } from './catalog-service.js';
+import { EQUIPES } from '../data/seed.js';
 import { canEdit, canApprove, isAdmin, canDeleteProgramacao } from './roles.js';
 
 export {
@@ -43,9 +44,9 @@ export {
 export function getCollection(name) {
   const map = {
     programacoes: getProgramacoes(),
-    coordenacoes: COORDENACOES,
-    municipios: MUNICIPIOS,
-    regionais: REGIONAIS,
+    coordenacoes: getCoordenacoes(),
+    municipios: getMunicipios(),
+    regionais: getRegionais(),
     equipes: EQUIPES,
     logistica: getLogistica(),
   };

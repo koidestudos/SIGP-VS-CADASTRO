@@ -26,7 +26,7 @@ function defaultCoords(index) {
 }
 
 const STATUS_COLORS = {
-  Programada: '#1351B4', Aprovado: '#168821', Pendente: '#ca8a04', Rascunho: '#6C757D',
+  Programada: '#1351B4', Autorizado: '#168821', Aprovado: '#168821', Pendente: '#ca8a04', Rascunho: '#6C757D',
 };
 
 export function renderPiauiHeatMap() {

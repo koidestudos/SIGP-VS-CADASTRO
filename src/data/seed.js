@@ -1,26 +1,10 @@
-import geo from './regions-municipios.json';
+import {
+  GERENCIAS, COORDENACOES, REGIONAIS, MUNICIPIOS, EQUIPES,
+} from './reference-data.js';
+import { getCoordenacoes, getMunicipios, getRegionais } from '../services/catalog-service.js';
+import { normalizeStatus } from '../utils/status.js';
 
-export const GERENCIAS = ['GAS', 'GAP', 'GVS'];
-
-export const COORDENACOES = [
-  { id: 'gas-idoso', nome: 'Coordenação de Atenção à Saúde do Idoso', gerencia: 'GAS', sigla: 'CASI' },
-  { id: 'gas-mulher', nome: 'Coordenação à Saúde da Mulher', gerencia: 'GAS', sigla: 'CASM' },
-  { id: 'gas-crianca', nome: 'Coordenação de Atenção à Saúde da Criança e Adolescente', gerencia: 'GAS', sigla: 'CASCA' },
-  { id: 'gas-dt', nome: 'Coordenação de Doenças Transmissíveis', gerencia: 'GAS', sigla: 'CDT' },
-  { id: 'gas-pcd', nome: 'Coordenação de Atenção à Pessoa com Deficiência', gerencia: 'GAS', sigla: 'CAPCD' },
-  { id: 'gas-equidade', nome: 'Coordenação de Equidade', gerencia: 'GAS', sigla: 'CEQ' },
-  { id: 'gas-cta', nome: 'CTA', gerencia: 'GAS', sigla: 'CTA' },
-  { id: 'gap-bucal', nome: 'Coordenação de Saúde Bucal', gerencia: 'GAP', sigla: 'CSB' },
-  { id: 'gap-aps', nome: 'Coordenação de Atenção Primária', gerencia: 'GAP', sigla: 'CAPS' },
-  { id: 'gvs-epi', nome: 'Coordenação de Epidemiologia', gerencia: 'GVS', sigla: 'CEPI' },
-  { id: 'gvs-analise', nome: 'Coordenação de Análise', gerencia: 'GVS', sigla: 'CAN' },
-  { id: 'gvs-cvsa', nome: 'Coordenação de Vigilância em Saúde Ambiental - CVSA', gerencia: 'GVS', sigla: 'CVSA' },
-  { id: 'gvs-pvt', nome: 'Equipe PVT', gerencia: 'GVS', sigla: 'PVT' },
-  { id: 'gvs-imuno', nome: 'Coordenação de Imunização', gerencia: 'GVS', sigla: 'CIM' },
-];
-
-export const REGIONAIS = geo.regions;
-export const MUNICIPIOS = geo.municipios;
+export { GERENCIAS, COORDENACOES, REGIONAIS, MUNICIPIOS, EQUIPES };
 
 export const GERENCIA_COLORS = {
   GAS: { bg: '#dbeafe', border: '#1351B4', text: '#1351B4' },
@@ -36,18 +20,11 @@ export const TIPOS_ATIVIDADE = [
 ];
 
 export const STATUS_PROGRAMACAO = [
-  'Rascunho', 'Pendente', 'Programada', 'Aprovado', 'Cancelada',
+  'Rascunho', 'Pendente', 'Programada', 'Autorizado', 'Cancelada',
 ];
-
-export const EQUIPES = [
-  { id: 'e1', nome: 'Ivone Venâncio', cargo: 'Coordenadora', coordenacaoId: 'gas-crianca' },
-  { id: 'e2', nome: 'Maria Boa Ventura', cargo: 'Enfermeira', coordenacaoId: 'gas-crianca' },
-  { id: 'e3', nome: 'Teodoro Cordela', cargo: 'Técnico', coordenacaoId: 'gas-crianca' },
-];
-
 
 export function getCoordenacaoById(id) {
-  return COORDENACOES.find((c) => c.id === id);
+  return getCoordenacoes().find((c) => c.id === id) || COORDENACOES.find((c) => c.id === id);
 }
 
 export function getGerenciaByProgramacao(p) {
@@ -55,26 +32,28 @@ export function getGerenciaByProgramacao(p) {
 }
 
 export function getMunicipioById(id) {
-  return MUNICIPIOS.find((m) => m.id === id);
+  return getMunicipios().find((m) => m.id === id) || MUNICIPIOS.find((m) => m.id === id);
 }
 
 export function getRegionalById(id) {
   if (!id) return null;
-  return REGIONAIS.find((r) => r.id === id);
+  return getRegionais().find((r) => r.id === id) || REGIONAIS.find((r) => r.id === id);
 }
 
 export function getMunicipiosByRegional(regionalId) {
-  if (!regionalId) return MUNICIPIOS;
-  return MUNICIPIOS.filter((m) => m.regionalId === regionalId);
+  const list = getMunicipios();
+  if (!regionalId) return list;
+  return list.filter((m) => m.regionalId === regionalId);
 }
 
 export function getStatusBadgeClass(status) {
+  const s = normalizeStatus(status);
   const map = {
     Rascunho: 'badge-rascunho', Pendente: 'badge-pendente',
-    Programada: 'badge-programada', Aprovado: 'badge-aprovado', Cancelada: 'badge-cancelada',
+    Programada: 'badge-programada', Autorizado: 'badge-aprovado', Cancelada: 'badge-cancelada',
     Solicitado: 'badge-solicitado', Confirmado: 'badge-confirmado',
   };
-  return map[status] || 'badge-rascunho';
+  return map[s] || 'badge-rascunho';
 }
 
 export function formatDate(dateStr) {

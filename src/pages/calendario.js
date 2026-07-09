@@ -43,7 +43,7 @@ export function renderCalendario() {
           }).join('')}
           <span class="cal-legend-item"><i style="background:#7c3aed"></i>DUVAS</span>
           <span class="cal-legend-item"><i style="border:2px dashed #1351B4;background:#fff"></i>Programada</span>
-          <span class="cal-legend-item"><i style="background:#168821"></i>Aprovado ✓</span>
+          <span class="cal-legend-item"><i style="background:#168821"></i>Autorizado ✓</span>
         </div>
       </div>
     </div>
@@ -62,12 +62,12 @@ function renderEventBlock(p) {
   const ger = getGerenciaByProgramacao(p);
   const c = getGerenciaColor(ger);
   const mun = getMunicipioById(p.municipioId);
-  const aprovado = p.status === 'Aprovado';
-  const borderStyle = aprovado ? 'solid' : 'dashed';
-  const opacity = aprovado ? '1' : '0.92';
+  const autorizado = p.status === 'Autorizado' || p.status === 'Aprovado';
+  const borderStyle = autorizado ? 'solid' : 'dashed';
+  const opacity = autorizado ? '1' : '0.92';
   return `<div class="cal-event-block" style="background:${c.bg};border-left:3px ${borderStyle} ${c.border};color:${c.text};opacity:${opacity}"
-    data-event-id="${p.id}" title="${p.titulo}${aprovado ? ' (Aprovado)' : ' (Programada)'}">
-    <strong>${shortTitle(p.titulo)}</strong><span>${mun?.nome || ''}${aprovado ? ' ✓' : ''}</span>
+    data-event-id="${p.id}" title="${p.titulo}${autorizado ? ' (Autorizado)' : ' (Programada)'}">
+    <strong>${shortTitle(p.titulo)}</strong><span>${mun?.nome || ''}${autorizado ? ' ✓' : ''}</span>
   </div>`;
 }
 
