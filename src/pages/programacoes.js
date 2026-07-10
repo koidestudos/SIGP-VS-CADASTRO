@@ -80,13 +80,13 @@ async function showApproveDialog(id) {
     body: '<p>Como deseja registrar esta programação enviada pela coordenação?</p>',
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
-      <button class="btn btn-outline" data-modal-action="analise">Em análise</button>
+      <button class="btn btn-outline" data-modal-action="programada">Programada</button>
       <button class="btn btn-outline" data-modal-action="reprovar">Reprovar</button>
       <button class="btn btn-primary" data-modal-action="autorizar">Autorizar</button>`,
   });
-  if (action === 'analise') {
-    await updateProgramacaoStatus(id, 'Em análise');
-    toast('Programação marcada como Em análise.', 'success');
+  if (action === 'programada') {
+    await updateProgramacaoStatus(id, 'Programada');
+    toast('Programação marcada como Programada.', 'success');
   } else if (action === 'reprovar') {
     await rejectProgramacao(id);
     toast('Programação reprovada.', 'success');

@@ -74,7 +74,7 @@ export function renderBiGerencial() {
         <div class="bi-kpi-hero-card bi-kpi-orange">
           <span class="bi-kpi-hero-label">🟧 Percentual de Execução</span>
           <strong>${formatPercentualExecucao(percentual)}%</strong>
-          <small>Realizadas ÷ Autorizadas</small>
+          <small>(Realizadas + Autorizadas) ÷ Cadastradas</small>
         </div>
       </div>
 

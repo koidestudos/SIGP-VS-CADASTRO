@@ -215,15 +215,15 @@ tbody tr:hover { background: var(--gray-50); }
 
 .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 .badge-rascunho { background: var(--gray-200); color: var(--gray-700); }
-.badge-enviada { background: #EEF2FF; color: #4338ca; }
+.badge-enviada { background: #FEF9C3; color: #854d0e; border: 1px solid #FACC15; }
+.badge-programada { background: #E3F2FD; color: #1351B4; }
+.badge-autorizada { background: #1B5E20; color: #fff; }
 .badge-analise { background: var(--warning-light); color: #856404; }
-.badge-autorizada { background: #E3F2FD; color: #1351B4; }
 .badge-execucao { background: #CCFBF1; color: #0d9488; }
 .badge-realizada { background: #E8F5E9; color: #2E7D32; }
 .badge-reprovada { background: #FEE2E2; color: #dc2626; }
 .badge-pendente { background: var(--warning-light); color: #856404; }
 .badge-aprovada { background: var(--success-light); color: var(--success); }
-.badge-programada { background: #E3F2FD; color: #1351B4; }
 .badge-aprovado { background: #E8F5E9; color: #2E7D32; }
 .badge-publicada, .badge-aprovada { background: #E8F5E9; color: #2E7D32; }
 .badge-concluida { background: #E8F5E9; color: #2E7D32; }

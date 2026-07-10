@@ -26,7 +26,7 @@ export function renderIndicadores() {
     value: doMes.filter((p) => p.coordenacaoId === c.id).length,
   })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
 
-  const emAnalise = counts['Em análise'] + counts['Enviada para Gerência'];
+  const aguardando = counts.Programada + counts['Enviada para Gerência'];
   const autorizadas = counts.Autorizada + counts['Em execução'];
   const taxaRealizacao = autorizadas + counts.Realizada
     ? Math.round((counts.Realizada / (autorizadas + counts.Realizada)) * 100)
@@ -37,7 +37,7 @@ export function renderIndicadores() {
 
     <div class="kpi-grid-3 mb-3">
       <div class="kpi-card kpi-simple"><strong>${doMes.length}</strong><span>Ações no mês (BI)</span></div>
-      <div class="kpi-card kpi-simple"><strong>${emAnalise}</strong><span>Em análise / aguardando gerência</span></div>
+      <div class="kpi-card kpi-simple"><strong>${aguardando}</strong><span>Programadas / aguardando gerência</span></div>
       <div class="kpi-card kpi-simple"><strong>${taxaRealizacao}%</strong><span>Taxa de realização</span></div>
     </div>
 
