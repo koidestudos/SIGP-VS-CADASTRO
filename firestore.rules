@@ -56,7 +56,9 @@ service cloud.firestore {
         && (!('objetivo' in data) || (data.objetivo is string && data.objetivo.size() <= 5000))
         && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 5000))
         && (!('equipe' in data) || data.equipe is list)
-        && (!('equipe' in data) || data.equipe.size() <= 50);
+        && (!('equipe' in data) || data.equipe.size() <= 50)
+        && (!('municipioIds' in data) || data.municipioIds is list)
+        && (!('municipioIds' in data) || data.municipioIds.size() <= 20);
     }
 
     function validUserProfile(data) {

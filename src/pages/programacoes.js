@@ -2,7 +2,7 @@ import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramac
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao,
+  getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
 import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
@@ -44,7 +44,7 @@ function renderRows(items, user) {
   if (!items.length) return '<tr><td colspan="9" class="text-center text-muted">Nenhuma programação.</td></tr>';
   return items.map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
-    const mun = getMunicipioById(p.municipioId);
+    const munLabel = getMunicipiosLabel(p);
     const ger = getGerenciaByProgramacao(p);
     const canEdit = canEditProgramacao(user, p);
     const approve = canApprove(user) && needsApproval(p.status)
@@ -60,7 +60,7 @@ function renderRows(items, user) {
     return `<tr>
       <td>${p.titulo}</td>
       <td><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
-      <td>${coord?.nome || '—'}</td><td>${mun?.nome || '—'}</td>
+      <td>${coord?.nome || '—'}</td><td>${munLabel}</td>
       <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
       <td>${equipeLabel(p)}</td>
       <td>${statusCell}</td>
