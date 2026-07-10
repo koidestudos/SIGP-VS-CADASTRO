@@ -1,7 +1,7 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
 import {
-  getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
-  getGerenciaByProgramacao,
+  getCoordenacaoById, formatDate, getStatusBadgeClass,
+  getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
 import { proximasAcoes } from '../utils/bi-metrics.js';
 import { countByStatusGroup, filterForBI, normalizeStatus } from '../utils/status.js';
@@ -33,10 +33,10 @@ function renderMiniCalendar(programacoes, year, month) {
 function renderAcaoList(items, emptyMsg) {
   if (!items.length) return `<p class="text-muted text-sm">${emptyMsg}</p>`;
   return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => {
-    const mun = getMunicipioById(p.municipioId);
+    const munLabel = getMunicipiosLabel(p);
     return `<li>
       <strong>${p.titulo}</strong>
-      <span>${mun?.nome || '—'} · ${formatDate(p.dataInicial)}</span>
+      <span>${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)}</span>
     </li>`;
   }).join('')}</ul>`;
 }
@@ -159,10 +159,10 @@ export function renderDashboard(user) {
           <div class="table-wrapper"><table>
             <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Status</th></tr></thead>
             <tbody>${proximas.map((p) => {
-              const mun = getMunicipioById(p.municipioId);
+              const munLabel = getMunicipiosLabel(p);
               return `<tr>
                 <td class="td-action">${p.titulo}</td>
-                <td>${mun?.nome || '—'}</td>
+                <td>${getMunicipiosLabel(p)}</td>
                 <td>${formatDate(p.dataInicial)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
               </tr>`;

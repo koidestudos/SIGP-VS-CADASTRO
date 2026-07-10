@@ -6,7 +6,7 @@ import {
   countByDay, logisticaStats, proximasAcoes,
   municipioStats,
 } from '../utils/bi-metrics.js';
-import { formatDate, getGerenciaByProgramacao, getCoordenacaoById, getMunicipioById, GERENCIAS } from '../data/seed.js';
+import { formatDate, getGerenciaByProgramacao, getCoordenacaoById, getMunicipioById, GERENCIAS, countUniqueMunicipios } from '../data/seed.js';
 import { renderDonutChart, renderBarChart, renderHorizontalBarChart } from '../components/charts.js';
 import { renderPiauiHeatMap, bindPiauiHeatMap } from '../components/piaui-map.js';
 import { bindTabs } from '../components/ui.js';
@@ -80,7 +80,7 @@ export function renderBiGerencial() {
 
       <div class="bi-exec-summary">
         <div class="bi-exec-card"><span>📅 Programações do mês (BI)</span><strong>${doMes.length}</strong></div>
-        <div class="bi-exec-card"><span>📍 Municípios</span><strong>${new Set(programacoes.map((p) => p.municipioId)).size}</strong></div>
+        <div class="bi-exec-card"><span>📍 Municípios</span><strong>${countUniqueMunicipios(programacoes)}</strong></div>
         <div class="bi-exec-card"><span>🏢 Coordenações</span><strong>${new Set(programacoes.map((p) => p.coordenacaoId)).size}</strong></div>
         <div class="bi-exec-card"><span>👥 Servidores</span><strong>${countServidores(programacoes)}</strong></div>
       </div>
@@ -93,7 +93,7 @@ export function renderBiGerencial() {
         <div class="kpi-grid-6">
           <div class="kpi-card"><div class="kpi-icon blue">📅</div><div><strong>${programacoes.length}</strong><span>Total de Programações</span></div></div>
           <div class="kpi-card"><div class="kpi-icon green">🏢</div><div><strong>${new Set(programacoes.map((p) => p.coordenacaoId)).size}</strong><span>Coordenações ativas</span></div></div>
-          <div class="kpi-card"><div class="kpi-icon teal">📍</div><div><strong>${new Set(programacoes.map((p) => p.municipioId)).size}</strong><span>Municípios atendidos</span></div></div>
+          <div class="kpi-card"><div class="kpi-icon teal">📍</div><div><strong>${countUniqueMunicipios(programacoes)}</strong><span>Municípios atendidos</span></div></div>
           <div class="kpi-card"><div class="kpi-icon purple">👥</div><div><strong>${countServidores(programacoes)}</strong><span>Servidores envolvidos</span></div></div>
           <div class="kpi-card"><div class="kpi-icon orange">🚗</div><div><strong>${transporte.length}</strong><span>Com transporte</span></div></div>
           <div class="kpi-card"><div class="kpi-icon gold">🍽</div><div><strong>${alimentacao.length}</strong><span>Com alimentação</span></div></div>

@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   formatDate, getCoordenacaoById, getMunicipioById, getRegionalById,
-  getGerenciaByProgramacao, getMunicipiosLabel,
+  getGerenciaByProgramacao, getMunicipiosLabel, getMunicipioIdsFromProgramacao,
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
 
@@ -13,8 +13,7 @@ export function downloadProgramacaoPdf(prog) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const coord = getCoordenacaoById(prog.coordenacaoId);
-  const mun = getMunicipioById(prog.municipioId);
-  const reg = getRegionalById(prog.regionalId || mun?.regionalId);
+  const reg = getRegionalById(prog.regionalId || getMunicipioById(getMunicipioIdsFromProgramacao(prog)[0])?.regionalId);
   const now = new Date();
   const equipe = (prog.equipe || []).map((e) => `${e.nome}${e.cargo ? ` (${e.cargo})` : ''}`).join(', ');
 

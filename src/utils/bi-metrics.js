@@ -1,6 +1,7 @@
 import {
-  COORDENACOES, GERENCIAS, REGIONAIS, MUNICIPIOS,
   getCoordenacaoById, getGerenciaByProgramacao, getMunicipioById, getRegionalById,
+  programacaoHasMunicipio, countUniqueMunicipios, forEachProgramacaoMunicipio,
+  getMunicipioIdsFromProgramacao,
 } from '../data/seed.js';
 import { normalizeStatus, filterForBI, STATUS_PROGRAMACAO, isInBI, countByStatusGroup } from './status.js';
 
@@ -64,9 +65,8 @@ export function countByCoordenacao(programacoes) {
 
 export function countByMunicipio(programacoes) {
   const map = new Map();
-  programacoes.forEach((p) => {
-    if (!p.municipioId) return;
-    map.set(p.municipioId, (map.get(p.municipioId) || 0) + 1);
+  forEachProgramacaoMunicipio(programacoes, (_p, munId) => {
+    map.set(munId, (map.get(munId) || 0) + 1);
   });
   return [...map.entries()].map(([id, count]) => ({
     id,
@@ -76,7 +76,7 @@ export function countByMunicipio(programacoes) {
 }
 
 export function municipioStats(programacoes, munId) {
-  const items = programacoes.filter((p) => p.municipioId === munId);
+  const items = programacoes.filter((p) => programacaoHasMunicipio(p, munId));
   const coords = new Set(items.map((p) => p.coordenacaoId).filter(Boolean));
   const dias = new Set();
   items.forEach((p) => {
@@ -99,13 +99,20 @@ export function countByRegional(programacoes) {
   return REGIONAIS.map((r) => {
     const muns = MUNICIPIOS.filter((m) => m.regionalId === r.id);
     const munIds = new Set(muns.map((m) => m.id));
-    const items = programacoes.filter((p) => munIds.has(p.municipioId));
+    const items = programacoes.filter((p) =>
+      getMunicipioIdsFromProgramacao(p).some((id) => munIds.has(id)));
     const coords = new Set(items.map((p) => p.coordenacaoId));
+    const municipiosAtendidos = new Set();
+    items.forEach((p) => {
+      getMunicipioIdsFromProgramacao(p).forEach((id) => {
+        if (munIds.has(id)) municipiosAtendidos.add(id);
+      });
+    });
     return {
       id: r.id,
       nome: r.nome,
       programacoes: items.length,
-      municipios: new Set(items.map((p) => p.municipioId)).size,
+      municipios: municipiosAtendidos.size,
       coordenacoes: coords.size,
     };
   }).filter((r) => r.programacoes > 0).sort((a, b) => b.programacoes - a.programacoes);

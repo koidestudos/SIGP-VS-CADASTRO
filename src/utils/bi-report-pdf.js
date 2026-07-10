@@ -4,7 +4,7 @@ import { getProgramacoes } from '../services/programacoes-service.js';
 import { getProgramacoesForBI } from './bi-metrics.js';
 import { normalizeStatus } from './status.js';
 import {
-  formatDate, getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
+  formatDate, getCoordenacaoById, getGerenciaByProgramacao, countUniqueMunicipios, getMunicipiosLabel,
 } from '../data/seed.js';
 import {
   countServidores, countByGerencia, countByRegional, countByStatus, countByMonth,
@@ -93,7 +93,7 @@ export async function downloadBiReportPdf() {
   const kpiY = 40;
   const kpiW = (pageW - 28 - 12) / 4;
   kpiBox(doc, 14, kpiY, kpiW, 30, 'Total de Programações', programacoes.length);
-  kpiBox(doc, 14 + kpiW + 4, kpiY, kpiW, 30, 'Municípios', new Set(programacoes.map((p) => p.municipioId)).size);
+  kpiBox(doc, 14 + kpiW + 4, kpiY, kpiW, 30, 'Municípios', countUniqueMunicipios(programacoes));
   kpiBox(doc, 14 + (kpiW + 4) * 2, kpiY, kpiW, 30, 'Coordenações', new Set(programacoes.map((p) => p.coordenacaoId)).size);
   kpiBox(doc, 14 + (kpiW + 4) * 3, kpiY, kpiW, 30, 'Servidores', countServidores(programacoes));
 
@@ -121,13 +121,13 @@ export async function downloadBiReportPdf() {
 
   const rows = programacoes.map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
-    const mun = getMunicipioById(p.municipioId);
+    const mun = getMunicipiosLabel(p);
     const eq = (p.equipe || []).map((e) => e.nome).filter(Boolean).join(', ') || p.responsavel || '—';
     return [
       (p.titulo || '—').slice(0, 45),
       getGerenciaByProgramacao(p),
       (coord?.nome || '—').slice(0, 28),
-      (mun?.nome || '—').slice(0, 20),
+      (mun || '—').slice(0, 20),
       formatDate(p.dataInicial),
       formatDate(p.dataFinal),
       normalizeStatus(p.status),

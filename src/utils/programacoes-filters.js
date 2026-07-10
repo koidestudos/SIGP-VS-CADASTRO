@@ -1,6 +1,6 @@
 import {
   getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
-  GERENCIAS, COORDENACOES,
+  GERENCIAS, COORDENACOES, getMunicipioIdsFromProgramacao,
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
 
@@ -94,8 +94,7 @@ export function filterProgramacoes(items, state = readFilterState()) {
 
   if (state.busca) {
     result = result.filter((p) => {
-      const muns = (Array.isArray(p.municipioIds) && p.municipioIds.length ? p.municipioIds : [p.municipioId])
-        .map((id) => getMunicipioById(id)?.nome || '').join(' ');
+      const muns = getMunicipioIdsFromProgramacao(p).map((id) => getMunicipioById(id)?.nome || '').join(' ');
       const coordNome = getCoordenacaoById(p.coordenacaoId)?.nome || '';
       const eq = (p.equipe || []).map((e) => e.nome).join(' ');
       return [p.titulo, p.responsavel, p.objetivo, muns, coordNome, eq].join(' ').toLowerCase().includes(state.busca);
