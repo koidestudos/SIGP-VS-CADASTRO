@@ -9,10 +9,10 @@ export { filterForBI as getProgramacoesForBI };
 export function biExecutiveKpis(allProgramacoes) {
   const counts = countByStatusGroup(allProgramacoes);
   const cadastradas = allProgramacoes.length;
-  const autorizadas = counts.Autorizada + counts['Em execução'] + counts.Realizada;
+  const autorizadas = counts.Autorizada;
   const realizadas = counts.Realizada;
-  const percentual = autorizadas > 0
-    ? Math.round((realizadas / autorizadas) * 1000) / 10
+  const percentual = cadastradas > 0
+    ? Math.round(((realizadas + autorizadas) / cadastradas) * 1000) / 10
     : 0;
   return { cadastradas, autorizadas, realizadas, percentual };
 }
@@ -163,8 +163,8 @@ export function countByStatus(programacoes) {
     Autorizada: { label: 'Autorizadas', color: '#168821' },
     'Em execução': { label: 'Em execução', color: '#1351B4' },
     Realizada: { label: 'Realizadas', color: '#0d9488' },
-    'Em análise': { label: 'Em análise', color: '#ca8a04' },
-    'Enviada para Gerência': { label: 'Enviadas', color: '#6366f1' },
+    Programada: { label: 'Programadas', color: '#1351B4' },
+    'Enviada para Gerência': { label: 'Enviadas', color: '#ca8a04' },
     Rascunho: { label: 'Rascunhos', color: '#6C757D' },
     Cancelada: { label: 'Canceladas', color: '#E52207' },
     Reprovada: { label: 'Reprovadas', color: '#dc2626' },

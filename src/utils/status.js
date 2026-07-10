@@ -3,7 +3,7 @@
 export const STATUS_PROGRAMACAO = [
   'Rascunho',
   'Enviada para Gerência',
-  'Em análise',
+  'Programada',
   'Autorizada',
   'Em execução',
   'Realizada',
@@ -17,8 +17,8 @@ export const STATUS_IN_BI = ['Autorizada', 'Em execução', 'Realizada'];
 const LEGACY_MAP = {
   Aprovado: 'Autorizada',
   Autorizado: 'Autorizada',
-  Programada: 'Autorizada',
-  Pendente: 'Em análise',
+  'Em análise': 'Programada',
+  Pendente: 'Programada',
 };
 
 /** Normaliza status legado para o fluxo atual */
@@ -54,7 +54,7 @@ export function getStatusBadgeClass(status) {
   const map = {
     Rascunho: 'badge-rascunho',
     'Enviada para Gerência': 'badge-enviada',
-    'Em análise': 'badge-analise',
+    Programada: 'badge-programada',
     Autorizada: 'badge-autorizada',
     'Em execução': 'badge-execucao',
     Realizada: 'badge-realizada',
@@ -77,7 +77,7 @@ export function getStatusOptionsForUser(user, programacao) {
   const coordOptions = {
     Rascunho: ['Rascunho', 'Enviada para Gerência'],
     'Enviada para Gerência': ['Enviada para Gerência'],
-    'Em análise': ['Em análise'],
+    Programada: ['Programada'],
     Autorizada: ['Autorizada', 'Em execução', 'Realizada'],
     'Em execução': ['Em execução', 'Realizada'],
     Realizada: ['Realizada'],
@@ -93,8 +93,8 @@ export function filterForBI(programacoes) {
 
 export function needsApproval(status) {
   const s = normalizeStatus(status);
-  return ['Enviada para Gerência', 'Em análise'].includes(s)
-    || status === 'Pendente';
+  return ['Enviada para Gerência', 'Programada'].includes(s)
+    || status === 'Pendente' || status === 'Em análise';
 }
 
 export function countByStatusGroup(programacoes) {
