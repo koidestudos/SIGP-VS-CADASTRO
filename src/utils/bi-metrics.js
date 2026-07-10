@@ -1,4 +1,5 @@
 import {
+  COORDENACOES, GERENCIAS, REGIONAIS, MUNICIPIOS,
   getCoordenacaoById, getGerenciaByProgramacao, getMunicipioById, getRegionalById,
   programacaoHasMunicipio, countUniqueMunicipios, forEachProgramacaoMunicipio,
   getMunicipioIdsFromProgramacao,
