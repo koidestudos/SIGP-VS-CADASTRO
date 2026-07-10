@@ -35,16 +35,39 @@ export function getMunicipioById(id) {
   return getMunicipios().find((m) => m.id === id) || MUNICIPIOS.find((m) => m.id === id);
 }
 
+export function getMunicipioIdsFromProgramacao(p) {
+  if (Array.isArray(p?.municipioIds) && p.municipioIds.length) {
+    return p.municipioIds.filter(Boolean);
+  }
+  if (p?.municipioId) return [p.municipioId];
+  return [];
+}
+
 export function getMunicipiosFromProgramacao(p) {
-  const ids = Array.isArray(p?.municipioIds) && p.municipioIds.length
-    ? p.municipioIds
-    : (p?.municipioId ? [p.municipioId] : []);
-  return ids.map((id) => getMunicipioById(id)).filter(Boolean);
+  return getMunicipioIdsFromProgramacao(p).map((id) => getMunicipioById(id)).filter(Boolean);
 }
 
 export function getMunicipiosLabel(p, separator = ', ') {
   const names = getMunicipiosFromProgramacao(p).map((m) => m.nome);
   return names.length ? names.join(separator) : '—';
+}
+
+export function programacaoHasMunicipio(p, munId) {
+  return munId && getMunicipioIdsFromProgramacao(p).includes(munId);
+}
+
+export function countUniqueMunicipios(programacoes) {
+  const set = new Set();
+  programacoes.forEach((p) => {
+    getMunicipioIdsFromProgramacao(p).forEach((id) => set.add(id));
+  });
+  return set.size;
+}
+
+export function forEachProgramacaoMunicipio(programacoes, fn) {
+  programacoes.forEach((p) => {
+    getMunicipioIdsFromProgramacao(p).forEach((munId) => fn(p, munId));
+  });
 }
 
 export function getRegionalById(id) {

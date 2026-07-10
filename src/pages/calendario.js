@@ -1,7 +1,7 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
 import {
-  COORDENACOES, getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
-  getGerenciaColor, shortTitle, formatDate, GERENCIAS,
+  COORDENACOES, getCoordenacaoById, getGerenciaByProgramacao,
+  getGerenciaColor, shortTitle, formatDate, GERENCIAS, getMunicipiosLabel,
 } from '../data/seed.js';
 import { showModal } from '../components/ui.js';
 import { normalizeStatus, isAutorizada, isRealizada } from '../utils/status.js';
@@ -74,7 +74,7 @@ function eventsOnDate(ds, items) {
 function renderEventBlock(p, large = false) {
   const ger = getGerenciaByProgramacao(p);
   const c = getGerenciaColor(ger);
-  const mun = getMunicipioById(p.municipioId);
+  const munLabel = getMunicipiosLabel(p);
   const autorizada = isAutorizada(p.status);
   const realizada = isRealizada(p.status);
   const borderStyle = realizada ? 'solid' : autorizada ? 'solid' : 'dashed';
@@ -83,7 +83,7 @@ function renderEventBlock(p, large = false) {
   const cls = large ? 'cal-event-block cal-event-lg' : 'cal-event-block';
   return `<div class="${cls}" style="background:${c.bg};border-left:3px ${borderStyle} ${realizada ? '#0d9488' : c.border};color:${c.text};opacity:${opacity}"
     data-event-id="${p.id}" title="${p.titulo}${statusLabel}">
-    <strong>${large ? p.titulo : shortTitle(p.titulo)}</strong><span>${mun?.nome || ''}${realizada ? ' ✓' : ''}</span>
+    <strong>${large ? p.titulo : shortTitle(p.titulo)}</strong><span>${munLabel || ''}${realizada ? ' ✓' : ''}</span>
   </div>`;
 }
 
@@ -231,13 +231,13 @@ function showEvent(id) {
   const p = getProgramacoes().find((x) => x.id === id);
   if (!p) return;
   const coord = getCoordenacaoById(p.coordenacaoId);
-  const mun = getMunicipioById(p.municipioId);
+  const munLabel = getMunicipiosLabel(p);
   showModal({
     title: p.titulo,
     body: `<div class="detail-grid">
       <div class="detail-item"><label>Gerência</label><span>${getGerenciaByProgramacao(p)}</span></div>
       <div class="detail-item"><label>Coordenação</label><span>${coord?.nome || '—'}</span></div>
-      <div class="detail-item"><label>Município</label><span>${mun?.nome || '—'}</span></div>
+      <div class="detail-item"><label>Município(s)</label><span>${munLabel}</span></div>
       <div class="detail-item"><label>Data Ida</label><span>${formatDate(p.dataInicial)}</span></div>
       <div class="detail-item"><label>Data Volta</label><span>${formatDate(p.dataFinal)}</span></div>
     </div>`,

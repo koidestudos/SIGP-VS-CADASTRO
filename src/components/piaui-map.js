@@ -1,9 +1,8 @@
 /** Mapa do Piauí — imagem personalizável com marcadores por município */
-import { getMunicipioById } from '../data/seed.js';
+import { getMunicipioById, forEachProgramacaoMunicipio } from '../data/seed.js';
 import { getProgramacoes } from '../services/programacoes-service.js';
 import { assetImgHtml, CUSTOM_ASSET_PATHS } from '../config/custom-assets.js';
 import { getMunicipioMapCoordsWithName } from '../data/piaui-municipio-coords.js';
-
 import { getProgramacoesForBI } from '../utils/bi-metrics.js';
 import { normalizeStatus } from '../utils/status.js';
 
@@ -48,9 +47,8 @@ function fitMapAspect(containerId) {
 export function renderPiauiHeatMap() {
   const programacoes = getProgramacoesForBI(getProgramacoes());
   const byMunicipio = {};
-  programacoes.forEach((p) => {
-    if (!p.municipioId) return;
-    byMunicipio[p.municipioId] = (byMunicipio[p.municipioId] || 0) + 1;
+  forEachProgramacaoMunicipio(programacoes, (_p, munId) => {
+    byMunicipio[munId] = (byMunicipio[munId] || 0) + 1;
   });
   const max = Math.max(...Object.values(byMunicipio), 1);
 
@@ -78,10 +76,9 @@ export function bindPiauiHeatMap(onSelect) {
 export function renderPiauiMap() {
   const programacoes = getProgramacoesForBI(getProgramacoes());
   const byMunicipio = {};
-  programacoes.forEach((p) => {
-    if (!p.municipioId) return;
-    if (!byMunicipio[p.municipioId]) byMunicipio[p.municipioId] = [];
-    byMunicipio[p.municipioId].push(p);
+  forEachProgramacaoMunicipio(programacoes, (p, munId) => {
+    if (!byMunicipio[munId]) byMunicipio[munId] = [];
+    byMunicipio[munId].push(p);
   });
 
   const pins = Object.entries(byMunicipio).map(([munId, progs]) => {

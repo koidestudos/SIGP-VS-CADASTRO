@@ -1,5 +1,5 @@
 import { getCollection } from '../services/storage.js';
-import { getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass, GERENCIAS } from '../data/seed.js';
+import { getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass, GERENCIAS, programacaoHasMunicipio, getMunicipiosLabel } from '../data/seed.js';
 import { bindTabs } from '../components/ui.js';
 import { normalizeStatus, isInBI, needsApproval } from '../utils/status.js';
 
@@ -65,8 +65,8 @@ function renderCoordDetail(coordId) {
             <thead><tr><th>Ação</th><th>Município</th><th>Data</th><th>Status</th></tr></thead>
             <tbody>
               ${programacoes.length ? programacoes.map((p) => {
-                const mun = getMunicipioById(p.municipioId);
-                return `<tr><td>${p.titulo}</td><td>${mun?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
+                const munLabel = getMunicipiosLabel(p);
+                return `<tr><td>${p.titulo}</td><td>${munLabel}</td><td>${formatDate(p.dataInicial)}</td>
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
               }).join('') : '<tr><td colspan="4" class="text-center text-muted">Nenhuma programação.</td></tr>'}
             </tbody>
@@ -115,7 +115,7 @@ function renderCoordDetail(coordId) {
         ${municipios.length ? municipios.map((m) => `
           <div class="coord-card" data-mun-id="${m.id}">
             <h3>${m.nome}</h3>
-            <p>${programacoes.filter((p) => p.municipioId === m.id).length} programações</p>
+            <p>${programacoes.filter((p) => programacaoHasMunicipio(p, m.id)).length} programações</p>
           </div>
         `).join('') : '<p class="text-muted">Nenhum município vinculado.</p>'}
       </div>

@@ -1,7 +1,7 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
 import {
-  getCoordenacaoById, getMunicipioById, getRegionalById, formatDate,
-  getGerenciaByProgramacao, COORDENACOES,
+  getCoordenacaoById, getRegionalById, formatDate,
+  getGerenciaByProgramacao, COORDENACOES, getMunicipiosLabel,
 } from '../data/seed.js';
 import { toast } from '../components/ui.js';
 import { normalizeStatus, isInBI, needsApproval } from '../utils/status.js';
@@ -21,8 +21,8 @@ function renderTable(items) {
     <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Responsável</th><th>Status</th>
   </tr></thead><tbody>${items.map((p) => {
     const c = getCoordenacaoById(p.coordenacaoId);
-    const m = getMunicipioById(p.municipioId);
-    return `<tr><td>${p.titulo}</td><td>${getGerenciaByProgramacao(p)}</td><td>${c?.sigla||'—'}</td><td>${m?.nome||'—'}</td>
+    const mun = getMunicipiosLabel(p);
+    return `<tr><td>${p.titulo}</td><td>${getGerenciaByProgramacao(p)}</td><td>${c?.sigla||'—'}</td><td>${mun}</td>
       <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td><td>${p.responsavel}</td><td>${normalizeStatus(p.status)}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -54,8 +54,8 @@ function exportCSV(items) {
   const header = 'Ação;Gerência;Coordenação;Município;Data Ida;Data Volta;Responsável;Status\n';
   const rows = items.map((p) => {
     const c = getCoordenacaoById(p.coordenacaoId);
-    const m = getMunicipioById(p.municipioId);
-    return `"${p.titulo}";"${getGerenciaByProgramacao(p)}";"${c?.sigla||''}";"${m?.nome||''}";"${formatDate(p.dataInicial)}";"${formatDate(p.dataFinal)}";"${p.responsavel}";"${normalizeStatus(p.status)}"`;
+    const mun = getMunicipiosLabel(p);
+    return `"${p.titulo}";"${getGerenciaByProgramacao(p)}";"${c?.sigla||''}";"${mun}";"${formatDate(p.dataInicial)}";"${formatDate(p.dataFinal)}";"${p.responsavel}";"${normalizeStatus(p.status)}"`;
   }).join('\n');
   const blob = new Blob(['\ufeff' + header + rows], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');

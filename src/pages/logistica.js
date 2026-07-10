@@ -1,6 +1,6 @@
 import { getCollection, updateLogisticaSituacao } from '../services/storage.js';
 import { getProgramacaoRawById, getProgramacoes } from '../services/programacoes-service.js';
-import { getMunicipioById, getStatusBadgeClass, formatDate, getGerenciaByProgramacao } from '../data/seed.js';
+import { getMunicipioById, getStatusBadgeClass, formatDate, getGerenciaByProgramacao, getMunicipiosLabel } from '../data/seed.js';
 import { STATUS_PROGRAMACAO } from '../utils/status.js';
 import { toast } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
@@ -27,7 +27,7 @@ function renderRows(items) {
         <td class="td-action">${prog?.titulo || '—'}
           ${prog ? `<br><span class="text-sm text-muted">${formatDate(prog.dataInicial)} — ${formatDate(prog.dataFinal)}</span>` : ''}</td>
         <td>${prog ? `<span class="gerencia-tag gerencia-${getGerenciaByProgramacao(prog).toLowerCase()}">${getGerenciaByProgramacao(prog)}</span>` : '—'}</td>
-        <td>${getMunicipioById(l.municipioId || prog?.municipioId)?.nome || '—'}</td>
+        <td>${getMunicipiosLabel(prog) !== '—' ? getMunicipiosLabel(prog) : (getMunicipioById(l.municipioId)?.nome || '—')}</td>
         <td>${l.transporte ? '✔ Sim' : '✖ Não'}</td>
         <td>${l.alimentacao ? '✔ Sim' : '✖ Não'}</td>
         <td><span class="badge ${getStatusBadgeClass(l.situacao)}">${l.situacao}</span></td>

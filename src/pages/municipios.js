@@ -1,5 +1,5 @@
 import { getCollection } from '../services/storage.js';
-import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass } from '../data/seed.js';
+import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass, programacaoHasMunicipio, getMunicipiosLabel } from '../data/seed.js';
 import { isAutorizada, isRealizada, normalizeStatus } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
 
@@ -8,7 +8,7 @@ function renderMunicipioCards(municipios, programacoes) {
     return '<p class="text-muted text-center" style="grid-column:1/-1;padding:24px">Nenhum município nesta regional.</p>';
   }
   return municipios.map((m) => {
-    const count = programacoes.filter((p) => p.municipioId === m.id).length;
+    const count = programacoes.filter((p) => programacaoHasMunicipio(p, m.id)).length;
     const coord = getCoordenacaoById(m.coordenacaoId);
     const reg = getRegionalById(m.regionalId);
     return `
@@ -57,7 +57,7 @@ function renderMunicipioDetail(munId) {
 
   const coord = getCoordenacaoById(mun.coordenacaoId);
   const reg = getRegionalById(mun.regionalId);
-  const programacoes = getCollection('programacoes').filter((p) => p.municipioId === munId);
+  const programacoes = getCollection('programacoes').filter((p) => programacaoHasMunicipio(p, munId));
   const previstas = programacoes.filter((p) => isAutorizada(p.status) && !isRealizada(p.status));
   const realizadas = programacoes.filter((p) => isRealizada(p.status));
 
