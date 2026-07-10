@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   formatDate, getCoordenacaoById, getMunicipioById, getRegionalById,
-  getGerenciaByProgramacao,
+  getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
 
@@ -42,7 +42,7 @@ export function downloadProgramacaoPdf(prog) {
     ['Status', normalizeStatus(prog.status)],
     ['Gerência', getGerenciaByProgramacao(prog)],
     ['Coordenação', coord?.nome || '—'],
-    ['Município', mun?.nome || '—'],
+    ['Município(s)', getMunicipiosLabel(prog)],
     ['Regional', reg?.nome || '—'],
     ['Data de Ida', formatDate(prog.dataInicial)],
     ['Data de Volta', formatDate(prog.dataFinal)],
@@ -117,13 +117,13 @@ export function downloadProgramacoesListPdf(items, { title = 'Relatório de Prog
 
   const rows = items.map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
-    const mun = getMunicipioById(p.municipioId);
+    const mun = getMunicipiosLabel(p);
     const eq = (p.equipe || []).map((e) => e.nome).filter(Boolean).join(', ') || p.responsavel || '—';
     return [
       (p.titulo || '—').slice(0, 50),
       getGerenciaByProgramacao(p),
       (coord?.nome || '—').slice(0, 35),
-      (mun?.nome || '—').slice(0, 22),
+      (mun || '—').slice(0, 22),
       formatDate(p.dataInicial),
       formatDate(p.dataFinal),
       normalizeStatus(p.status),

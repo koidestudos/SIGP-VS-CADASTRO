@@ -118,7 +118,10 @@ function sanitizeProgramacao(data, uid, isNew) {
     dataFinal: data.dataFinal || '',
     duracao: data.duracao || '',
     regionalId: data.regionalId || '',
-    municipioId: data.municipioId || '',
+    municipioIds: Array.isArray(data.municipioIds)
+      ? data.municipioIds.filter(Boolean).slice(0, 20)
+      : (data.municipioId ? [data.municipioId] : []),
+    municipioId: (Array.isArray(data.municipioIds) && data.municipioIds[0]) || data.municipioId || '',
     localAtividade: data.localAtividade || '',
     necessitaTransporte: Boolean(data.necessitaTransporte),
     necessitaAlimentacao: Boolean(data.necessitaAlimentacao),

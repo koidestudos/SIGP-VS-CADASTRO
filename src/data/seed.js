@@ -16,9 +16,9 @@ export const GERENCIA_COLORS = {
 };
 
 export const TIPOS_ATIVIDADE = [
-  'Visita técnica', 'Capacitação', 'Reunião de planejamento', 'Ação de campo',
-  'Supervisão', 'Investigação epidemiológica', 'Campanha de vacinação',
-  'Auditoria', 'Palestra / Oficina', 'Monitoramento',
+  'Visita técnica', 'Capacitação', 'Reunião de planejamento', 'Reunião virtual',
+  'Qualificação', 'Ação de campo', 'Supervisão', 'Investigação epidemiológica',
+  'Campanha de vacinação', 'Auditoria', 'Palestra / Oficina', 'Monitoramento', 'Outros',
 ];
 
 export { STATUS_PROGRAMACAO };
@@ -33,6 +33,18 @@ export function getGerenciaByProgramacao(p) {
 
 export function getMunicipioById(id) {
   return getMunicipios().find((m) => m.id === id) || MUNICIPIOS.find((m) => m.id === id);
+}
+
+export function getMunicipiosFromProgramacao(p) {
+  const ids = Array.isArray(p?.municipioIds) && p.municipioIds.length
+    ? p.municipioIds
+    : (p?.municipioId ? [p.municipioId] : []);
+  return ids.map((id) => getMunicipioById(id)).filter(Boolean);
+}
+
+export function getMunicipiosLabel(p, separator = ', ') {
+  const names = getMunicipiosFromProgramacao(p).map((m) => m.nome);
+  return names.length ? names.join(separator) : '—';
 }
 
 export function getRegionalById(id) {

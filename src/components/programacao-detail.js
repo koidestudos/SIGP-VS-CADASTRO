@@ -1,11 +1,10 @@
 import { showModal } from './ui.js';
-import { getCoordenacaoById, getMunicipioById, getRegionalById, formatDate, getGerenciaByProgramacao } from '../data/seed.js';
+import { getCoordenacaoById, getRegionalById, formatDate, getGerenciaByProgramacao, getMunicipiosLabel } from '../data/seed.js';
 import { normalizeStatus } from '../utils/status.js';
 
 export function programacaoDetailHtml(p) {
   if (!p) return '<p class="text-muted">Programação não encontrada.</p>';
   const coord = getCoordenacaoById(p.coordenacaoId);
-  const mun = getMunicipioById(p.municipioId);
   const reg = getRegionalById(p.regionalId);
   const eq = (p.equipe || []).map((e) => `${e.nome} (${e.cargo})`).join(', ');
   return `<div class="detail-grid">
@@ -17,7 +16,7 @@ export function programacaoDetailHtml(p) {
     <div class="detail-item"><label>Status</label><span>${normalizeStatus(p.status)}</span></div>
     <div class="detail-item"><label>Data Ida</label><span>${formatDate(p.dataInicial)}</span></div>
     <div class="detail-item"><label>Data Volta</label><span>${formatDate(p.dataFinal)}</span></div>
-    <div class="detail-item"><label>Município</label><span>${mun?.nome || '—'}</span></div>
+    <div class="detail-item"><label>Município(s)</label><span>${getMunicipiosLabel(p)}</span></div>
     <div class="detail-item"><label>Regional</label><span>${reg?.nome || 'Não informada'}</span></div>
     <div class="detail-item"><label>Local</label><span>${p.localAtividade || '—'}</span></div>
     <div class="detail-item"><label>Transporte</label><span>${p.necessitaTransporte ? 'Sim' : 'Não'}</span></div>
