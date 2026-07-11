@@ -15,6 +15,13 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "programacao_anexos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enviadoEm", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

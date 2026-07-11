@@ -194,7 +194,7 @@ function renderStep(step) {
   if (step === 2) {
     const eq = wizardState.equipe || [];
     return `<div class="wizard-form-section">
-      <p class="text-sm text-muted mb-3">Cadastre os participantes que irão compor a equipe desta ação.</p>
+      <p class="text-sm text-muted mb-3">Cadastre os participantes que irão compor a equipe desta ação. <strong>Pelo menos um participante é obrigatório.</strong></p>
       <table class="table-clean mb-2"><thead><tr><th>Nome</th><th>Cargo</th><th></th></tr></thead><tbody>
       ${eq.map((e, i) => `<tr><td>${e.nome}</td><td>${e.cargo}</td><td><button type="button" class="btn-icon danger" data-rm="${i}">🗑</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-muted text-center">Nenhum participante</td></tr>'}
       </tbody></table>
@@ -278,6 +278,13 @@ function validate(step) {
     }
     if (!wizardState.municipioIds?.length) {
       toast('Adicione pelo menos um município.', 'error');
+      return false;
+    }
+  }
+  if (step === 2) {
+    const eq = wizardState.equipe || [];
+    if (!eq.length) {
+      toast('Adicione pelo menos um participante na equipe.', 'error');
       return false;
     }
   }

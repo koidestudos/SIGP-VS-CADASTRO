@@ -6,6 +6,7 @@ import {
 import { refreshNotificationBadge, refreshSuporteBadge } from './components/layout.js';
 import { initCatalogSync, seedCatalogIfEmpty, subscribeCatalog } from './services/catalog-service.js';
 import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
+import { initAnexosSync, subscribeAnexos } from './services/anexos-service.js';
 import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './services/suporte-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
@@ -114,6 +115,7 @@ watchAuth(async (user) => {
       initProgramacoesSync();
       initCatalogSync();
       initNotificationsSync();
+      initAnexosSync();
       await upsertUserProfile(user);
       await seedCatalogIfEmpty();
       unsubUserRole = subscribeUserRole(user.uid, (role) => {
@@ -140,6 +142,7 @@ watchAuth(async (user) => {
 subscribeProgramacoes(() => { if (currentUser) scheduleRender(); });
 subscribeLogistica(() => { if (currentUser) scheduleRender(); });
 subscribeNotifications(() => { if (currentUser) refreshNotificationBadge(); });
+subscribeAnexos(() => { if (currentUser) scheduleRender(); });
 subscribeCatalog(() => { if (currentUser) scheduleRender(); });
 subscribeSuporteChats(() => { if (currentUser) refreshSuporteBadge(); });
 

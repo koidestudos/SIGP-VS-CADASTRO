@@ -57,6 +57,7 @@ service cloud.firestore {
         && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 5000))
         && (!('equipe' in data) || data.equipe is list)
         && (!('equipe' in data) || data.equipe.size() <= 50)
+        && (data.status == 'Rascunho' || data.equipe.size() >= 1)
         && (!('municipioIds' in data) || data.municipioIds is list)
         && (!('municipioIds' in data) || data.municipioIds.size() <= 20);
     }
@@ -132,11 +133,39 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.keys().hasAll(['tipo', 'titulo', 'lido', 'criadoEm'])
         && request.resource.data.tipo is string
+        && request.resource.data.tipo in ['programacao_enviada', 'programacao_anexo']
         && request.resource.data.titulo is string
         && request.resource.data.titulo.size() <= 500
         && request.resource.data.lido is bool;
       allow update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    match /programacao_anexos/{anexoId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll([
+          'programacaoId', 'programacaoTitulo', 'nomeArquivo', 'storagePath',
+          'downloadUrl', 'enviadoPor', 'enviadoPorNome', 'enviadoEm'
+        ])
+        && request.resource.data.programacaoId is string
+        && request.resource.data.programacaoId.size() > 0
+        && request.resource.data.programacaoTitulo is string
+        && request.resource.data.programacaoTitulo.size() <= 500
+        && request.resource.data.nomeArquivo is string
+        && request.resource.data.nomeArquivo.size() > 0
+        && request.resource.data.nomeArquivo.size() <= 300
+        && request.resource.data.storagePath is string
+        && request.resource.data.downloadUrl is string
+        && request.resource.data.enviadoPor == request.auth.uid
+        && request.resource.data.enviadoPorNome is string
+        && request.resource.data.enviadoEm is string
+        && (!('tamanho' in request.resource.data) || request.resource.data.tamanho is number)
+        && (!('mimeType' in request.resource.data) || request.resource.data.mimeType is string)
+        && (!('coordenacaoId' in request.resource.data) || request.resource.data.coordenacaoId is string);
+
+      allow update, delete: if isAdmin();
     }
 
     match /coordenacoes/{docId} {

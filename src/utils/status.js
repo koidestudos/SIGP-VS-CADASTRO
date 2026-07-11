@@ -49,6 +49,12 @@ export function isGestaoOnly(status) {
   return !isInBI(status) && normalizeStatus(status) !== 'Cancelada';
 }
 
+/** Programações reprovadas ou canceladas não permitem anexo */
+export function canAttachAnexo(status) {
+  const s = normalizeStatus(status);
+  return s !== 'Reprovada' && s !== 'Cancelada';
+}
+
 export function getStatusBadgeClass(status) {
   const s = normalizeStatus(status);
   const map = {
