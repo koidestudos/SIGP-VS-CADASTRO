@@ -105,3 +105,8 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: npx firebase-tools@latest deploy --only firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+
+      - name: Deploy Storage Rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: npx firebase-tools@latest deploy --only storage --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
