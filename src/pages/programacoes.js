@@ -1,10 +1,11 @@
 import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
+import { canUploadAnexo, uploadProgramacaoAnexo } from '../services/anexos-service.js';
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
   getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
-import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO } from '../utils/status.js';
+import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO, canAttachAnexo } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf, downloadProgramacoesListPdf } from '../utils/programacao-report-pdf.js';
@@ -57,6 +58,7 @@ function renderRows(items, user) {
           ${statusOptions.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
+    const canAttach = canAttachAnexo(p.status);
     return `<tr>
       <td>${p.titulo}</td>
       <td><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
@@ -68,10 +70,46 @@ function renderRows(items, user) {
         edit: canEdit,
         del: canDeleteProgramacao(user, p),
         extra: `<button class="btn-icon" data-action="pdf" data-id="${p.id}" title="Baixar PDF">📄</button>`
+          + (canAttach
+            ? `<button class="btn-icon" data-action="anexo" data-id="${p.id}" title="Enviar anexo">📎</button>`
+            : `<button class="btn-icon" disabled title="Anexo indisponível (reprovada/cancelada)">📎</button>`)
           + approve + (canEdit ? `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` : ''),
       })}</td>
     </tr>`;
   }).join('');
+}
+
+async function showAnexoDialog(prog) {
+  if (!canUploadAnexo(prog)) {
+    toast('Não é possível anexar documentos em programações reprovadas ou canceladas.', 'error');
+    return;
+  }
+  const action = await showModal({
+    title: 'Enviar anexo',
+    body: `
+      <p class="text-sm text-muted mb-2">Programação: <strong>${prog.titulo || '—'}</strong></p>
+      <p class="text-sm text-muted mb-3">Ao enviar um documento, a programação será marcada automaticamente como <strong>Realizada</strong>.</p>
+      <div class="form-group">
+        <label>Documento (PDF, imagem ou Office — máx. 15 MB)</label>
+        <input type="file" class="form-control" id="anexo-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
+      </div>`,
+    footer: `
+      <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+      <button class="btn btn-primary" data-modal-action="enviar">Enviar anexo</button>`,
+  });
+  if (action !== 'enviar') return;
+  const fileInput = document.getElementById('anexo-file');
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    toast('Selecione um arquivo.', 'error');
+    return;
+  }
+  try {
+    await uploadProgramacaoAnexo(prog.id, file);
+    toast('Anexo enviado! Programação marcada como Realizada.', 'success');
+  } catch (err) {
+    toast(err.message || 'Erro ao enviar anexo.', 'error');
+  }
 }
 
 async function showApproveDialog(id) {
@@ -166,6 +204,7 @@ export function bindProgramacoes(user) {
       await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
     }
     if (action === 'approve') { await showApproveDialog(id); refresh(); }
+    if (action === 'anexo' && prog) { await showAnexoDialog(prog); refresh(); }
   });
   refresh();
 }

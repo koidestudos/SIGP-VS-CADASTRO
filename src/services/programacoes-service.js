@@ -157,6 +157,10 @@ export async function saveProgramacao(data, existingId = null) {
   const prevStatus = normalizeStatus(previous?.status);
   const nextStatus = normalizeStatus(payload.status);
 
+  if (nextStatus !== 'Rascunho' && (!payload.equipe || payload.equipe.length < 1)) {
+    throw new Error('Informe pelo menos um participante na equipe.');
+  }
+
   if (existingId) {
     await updateDoc(doc(database, 'programacoes', existingId), payload);
     const saved = { id: existingId, ...payload };

@@ -57,6 +57,22 @@ export async function notifyProgramacaoEnviada(programacao) {
   });
 }
 
+export async function notifyProgramacaoAnexo(programacao, anexo) {
+  if (!db || !programacao?.id || !anexo?.id) return;
+  await addDoc(collection(db, 'notificacoes'), {
+    tipo: 'programacao_anexo',
+    programacaoId: programacao.id,
+    anexoId: anexo.id,
+    titulo: programacao.titulo || 'Programação',
+    nomeArquivo: anexo.nomeArquivo || 'Documento',
+    coordenacaoId: programacao.coordenacaoId || '',
+    enviadoPor: anexo.enviadoPor || '',
+    enviadoPorNome: anexo.enviadoPorNome || '',
+    lido: false,
+    criadoEm: new Date().toISOString(),
+  });
+}
+
 /** @deprecated use notifyProgramacaoEnviada */
 export async function notifyProgramacaoPendente(programacao) {
   return notifyProgramacaoEnviada(programacao);

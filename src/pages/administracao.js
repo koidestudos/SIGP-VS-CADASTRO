@@ -1,27 +1,54 @@
 import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed, deleteAllProgramacoes } from '../services/storage.js';
+import { getAnexos, subscribeAnexos } from '../services/anexos-service.js';
 import {
   saveCoordenacao, removeCoordenacao, saveMunicipio, removeMunicipio, saveRegional, removeRegional,
 } from '../services/catalog-service.js';
 import { promoteUserToAdmin } from '../services/suporte-service.js';
 import { isAdmin } from '../services/roles.js';
-import { GERENCIAS } from '../data/seed.js';
+import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
 
-export function renderAdministracao(user) {
+function renderAnexosRows() {
+  const anexos = getAnexos();
+  if (!anexos.length) {
+    return '<tr><td colspan="6" class="text-center text-muted">Nenhum anexo enviado ainda.</td></tr>';
+  }
+  return anexos.map((a) => {
+    const coord = getCoordenacaoById(a.coordenacaoId);
+    const quando = a.enviadoEm ? new Date(a.enviadoEm).toLocaleString('pt-BR') : '—';
+    return `<tr>
+      <td><small>${quando}</small></td>
+      <td>${a.programacaoTitulo || '—'}</td>
+      <td>${coord?.nome || '—'}</td>
+      <td>${a.nomeArquivo || '—'}</td>
+      <td>${a.enviadoPorNome || '—'}</td>
+      <td>
+        ${a.downloadUrl
+          ? `<a class="btn btn-outline btn-sm" href="${a.downloadUrl}" target="_blank" rel="noopener">Abrir</a>`
+          : '—'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+export function renderAdministracao(user, params = []) {
+  const activeTab = params[0] === 'anexos' ? 'anexos' : 'coords';
   const coordenacoes = getCollection('coordenacoes');
   const municipios = getCollection('municipios');
   const regionais = getCollection('regionais');
+  const anexosCount = getAnexos().length;
 
   return `
     <div class="page-header"><h2>Administração</h2></div>
-    <p class="text-muted mb-3">Gerencie coordenações, municípios, regionais e importação de viagens.</p>
+    <p class="text-muted mb-3">Gerencie coordenações, municípios, regionais, anexos e importação de viagens.</p>
     <div class="tabs" id="admin-tabs">
-      <button class="tab active" data-tab="coords">Coordenações</button>
-      <button class="tab" data-tab="muns">Municípios (${municipios.length})</button>
-      <button class="tab" data-tab="regs">Regionais (${regionais.length})</button>
-      <button class="tab" data-tab="admins">Administradores</button>
+      <button class="tab ${activeTab === 'coords' ? 'active' : ''}" data-tab="coords">Coordenações</button>
+      <button class="tab ${activeTab === 'muns' ? 'active' : ''}" data-tab="muns">Municípios (${municipios.length})</button>
+      <button class="tab ${activeTab === 'regs' ? 'active' : ''}" data-tab="regs">Regionais (${regionais.length})</button>
+      <button class="tab ${activeTab === 'anexos' ? 'active' : ''}" data-tab="anexos">Anexos (${anexosCount})</button>
+      <button class="tab ${activeTab === 'admins' ? 'active' : ''}" data-tab="admins">Administradores</button>
     </div>
-    <div class="tab-content active" data-tab-content="coords">
+    <div class="tab-content ${activeTab === 'coords' ? 'active' : ''}" data-tab-content="coords">
       <div class="page-header" style="margin-top:12px">
         <span></span>
         <button class="btn btn-primary btn-sm" id="btn-add-coord">+ Nova coordenação</button>
@@ -35,7 +62,7 @@ export function renderAdministracao(user) {
           <button class="btn-icon danger" data-del-coord="${c.id}">🗑</button></td></tr>`).join('')}
         </tbody></table></div>
     </div>
-    <div class="tab-content" data-tab-content="muns">
+    <div class="tab-content ${activeTab === 'muns' ? 'active' : ''}" data-tab-content="muns">
       <div class="page-header" style="margin-top:12px">
         <span></span>
         <button class="btn btn-primary btn-sm" id="btn-add-mun">+ Novo município</button>
@@ -49,7 +76,7 @@ export function renderAdministracao(user) {
             <button class="btn-icon danger" data-del-mun="${m.id}">🗑</button></td></tr>`;
         }).join('')}</tbody></table></div>
     </div>
-    <div class="tab-content" data-tab-content="regs">
+    <div class="tab-content ${activeTab === 'regs' ? 'active' : ''}" data-tab-content="regs">
       <div class="page-header" style="margin-top:12px">
         <span></span>
         <button class="btn btn-primary btn-sm" id="btn-add-reg">+ Nova regional</button>
@@ -62,7 +89,21 @@ export function renderAdministracao(user) {
           <button class="btn-icon danger" data-del-reg="${r.id}">🗑</button></td></tr>`).join('')}
         </tbody></table></div>
     </div>
-    <div class="tab-content" data-tab-content="admins">
+    <div class="tab-content ${activeTab === 'anexos' ? 'active' : ''}" data-tab-content="anexos">
+      <div class="card" style="margin-top:12px"><div class="card-body">
+        <h3>Anexos de programações</h3>
+        <p class="text-sm text-muted mb-3">Documentos enviados pelos usuários, ordenados pela data de entrega (mais recentes primeiro).</p>
+        <div class="table-wrapper" style="max-height:480px;overflow:auto">
+          <table id="tabela-anexos">
+            <thead><tr>
+              <th>Enviado em</th><th>Programação</th><th>Coordenação</th><th>Arquivo</th><th>Enviado por</th><th></th>
+            </tr></thead>
+            <tbody>${renderAnexosRows()}</tbody>
+          </table>
+        </div>
+      </div></div>
+    </div>
+    <div class="tab-content ${activeTab === 'admins' ? 'active' : ''}" data-tab-content="admins">
       <div class="card" style="margin-top:12px"><div class="card-body">
         <h3>Adicionar administrador</h3>
         <p class="text-sm text-muted mb-2">Informe o e-mail de um usuário que já tenha criado conta no sistema.</p>
@@ -148,7 +189,18 @@ async function formReg(id = null) {
   window.location.hash = 'administracao';
 }
 
-export function bindAdministracao(user) {
+export function bindAdministracao(user, params = []) {
+  const refreshAnexosTable = () => {
+    const tbody = document.querySelector('#tabela-anexos tbody');
+    if (tbody) tbody.innerHTML = renderAnexosRows();
+    const tab = document.querySelector('#admin-tabs [data-tab="anexos"]');
+    if (tab) tab.textContent = `Anexos (${getAnexos().length})`;
+  };
+
+  if (params[0] === 'anexos') {
+    refreshAnexosTable();
+  }
+
   document.getElementById('btn-reimport-seed')?.addEventListener('click', async () => {
     if ((await confirmDialog('Reimportar todas as viagens da planilha Excel? Itens existentes serão atualizados.')) !== 'confirm') return;
     try {
@@ -175,6 +227,7 @@ export function bindAdministracao(user) {
       tabs.parentElement.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
       tab.classList.add('active');
       tabs.parentElement.querySelector(`[data-tab-content="${tab.dataset.tab}"]`)?.classList.add('active');
+      if (tab.dataset.tab === 'anexos') refreshAnexosTable();
     });
   });
   document.getElementById('btn-promote-admin')?.addEventListener('click', async () => {
@@ -203,4 +256,10 @@ export function bindAdministracao(user) {
   document.querySelectorAll('[data-del-reg]').forEach((b) => b.addEventListener('click', async () => {
     if ((await confirmDialog('Excluir regional?')) === 'confirm') { await removeRegional(b.dataset.delReg); toast('Excluída.', 'success'); window.location.hash = 'administracao'; }
   }));
+
+  subscribeAnexos(() => {
+    if (document.querySelector('#tabela-anexos')) refreshAnexosTable();
+  });
+
+  return refreshAnexosTable;
 }

@@ -133,11 +133,16 @@ function renderNotifList() {
   return items.slice(0, 20).map((n) => {
     const coord = getCoordenacaoById(n.coordenacaoId);
     const time = n.criadoEm ? new Date(n.criadoEm).toLocaleString('pt-BR') : '';
+    const isAnexo = n.tipo === 'programacao_anexo';
+    const subtitle = isAnexo
+      ? `Novo anexo: ${n.nomeArquivo || 'documento'}${n.enviadoPorNome ? ` — ${n.enviadoPorNome}` : ''}${coord ? ` · ${coord.nome}` : ''}`
+      : `Nova programação aguardando aprovação${coord ? ` — ${coord.nome}` : ''}`;
+    const navTarget = isAnexo ? 'administracao/anexos' : 'programacoes';
     return `
       <div class="notif-item-wrap ${n.lido ? '' : 'unread'}">
-        <button type="button" class="notif-item" data-notif-id="${n.id}" data-prog-id="${n.programacaoId || ''}">
-          <strong>${n.lido ? '' : '● '}${n.titulo}</strong>
-          <span>Nova programação aguardando aprovação${coord ? ` — ${coord.nome}` : ''}</span>
+        <button type="button" class="notif-item" data-notif-id="${n.id}" data-nav-target="${navTarget}" data-prog-id="${n.programacaoId || ''}">
+          <strong>${n.lido ? '' : '● '}${isAnexo ? '📎 ' : ''}${n.titulo}</strong>
+          <span>${subtitle}</span>
           <small>${time}</small>
         </button>
         <button type="button" class="notif-delete-btn" data-del-notif="${n.id}" title="Excluir">×</button>
@@ -185,7 +190,8 @@ export function bindNotifications() {
     const item = e.target.closest('.notif-item');
     if (!item) return;
     await markNotificationRead(item.dataset.notifId);
-    if (item.dataset.progId) window.location.hash = 'programacoes';
+    if (item.dataset.navTarget) window.location.hash = item.dataset.navTarget;
+    else if (item.dataset.progId) window.location.hash = 'programacoes';
     panel.classList.add('hidden');
   });
 
