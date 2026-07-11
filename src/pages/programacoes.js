@@ -84,6 +84,7 @@ async function showAnexoDialog(prog) {
     toast('Não é possível anexar documentos em programações reprovadas ou canceladas.', 'error');
     return;
   }
+  let selectedFile = null;
   const action = await showModal({
     title: 'Enviar anexo',
     body: `
@@ -96,16 +97,18 @@ async function showAnexoDialog(prog) {
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
       <button class="btn btn-primary" data-modal-action="enviar">Enviar anexo</button>`,
+    onAction: (act, overlay) => {
+      if (act !== 'enviar') return;
+      selectedFile = overlay.querySelector('#anexo-file')?.files?.[0] || null;
+      if (!selectedFile) {
+        toast('Selecione um arquivo.', 'error');
+        return false;
+      }
+    },
   });
-  if (action !== 'enviar') return;
-  const fileInput = document.getElementById('anexo-file');
-  const file = fileInput?.files?.[0];
-  if (!file) {
-    toast('Selecione um arquivo.', 'error');
-    return;
-  }
+  if (action !== 'enviar' || !selectedFile) return;
   try {
-    await uploadProgramacaoAnexo(prog.id, file);
+    await uploadProgramacaoAnexo(prog.id, selectedFile);
     toast('Anexo enviado! Programação marcada como Realizada.', 'success');
   } catch (err) {
     toast(err.message || 'Erro ao enviar anexo.', 'error');
