@@ -107,7 +107,7 @@ jobs:
       - name: Deploy Firestore Rules
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
-        run: npx firebase-tools@latest deploy --only firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+        run: npx firebase-tools@latest deploy --only firestore:rules,firestore:indexes --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
 
       - name: Enable Firebase Storage API (optional)
         continue-on-error: true

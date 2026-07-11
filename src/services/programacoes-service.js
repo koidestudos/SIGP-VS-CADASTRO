@@ -8,7 +8,7 @@ import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
 import { getUserRole } from './roles.js';
 import { notifyProgramacaoEnviada } from './notifications-service.js';
-import { normalizeStatus } from '../utils/status.js';
+import { normalizeStatus, canAttachAnexo } from '../utils/status.js';
 
 const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
 const MIN_PROGRAMACAO_DATE = '2026-07-01';
@@ -157,7 +157,7 @@ export async function saveProgramacao(data, existingId = null) {
   const prevStatus = normalizeStatus(previous?.status);
   const nextStatus = normalizeStatus(payload.status);
 
-  if (nextStatus !== 'Rascunho' && (!payload.equipe || payload.equipe.length < 1)) {
+  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
     throw new Error('Informe pelo menos um participante na equipe.');
   }
 
@@ -212,6 +212,22 @@ export async function updateProgramacaoStatus(id, status) {
   const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
   if (!prog) return null;
   return saveProgramacao({ ...prog, status }, id);
+}
+
+/** Atualiza só o status para Realizada após anexo (sem exigir equipe). */
+export async function markProgramacaoRealizadaPorAnexo(id) {
+  const database = requireDb();
+  requireUser();
+  const prog = programacoesCache.find((p) => p.id === id);
+  if (!prog) throw new Error('Programação não encontrada.');
+  const current = normalizeStatus(prog.status);
+  if (current === 'Realizada') return { ...prog, status: 'Realizada' };
+  if (!canAttachAnexo(current)) return prog;
+  await updateDoc(doc(database, 'programacoes', id), {
+    status: 'Realizada',
+    atualizadoEm: new Date().toISOString(),
+  });
+  return { ...prog, status: 'Realizada' };
 }
 
 async function syncLogisticaToFirestore(programacao) {

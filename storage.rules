@@ -9,10 +9,8 @@ service firebase.storage {
     match /programacoes/{programacaoId}/{fileName} {
       allow read: if isSignedIn();
       allow write: if isSignedIn()
-        && request.resource.size < 15 * 1024 * 1024
-        && request.resource.contentType.matches(
-          'application/pdf|image/jpeg|image/png|image/webp|application/msword|application/vnd.openxmlformats-officedocument.*|application/vnd.ms-excel'
-        );
+        && request.resource.size > 0
+        && request.resource.size < 15 * 1024 * 1024;
     }
   }
 }

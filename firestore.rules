@@ -31,14 +31,6 @@ service cloud.firestore {
       );
     }
 
-    function validStatus(status) {
-      return status in [
-        'Rascunho', 'Enviada para Gerência', 'Programada', 'Autorizada',
-        'Em execução', 'Realizada', 'Cancelada', 'Reprovada',
-        'Em análise', 'Pendente', 'Autorizado', 'Aprovado'
-      ];
-    }
-
     function validProgramacaoFields(data) {
       return data.keys().hasAll(['titulo', 'coordenacaoId', 'dataInicial', 'dataFinal', 'status', 'criadoPor'])
         && data.titulo is string
@@ -57,7 +49,10 @@ service cloud.firestore {
         && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 5000))
         && (!('equipe' in data) || data.equipe is list)
         && (!('equipe' in data) || data.equipe.size() <= 50)
-        && (data.status == 'Rascunho' || data.equipe.size() >= 1)
+        && (
+          data.status in ['Rascunho', 'Realizada', 'Cancelada', 'Reprovada']
+          || data.equipe.size() >= 1
+        )
         && (!('municipioIds' in data) || data.municipioIds is list)
         && (!('municipioIds' in data) || data.municipioIds.size() <= 20);
     }
@@ -74,12 +69,21 @@ service cloud.firestore {
       return isBootstrapAdminEmail() && data.role == 'admin';
     }
 
+    function isRealizadaPorAnexoUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'atualizadoEm'])
+        && request.resource.data.status == 'Realizada'
+        && resource.data.status != 'Reprovada'
+        && resource.data.status != 'Cancelada';
+    }
+
     match /programacoes/{programacaoId} {
       allow read: if isSignedIn();
 
       allow create: if isSignedIn()
         && validProgramacaoFields(request.resource.data)
         && request.resource.data.criadoPor == request.auth.uid;
+
+      allow update: if isSignedIn() && isRealizadaPorAnexoUpdate();
 
       allow update: if isSignedIn()
         && validProgramacaoFields(request.resource.data)

@@ -1,5 +1,5 @@
 import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
-import { canUploadAnexo, uploadProgramacaoAnexo } from '../services/anexos-service.js';
+import { canUploadAnexo, uploadProgramacaoAnexo, formatUploadError } from '../services/anexos-service.js';
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
@@ -84,8 +84,7 @@ async function showAnexoDialog(prog) {
     toast('Não é possível anexar documentos em programações reprovadas ou canceladas.', 'error');
     return;
   }
-  let selectedFile = null;
-  const action = await showModal({
+  await showModal({
     title: 'Enviar anexo',
     body: `
       <p class="text-sm text-muted mb-2">Programação: <strong>${prog.titulo || '—'}</strong></p>
@@ -93,26 +92,41 @@ async function showAnexoDialog(prog) {
       <div class="form-group">
         <label>Documento (PDF, imagem ou Office — máx. 15 MB)</label>
         <input type="file" class="form-control" id="anexo-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
-      </div>`,
+      </div>
+      <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`,
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
       <button class="btn btn-primary" data-modal-action="enviar">Enviar anexo</button>`,
-    onAction: (act, overlay) => {
+    onAction: async (act, overlay) => {
       if (act !== 'enviar') return;
-      selectedFile = overlay.querySelector('#anexo-file')?.files?.[0] || null;
-      if (!selectedFile) {
+      const file = overlay.querySelector('#anexo-file')?.files?.[0] || null;
+      if (!file) {
         toast('Selecione um arquivo.', 'error');
+        return false;
+      }
+      const btn = overlay.querySelector('[data-modal-action="enviar"]');
+      const statusEl = overlay.querySelector('#anexo-status');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+      }
+      statusEl?.style && (statusEl.style.display = 'block');
+      try {
+        await uploadProgramacaoAnexo(prog.id, file);
+        toast('Anexo enviado! Programação marcada como Realizada.', 'success');
+        return;
+      } catch (err) {
+        console.error(err);
+        toast(formatUploadError(err), 'error');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Enviar anexo';
+        }
+        if (statusEl) statusEl.style.display = 'none';
         return false;
       }
     },
   });
-  if (action !== 'enviar' || !selectedFile) return;
-  try {
-    await uploadProgramacaoAnexo(prog.id, selectedFile);
-    toast('Anexo enviado! Programação marcada como Realizada.', 'success');
-  } catch (err) {
-    toast(err.message || 'Erro ao enviar anexo.', 'error');
-  }
 }
 
 async function showApproveDialog(id) {

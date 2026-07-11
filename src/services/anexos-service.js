@@ -4,21 +4,22 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
-import { getProgramacaoById, updateProgramacaoStatus } from './programacoes-service.js';
+import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorAnexo } from './programacoes-service.js';
 import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, normalizeStatus, isRealizada } from '../utils/status.js';
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-];
+const EXT_MIME = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
 
 let anexosCache = [];
 const listeners = new Set();
@@ -55,9 +56,8 @@ export function initAnexosSync() {
   unsub = onSnapshot(q, (snap) => {
     anexosCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     notify();
-  }, () => {
-    anexosCache = [];
-    notify();
+  }, (err) => {
+    console.error('Erro ao sincronizar anexos:', err);
   });
 }
 
@@ -75,15 +75,40 @@ function sanitizeFileName(name) {
     .slice(0, 120);
 }
 
+function guessContentType(file) {
+  if (file.type) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  return EXT_MIME[ext] || 'application/octet-stream';
+}
+
+function isAllowedFile(file) {
+  const type = guessContentType(file);
+  if (Object.values(EXT_MIME).includes(type)) return true;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  return Boolean(ext && EXT_MIME[ext]);
+}
+
+export function formatUploadError(err) {
+  const code = err?.code || '';
+  if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
+    return 'Sem permissão no Storage. Peça ao admin para publicar as regras do Storage.';
+  }
+  if (code === 'permission-denied') {
+    return 'Sem permissão para registrar o anexo no Firestore.';
+  }
+  return err?.message || 'Erro ao enviar anexo.';
+}
+
 export function canUploadAnexo(programacao) {
   if (!programacao?.id) return false;
   return canAttachAnexo(programacao.status);
 }
 
 export async function uploadProgramacaoAnexo(programacaoId, file) {
-  if (!db || !storage) throw new Error('Firebase Storage não configurado.');
+  if (!db) throw new Error('Firebase não configurado.');
+  if (!storage) throw new Error('Firebase Storage não configurado. Verifique VITE_FIREBASE_STORAGE_BUCKET.');
   const user = requireUser();
-  const programacao = getProgramacaoById(programacaoId);
+  const programacao = getProgramacaoById(programacaoId) || getProgramacaoRawById(programacaoId);
   if (!programacao) throw new Error('Programação não encontrada.');
 
   if (!canUploadAnexo(programacao)) {
@@ -91,16 +116,17 @@ export async function uploadProgramacaoAnexo(programacaoId, file) {
   }
   if (!file) throw new Error('Selecione um arquivo.');
   if (file.size > MAX_FILE_SIZE) throw new Error('Arquivo muito grande (máx. 15 MB).');
-  if (ALLOWED_TYPES.length && file.type && !ALLOWED_TYPES.includes(file.type)) {
+  if (!isAllowedFile(file)) {
     throw new Error('Tipo de arquivo não permitido. Use PDF, imagem ou documento Office.');
   }
 
+  const contentType = guessContentType(file);
   const safeName = sanitizeFileName(file.name);
   const storagePath = `programacoes/${programacaoId}/${Date.now()}_${safeName}`;
   const storageRef = ref(storage, storagePath);
 
   await uploadBytes(storageRef, file, {
-    contentType: file.type || 'application/octet-stream',
+    contentType,
     customMetadata: {
       programacaoId,
       enviadoPor: user.uid,
@@ -117,7 +143,7 @@ export async function uploadProgramacaoAnexo(programacaoId, file) {
     coordenacaoId: programacao.coordenacaoId || '',
     nomeArquivo: file.name,
     tamanho: file.size,
-    mimeType: file.type || '',
+    mimeType: contentType,
     storagePath,
     downloadUrl,
     enviadoPor: user.uid,
@@ -129,11 +155,16 @@ export async function uploadProgramacaoAnexo(programacaoId, file) {
   const refDoc = await addDoc(collection(db, 'programacao_anexos'), anexoDoc);
   const anexo = { id: refDoc.id, ...anexoDoc };
 
-  const status = normalizeStatus(programacao.status);
-  if (!isRealizada(status) && canAttachAnexo(status)) {
-    await updateProgramacaoStatus(programacaoId, 'Realizada');
+  try {
+    await notifyProgramacaoAnexo(programacao, anexo);
+  } catch (err) {
+    console.error('Falha ao criar notificação de anexo:', err);
   }
 
-  await notifyProgramacaoAnexo(programacao, anexo);
+  const status = normalizeStatus(programacao.status);
+  if (!isRealizada(status) && canAttachAnexo(status)) {
+    await markProgramacaoRealizadaPorAnexo(programacaoId);
+  }
+
   return anexo;
 }
