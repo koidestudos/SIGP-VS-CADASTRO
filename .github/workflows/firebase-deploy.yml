@@ -11,6 +11,9 @@
 #   - Firebase Rules Admin
 #   - Firebase Hosting Admin
 #   - Service Usage Consumer
+#
+# Para anexos (Storage): dono do projeto deve ativar Storage no Firebase Console
+# (Build → Storage → Começar) ou habilitar firebasestorage.googleapis.com no GCP.
 
 name: Deploy Firebase
 
@@ -106,7 +109,24 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: npx firebase-tools@latest deploy --only firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
 
+      - name: Enable Firebase Storage API (optional)
+        continue-on-error: true
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          gcloud services enable firebasestorage.googleapis.com \
+            --project "${{ secrets.FIREBASE_PROJECT_ID }}"
+
       - name: Deploy Storage Rules
+        id: storage_deploy
+        continue-on-error: true
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: npx firebase-tools@latest deploy --only storage --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+
+      - name: Storage deploy notice
+        if: steps.storage_deploy.outcome == 'failure'
+        run: |
+          echo "::warning::Firebase Storage não foi publicado (anexos não funcionarão até ativar)."
+          echo "Dono do projeto: Firebase Console → Build → Storage → Começar"
+          echo "Ou habilite a API: https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=${{ secrets.FIREBASE_PROJECT_ID }}"
