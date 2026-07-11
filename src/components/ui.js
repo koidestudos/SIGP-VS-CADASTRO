@@ -1,4 +1,4 @@
-export function showModal({ title, body, footer, size = '' }) {
+export function showModal({ title, body, footer, size = '', onAction }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -24,7 +24,14 @@ export function showModal({ title, body, footer, size = '' }) {
     });
 
     overlay.querySelectorAll('[data-modal-action]').forEach((btn) => {
-      btn.addEventListener('click', () => close(btn.dataset.modalAction));
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.modalAction;
+        if (onAction) {
+          const keepOpen = await onAction(action, overlay);
+          if (keepOpen === false) return;
+        }
+        close(action);
+      });
     });
 
     document.body.appendChild(overlay);
