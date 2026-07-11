@@ -93,6 +93,7 @@ async function showAnexoDialog(prog) {
         <label>Documento (PDF, imagem ou Office — máx. 15 MB)</label>
         <input type="file" class="form-control" id="anexo-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
       </div>
+      <p class="text-sm text-muted mb-0 mt-2">Arquivos até 500 KB são enviados imediatamente. Arquivos maiores usam o Storage.</p>
       <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`,
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
@@ -110,9 +111,17 @@ async function showAnexoDialog(prog) {
         btn.disabled = true;
         btn.textContent = 'Enviando...';
       }
-      statusEl?.style && (statusEl.style.display = 'block');
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = 'Preparando envio...';
+      }
       try {
-        await uploadProgramacaoAnexo(prog.id, file);
+        await uploadProgramacaoAnexo(prog.id, file, {
+          onProgress: (pct, label) => {
+            if (statusEl) statusEl.textContent = label || `Enviando... ${pct}%`;
+            if (btn) btn.textContent = pct >= 100 ? 'Concluído' : `Enviando ${pct}%`;
+          },
+        });
         toast('Anexo enviado! Programação marcada como Realizada.', 'success');
         return;
       } catch (err) {

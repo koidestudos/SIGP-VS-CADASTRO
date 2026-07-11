@@ -167,7 +167,9 @@ service cloud.firestore {
         && request.resource.data.enviadoEm is string
         && (!('tamanho' in request.resource.data) || request.resource.data.tamanho is number)
         && (!('mimeType' in request.resource.data) || request.resource.data.mimeType is string)
-        && (!('coordenacaoId' in request.resource.data) || request.resource.data.coordenacaoId is string);
+        && (!('coordenacaoId' in request.resource.data) || request.resource.data.coordenacaoId is string)
+        && (!('enviadoPorEmail' in request.resource.data) || request.resource.data.enviadoPorEmail is string)
+        && (!('storedIn' in request.resource.data) || request.resource.data.storedIn in ['storage', 'firestore']);
 
       allow update, delete: if isAdmin();
     }
