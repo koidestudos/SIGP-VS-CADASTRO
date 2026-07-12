@@ -1,6 +1,6 @@
 import {
   Bytes,
-  collection, doc, addDoc, getDoc, getDocs, writeBatch, onSnapshot, query, orderBy, limit,
+  collection, doc, addDoc, setDoc, getDoc, getDocs, onSnapshot, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
@@ -9,10 +9,12 @@ import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, isRealizada } from '../utils/status.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-/** 1 doc Firestore ~1MB → gravação única até ~900 KB */
-const SINGLE_DOC_MAX = 900 * 1024;
-const CHUNK_SIZE = 750 * 1024;
-const WRITE_TIMEOUT_MS = 30000;
+const SINGLE_DOC_MAX = 850 * 1024;
+/** ~800 KB por parte — cabe no limite de 1 MB do Firestore */
+const CHUNK_SIZE = 800 * 1024;
+/** Envios em paralelo (rápido sem um lote gigante) */
+const PARALLEL = 6;
+const CHUNK_TIMEOUT_MS = 25000;
 
 const EXT_MIME = {
   pdf: 'application/pdf',
@@ -109,10 +111,10 @@ export function canUploadAnexo(programacao) {
   return canAttachAnexo(programacao.status);
 }
 
-function withTimeout(promise, ms, message = 'timeout') {
+function withTimeout(promise, ms) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(Object.assign(new Error(message), { code: 'upload-timeout' }));
+      reject(Object.assign(new Error('timeout'), { code: 'upload-timeout' }));
     }, ms);
     promise.then(
       (v) => { clearTimeout(timer); resolve(v); },
@@ -126,8 +128,7 @@ function readFileBuffer(file, onProgress) {
     const reader = new FileReader();
     reader.onprogress = (e) => {
       if (!e.lengthComputable) return;
-      const pct = Math.round((e.loaded / e.total) * 35);
-      onProgress?.(Math.max(5, pct), 'Lendo arquivo...');
+      onProgress?.(Math.max(3, Math.round((e.loaded / e.total) * 20)), 'Lendo arquivo...');
     };
     reader.onload = () => resolve(new Uint8Array(reader.result));
     reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
@@ -141,6 +142,23 @@ function splitBytes(uint8) {
     chunks.push(uint8.subarray(i, i + CHUNK_SIZE));
   }
   return chunks.length ? chunks : [new Uint8Array(0)];
+}
+
+/** Executa tarefas com concorrência limitada */
+async function runPool(items, concurrency, worker) {
+  let next = 0;
+  let done = 0;
+  const total = items.length;
+  const runners = Array.from({ length: Math.min(concurrency, total) }, async () => {
+    while (next < total) {
+      const index = next;
+      next += 1;
+      await worker(items[index], index);
+      done += 1;
+    }
+  });
+  await Promise.all(runners);
+  return done;
 }
 
 function buildMeta(programacao, user, file, contentType, extra = {}) {
@@ -186,9 +204,7 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
     throw new Error('Não é possível anexar documentos em programações reprovadas ou canceladas.');
   }
   if (!file) throw new Error('Selecione um arquivo.');
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error('Arquivo muito grande (máx. 10 MB).');
-  }
+  if (file.size > MAX_FILE_SIZE) throw new Error('Arquivo muito grande (máx. 10 MB).');
   if (!isAllowedFile(file)) {
     throw new Error('Tipo de arquivo não permitido. Use PDF, imagem ou documento Office.');
   }
@@ -197,9 +213,9 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   onProgress?.(5, 'Lendo arquivo...');
   const bytes = await readFileBuffer(file, onProgress);
 
-  // Arquivo pequeno: 1 gravação
+  // Pequeno: 1 gravação
   if (file.size <= SINGLE_DOC_MAX) {
-    onProgress?.(55, 'Enviando...');
+    onProgress?.(50, 'Enviando...');
     const anexoDoc = buildMeta(programacao, user, file, contentType, {
       storedIn: 'firestore',
       chunkCount: 0,
@@ -207,7 +223,7 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
     });
     const refDoc = await withTimeout(
       addDoc(collection(db, 'programacao_anexos'), anexoDoc),
-      WRITE_TIMEOUT_MS,
+      CHUNK_TIMEOUT_MS,
     );
     const anexo = { id: refDoc.id, ...anexoDoc, hasConteudo: true };
     delete anexo.conteudoBytes;
@@ -217,9 +233,9 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
     return anexo;
   }
 
-  // Até 10 MB: metadados + chunks binários em lote
+  // Até 10 MB: partes em paralelo (não um lote de 9 MB que trava)
   const parts = splitBytes(bytes);
-  onProgress?.(40, `Preparando ${parts.length} parte(s)...`);
+  onProgress?.(22, `Enviando 0/${parts.length}...`);
 
   const anexoDoc = buildMeta(programacao, user, file, contentType, {
     storedIn: 'firestore-chunks',
@@ -227,24 +243,27 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   });
   const refDoc = await withTimeout(
     addDoc(collection(db, 'programacao_anexos'), anexoDoc),
-    WRITE_TIMEOUT_MS,
+    CHUNK_TIMEOUT_MS,
   );
   const anexoId = refDoc.id;
 
-  const batch = writeBatch(db);
-  parts.forEach((part, index) => {
-    batch.set(doc(db, 'programacao_anexos', anexoId, 'chunks', String(index)), {
-      index,
-      encoding: 'bytes',
-      data: Bytes.fromUint8Array(part),
-    });
+  let completed = 0;
+  await runPool(parts, PARALLEL, async (part, index) => {
+    await withTimeout(
+      setDoc(doc(db, 'programacao_anexos', anexoId, 'chunks', String(index)), {
+        index,
+        encoding: 'bytes',
+        data: Bytes.fromUint8Array(part),
+      }),
+      CHUNK_TIMEOUT_MS,
+    );
+    completed += 1;
+    const pct = 25 + Math.round((completed / parts.length) * 65);
+    onProgress?.(pct, `Enviando ${completed}/${parts.length}...`);
   });
 
-  onProgress?.(55, 'Enviando arquivo...');
-  await withTimeout(batch.commit(), WRITE_TIMEOUT_MS * 2);
-
   const anexo = { id: anexoId, ...anexoDoc, hasConteudo: true };
-  onProgress?.(90, 'Finalizando...');
+  onProgress?.(95, 'Finalizando...');
   finishSideEffects(programacao, anexo).catch((err) => console.error(err));
   onProgress?.(100, 'Concluído');
   return anexo;
@@ -265,7 +284,6 @@ function base64ToUint8(base64) {
   return out;
 }
 
-/** Monta Blob do anexo para abrir/baixar */
 export async function getAnexoBlob(anexo) {
   if (!anexo?.id) throw new Error('Anexo inválido.');
 

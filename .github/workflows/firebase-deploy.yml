@@ -122,11 +122,6 @@ jobs:
         continue-on-error: true
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
-        run: npx firebase-tools@latest deploy --only storage --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
-
-      - name: Storage deploy notice
-        if: steps.storage_deploy.outcome == 'failure'
         run: |
-          echo "::warning::Firebase Storage não foi publicado (anexos não funcionarão até ativar)."
-          echo "Dono do projeto: Firebase Console → Build → Storage → Começar"
-          echo "Ou habilite a API: https://console.cloud.google.com/apis/library/firebasestorage.googleapis.com?project=${{ secrets.FIREBASE_PROJECT_ID }}"
+          echo "Storage opcional — anexos usam Firestore. Tentando publicar regras se o bucket existir..."
+          npx firebase-tools@latest deploy --only storage --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive || true
