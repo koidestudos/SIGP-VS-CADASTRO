@@ -189,8 +189,10 @@ service cloud.firestore {
         allow create: if isSignedIn()
           && request.resource.data.keys().hasAll(['index', 'data'])
           && request.resource.data.index is number
-          && request.resource.data.data is string
-          && request.resource.data.data.size() <= 450000
+          && (
+            (request.resource.data.data is bytes && request.resource.data.data.size() <= 900000)
+            || (request.resource.data.data is string && request.resource.data.data.size() <= 450000)
+          )
           && get(/databases/$(database)/documents/programacao_anexos/$(anexoId)).data.enviadoPor == request.auth.uid;
         allow update, delete: if isAdmin();
       }

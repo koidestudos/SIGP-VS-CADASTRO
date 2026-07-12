@@ -1,6 +1,6 @@
 import {
   Bytes,
-  collection, doc, addDoc, getDoc, getDocs, onSnapshot, query, orderBy, limit,
+  collection, doc, addDoc, getDoc, getDocs, writeBatch, onSnapshot, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
@@ -8,8 +8,11 @@ import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorA
 import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, isRealizada } from '../utils/status.js';
 
-const MAX_FILE_SIZE = 900 * 1024; // ~900 KB (limite prático do doc Firestore ~1 MB)
-const WRITE_TIMEOUT_MS = 20000;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+/** 1 doc Firestore ~1MB → gravação única até ~900 KB */
+const SINGLE_DOC_MAX = 900 * 1024;
+const CHUNK_SIZE = 750 * 1024;
+const WRITE_TIMEOUT_MS = 30000;
 
 const EXT_MIME = {
   pdf: 'application/pdf',
@@ -58,12 +61,11 @@ export function initAnexosSync() {
   unsub = onSnapshot(q, (snap) => {
     anexosCache = snap.docs.map((d) => {
       const data = d.data();
-      // Listagem leve: sem bytes do arquivo
       const { conteudoBytes, conteudo, ...rest } = data;
       return {
         id: d.id,
         ...rest,
-        hasConteudo: Boolean(conteudoBytes || conteudo),
+        hasConteudo: Boolean(conteudoBytes || conteudo) || (rest.chunkCount > 0),
       };
     });
     notify();
@@ -107,7 +109,7 @@ export function canUploadAnexo(programacao) {
   return canAttachAnexo(programacao.status);
 }
 
-function withTimeout(promise, ms, message) {
+function withTimeout(promise, ms, message = 'timeout') {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(Object.assign(new Error(message), { code: 'upload-timeout' }));
@@ -124,13 +126,39 @@ function readFileBuffer(file, onProgress) {
     const reader = new FileReader();
     reader.onprogress = (e) => {
       if (!e.lengthComputable) return;
-      const pct = Math.round((e.loaded / e.total) * 40);
+      const pct = Math.round((e.loaded / e.total) * 35);
       onProgress?.(Math.max(5, pct), 'Lendo arquivo...');
     };
     reader.onload = () => resolve(new Uint8Array(reader.result));
     reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
     reader.readAsArrayBuffer(file);
   });
+}
+
+function splitBytes(uint8) {
+  const chunks = [];
+  for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
+    chunks.push(uint8.subarray(i, i + CHUNK_SIZE));
+  }
+  return chunks.length ? chunks : [new Uint8Array(0)];
+}
+
+function buildMeta(programacao, user, file, contentType, extra = {}) {
+  return {
+    programacaoId: programacao.id,
+    programacaoTitulo: programacao.titulo || '',
+    coordenacaoId: programacao.coordenacaoId || '',
+    nomeArquivo: file.name,
+    tamanho: file.size,
+    mimeType: contentType,
+    storagePath: '',
+    downloadUrl: '',
+    enviadoPor: user.uid,
+    enviadoPorNome: user.displayName || user.email?.split('@')[0] || 'Usuário',
+    enviadoPorEmail: user.email || '',
+    enviadoEm: new Date().toISOString(),
+    ...extra,
+  };
 }
 
 async function finishSideEffects(programacao, anexo) {
@@ -159,7 +187,7 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   }
   if (!file) throw new Error('Selecione um arquivo.');
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error('Arquivo muito grande. Envie um PDF/imagem de até 900 KB (compacte o arquivo se preciso).');
+    throw new Error('Arquivo muito grande (máx. 10 MB).');
   }
   if (!isAllowedFile(file)) {
     throw new Error('Tipo de arquivo não permitido. Use PDF, imagem ou documento Office.');
@@ -169,38 +197,53 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   onProgress?.(5, 'Lendo arquivo...');
   const bytes = await readFileBuffer(file, onProgress);
 
-  onProgress?.(55, 'Enviando...');
-  const anexoDoc = {
-    programacaoId: programacao.id,
-    programacaoTitulo: programacao.titulo || '',
-    coordenacaoId: programacao.coordenacaoId || '',
-    nomeArquivo: file.name,
-    tamanho: file.size,
-    mimeType: contentType,
-    storagePath: '',
-    downloadUrl: '',
-    storedIn: 'firestore',
-    chunkCount: 0,
-    conteudoBytes: Bytes.fromUint8Array(bytes),
-    enviadoPor: user.uid,
-    enviadoPorNome: user.displayName || user.email?.split('@')[0] || 'Usuário',
-    enviadoPorEmail: user.email || '',
-    enviadoEm: new Date().toISOString(),
-  };
+  // Arquivo pequeno: 1 gravação
+  if (file.size <= SINGLE_DOC_MAX) {
+    onProgress?.(55, 'Enviando...');
+    const anexoDoc = buildMeta(programacao, user, file, contentType, {
+      storedIn: 'firestore',
+      chunkCount: 0,
+      conteudoBytes: Bytes.fromUint8Array(bytes),
+    });
+    const refDoc = await withTimeout(
+      addDoc(collection(db, 'programacao_anexos'), anexoDoc),
+      WRITE_TIMEOUT_MS,
+    );
+    const anexo = { id: refDoc.id, ...anexoDoc, hasConteudo: true };
+    delete anexo.conteudoBytes;
+    onProgress?.(90, 'Finalizando...');
+    finishSideEffects(programacao, anexo).catch((err) => console.error(err));
+    onProgress?.(100, 'Concluído');
+    return anexo;
+  }
 
+  // Até 10 MB: metadados + chunks binários em lote
+  const parts = splitBytes(bytes);
+  onProgress?.(40, `Preparando ${parts.length} parte(s)...`);
+
+  const anexoDoc = buildMeta(programacao, user, file, contentType, {
+    storedIn: 'firestore-chunks',
+    chunkCount: parts.length,
+  });
   const refDoc = await withTimeout(
     addDoc(collection(db, 'programacao_anexos'), anexoDoc),
     WRITE_TIMEOUT_MS,
-    'timeout',
   );
+  const anexoId = refDoc.id;
 
-  const anexo = {
-    id: refDoc.id,
-    ...anexoDoc,
-    hasConteudo: true,
-  };
-  delete anexo.conteudoBytes;
+  const batch = writeBatch(db);
+  parts.forEach((part, index) => {
+    batch.set(doc(db, 'programacao_anexos', anexoId, 'chunks', String(index)), {
+      index,
+      encoding: 'bytes',
+      data: Bytes.fromUint8Array(part),
+    });
+  });
 
+  onProgress?.(55, 'Enviando arquivo...');
+  await withTimeout(batch.commit(), WRITE_TIMEOUT_MS * 2);
+
+  const anexo = { id: anexoId, ...anexoDoc, hasConteudo: true };
   onProgress?.(90, 'Finalizando...');
   finishSideEffects(programacao, anexo).catch((err) => console.error(err));
   onProgress?.(100, 'Concluído');
@@ -215,11 +258,11 @@ function bytesFieldToUint8(value) {
   return null;
 }
 
-function base64ToBlob(base64, mimeType) {
+function base64ToUint8(base64) {
   const binary = atob(base64);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
-  return new Blob([out], { type: mimeType || 'application/octet-stream' });
+  return out;
 }
 
 /** Monta Blob do anexo para abrir/baixar */
@@ -240,25 +283,33 @@ export async function getAnexoBlob(anexo) {
   const snap = await getDoc(doc(db, 'programacao_anexos', anexo.id));
   if (!snap.exists()) throw new Error('Anexo não encontrado.');
   const data = snap.data();
+  const mime = data.mimeType || anexo.mimeType || 'application/octet-stream';
 
   const raw = bytesFieldToUint8(data.conteudoBytes);
-  if (raw) {
-    return new Blob([raw], { type: data.mimeType || anexo.mimeType || 'application/octet-stream' });
-  }
-  if (data.conteudo) {
-    return base64ToBlob(data.conteudo, data.mimeType || anexo.mimeType);
-  }
+  if (raw) return new Blob([raw], { type: mime });
+  if (data.conteudo) return new Blob([base64ToUint8(data.conteudo)], { type: mime });
 
-  // Legado: chunks
   const chunkSnap = await getDocs(collection(db, 'programacao_anexos', anexo.id, 'chunks'));
-  if (chunkSnap.docs.length) {
-    const ordered = chunkSnap.docs
-      .map((d) => d.data())
-      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    return base64ToBlob(ordered.map((c) => c.data || '').join(''), data.mimeType || anexo.mimeType);
-  }
+  if (!chunkSnap.docs.length) throw new Error('Conteúdo do anexo não encontrado.');
 
-  throw new Error('Conteúdo do anexo não encontrado.');
+  const ordered = chunkSnap.docs
+    .map((d) => d.data())
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+
+  const parts = ordered.map((c) => {
+    const asBytes = bytesFieldToUint8(c.data);
+    if (asBytes) return asBytes;
+    if (typeof c.data === 'string') return base64ToUint8(c.data);
+    return new Uint8Array(0);
+  });
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  parts.forEach((p) => {
+    merged.set(p, offset);
+    offset += p.length;
+  });
+  return new Blob([merged], { type: mime });
 }
 
 export async function openAnexo(anexo) {
