@@ -174,6 +174,10 @@ service cloud.firestore {
           request.resource.data.conteudo is string
           && request.resource.data.conteudo.size() <= 900000
         ))
+        && (!('conteudoBytes' in request.resource.data) || (
+          request.resource.data.conteudoBytes is bytes
+          && request.resource.data.conteudoBytes.size() <= 950000
+        ))
         && (!('storedIn' in request.resource.data) || request.resource.data.storedIn in [
           'storage', 'firestore', 'firestore-chunks'
         ]);
