@@ -170,6 +170,10 @@ service cloud.firestore {
         && (!('coordenacaoId' in request.resource.data) || request.resource.data.coordenacaoId is string)
         && (!('enviadoPorEmail' in request.resource.data) || request.resource.data.enviadoPorEmail is string)
         && (!('chunkCount' in request.resource.data) || request.resource.data.chunkCount is number)
+        && (!('conteudo' in request.resource.data) || (
+          request.resource.data.conteudo is string
+          && request.resource.data.conteudo.size() <= 900000
+        ))
         && (!('storedIn' in request.resource.data) || request.resource.data.storedIn in [
           'storage', 'firestore', 'firestore-chunks'
         ]);

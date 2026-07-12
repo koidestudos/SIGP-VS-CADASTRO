@@ -1,15 +1,17 @@
 import {
-  collection, doc, addDoc, setDoc, getDocs, onSnapshot, query, orderBy, limit,
+  collection, doc, addDoc, getDoc, getDocs, writeBatch, onSnapshot, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorAnexo } from './programacoes-service.js';
 import { notifyProgramacaoAnexo } from './notifications-service.js';
-import { canAttachAnexo, normalizeStatus, isRealizada } from '../utils/status.js';
+import { canAttachAnexo, isRealizada } from '../utils/status.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-/** ~400KB de base64 por chunk (abaixo do limite de 1MB do Firestore) */
-const CHUNK_CHARS = 400_000;
+/** Documento Firestore ~1MB; base64 + metadados → limite seguro para 1 gravação */
+const SINGLE_DOC_MAX_BYTES = 450 * 1024;
+const CHUNK_CHARS = 350_000;
+const BATCH_LIMIT = 400;
 
 const EXT_MIME = {
   pdf: 'application/pdf',
@@ -56,7 +58,16 @@ export function initAnexosSync() {
   );
 
   unsub = onSnapshot(q, (snap) => {
-    anexosCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    anexosCache = snap.docs.map((d) => {
+      const data = d.data();
+      // Não manter base64 gigante no cache da listagem
+      const { conteudo, ...rest } = data;
+      return {
+        id: d.id,
+        ...rest,
+        hasConteudo: Boolean(conteudo),
+      };
+    });
     notify();
   }, (err) => {
     console.error('Erro ao sincronizar anexos:', err);
@@ -95,7 +106,7 @@ export function canUploadAnexo(programacao) {
   return canAttachAnexo(programacao.status);
 }
 
-function fileToBase64(file) {
+function readAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -108,12 +119,31 @@ function fileToBase64(file) {
   });
 }
 
-function splitChunks(base64) {
-  const chunks = [];
-  for (let i = 0; i < base64.length; i += CHUNK_CHARS) {
-    chunks.push(base64.slice(i, i + CHUNK_CHARS));
-  }
-  return chunks.length ? chunks : [''];
+function buildMeta(programacao, user, file, contentType, extra = {}) {
+  return {
+    programacaoId: programacao.id,
+    programacaoTitulo: programacao.titulo || '',
+    coordenacaoId: programacao.coordenacaoId || '',
+    nomeArquivo: file.name,
+    tamanho: file.size,
+    mimeType: contentType,
+    storagePath: '',
+    downloadUrl: '',
+    enviadoPor: user.uid,
+    enviadoPorNome: user.displayName || user.email?.split('@')[0] || 'Usuário',
+    enviadoPorEmail: user.email || '',
+    enviadoEm: new Date().toISOString(),
+    ...extra,
+  };
+}
+
+async function finishSideEffects(programacao, anexo) {
+  await Promise.allSettled([
+    notifyProgramacaoAnexo(programacao, anexo),
+    (!isRealizada(programacao.status) && canAttachAnexo(programacao.status))
+      ? markProgramacaoRealizadaPorAnexo(programacao.id)
+      : Promise.resolve(),
+  ]);
 }
 
 /**
@@ -138,66 +168,75 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   }
 
   const contentType = guessContentType(file);
-  onProgress?.(5, 'Lendo arquivo...');
-  const base64 = await fileToBase64(file);
-  const chunks = splitChunks(base64);
-  onProgress?.(15, `Preparando ${chunks.length} parte(s)...`);
+  onProgress?.(10, 'Lendo arquivo...');
+  const base64 = await readAsBase64(file);
 
-  const enviadoEm = new Date().toISOString();
-  const enviadoPorNome = user.displayName || user.email?.split('@')[0] || 'Usuário';
+  // PDF pequeno: 1 única gravação (rápido)
+  if (file.size <= SINGLE_DOC_MAX_BYTES) {
+    onProgress?.(60, 'Salvando...');
+    const anexoDoc = buildMeta(programacao, user, file, contentType, {
+      storedIn: 'firestore',
+      chunkCount: 0,
+      conteudo: base64,
+    });
+    const refDoc = await addDoc(collection(db, 'programacao_anexos'), anexoDoc);
+    const anexo = { id: refDoc.id, ...anexoDoc, hasConteudo: true };
+    delete anexo.conteudo;
 
-  const anexoDoc = {
-    programacaoId: programacao.id,
-    programacaoTitulo: programacao.titulo || '',
-    coordenacaoId: programacao.coordenacaoId || '',
-    nomeArquivo: file.name,
-    tamanho: file.size,
-    mimeType: contentType,
-    storagePath: '',
-    downloadUrl: '',
+    onProgress?.(90, 'Finalizando...');
+    // Não bloqueia a UI se notificação/status demorarem
+    finishSideEffects(programacao, anexo).catch((err) => console.error(err));
+    onProgress?.(100, 'Concluído');
+    return anexo;
+  }
+
+  // Arquivo maior: metadados + chunks em lotes (paralelo)
+  onProgress?.(25, 'Preparando envio...');
+  const chunks = [];
+  for (let i = 0; i < base64.length; i += CHUNK_CHARS) {
+    chunks.push(base64.slice(i, i + CHUNK_CHARS));
+  }
+
+  const anexoDoc = buildMeta(programacao, user, file, contentType, {
     storedIn: 'firestore-chunks',
     chunkCount: chunks.length,
-    enviadoPor: user.uid,
-    enviadoPorNome,
-    enviadoPorEmail: user.email || '',
-    enviadoEm,
-  };
-
+  });
   const refDoc = await addDoc(collection(db, 'programacao_anexos'), anexoDoc);
   const anexoId = refDoc.id;
 
-  for (let i = 0; i < chunks.length; i += 1) {
-    await setDoc(doc(db, 'programacao_anexos', anexoId, 'chunks', String(i)), {
-      index: i,
-      data: chunks[i],
+  for (let start = 0; start < chunks.length; start += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    const slice = chunks.slice(start, start + BATCH_LIMIT);
+    slice.forEach((data, offset) => {
+      const index = start + offset;
+      batch.set(doc(db, 'programacao_anexos', anexoId, 'chunks', String(index)), { index, data });
     });
-    const pct = 15 + Math.round(((i + 1) / chunks.length) * 70);
-    onProgress?.(pct, `Enviando parte ${i + 1} de ${chunks.length}...`);
+    await batch.commit();
+    const pct = 30 + Math.round(((start + slice.length) / chunks.length) * 60);
+    onProgress?.(pct, `Enviando... ${Math.min(start + slice.length, chunks.length)}/${chunks.length}`);
   }
 
   const anexo = { id: anexoId, ...anexoDoc };
-
-  onProgress?.(90, 'Notificando administração...');
-  try {
-    await notifyProgramacaoAnexo(programacao, anexo);
-  } catch (err) {
-    console.error('Falha ao criar notificação de anexo:', err);
-  }
-
-  const status = normalizeStatus(programacao.status);
-  if (!isRealizada(status) && canAttachAnexo(status)) {
-    try {
-      await markProgramacaoRealizadaPorAnexo(programacao.id);
-    } catch (err) {
-      console.error('Falha ao marcar Realizada:', err);
-    }
-  }
-
+  onProgress?.(95, 'Finalizando...');
+  finishSideEffects(programacao, anexo).catch((err) => console.error(err));
   onProgress?.(100, 'Concluído');
   return anexo;
 }
 
-/** Monta Blob a partir dos chunks (para download/visualização) */
+async function loadAnexoConteudo(anexoId) {
+  const snap = await getDoc(doc(db, 'programacao_anexos', anexoId));
+  if (!snap.exists()) throw new Error('Anexo não encontrado.');
+  return { id: snap.id, ...snap.data() };
+}
+
+function base64ToBlob(base64, mimeType) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+}
+
+/** Monta Blob a partir do conteúdo ou chunks */
 export async function getAnexoBlob(anexo) {
   if (!anexo?.id) throw new Error('Anexo inválido.');
 
@@ -212,6 +251,12 @@ export async function getAnexoBlob(anexo) {
   }
 
   if (!db) throw new Error('Firebase não configurado.');
+
+  const full = await loadAnexoConteudo(anexo.id);
+  if (full.conteudo) {
+    return base64ToBlob(full.conteudo, full.mimeType || anexo.mimeType);
+  }
+
   const snap = await getDocs(collection(db, 'programacao_anexos', anexo.id, 'chunks'));
   if (!snap.docs.length) throw new Error('Conteúdo do anexo não encontrado.');
 
@@ -219,10 +264,7 @@ export async function getAnexoBlob(anexo) {
     .map((d) => d.data())
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
   const base64 = ordered.map((c) => c.data || '').join('');
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: anexo.mimeType || 'application/octet-stream' });
+  return base64ToBlob(base64, full.mimeType || anexo.mimeType);
 }
 
 export async function openAnexo(anexo) {
