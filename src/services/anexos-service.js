@@ -9,11 +9,12 @@ import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, isRealizada } from '../utils/status.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-/** 1 doc ~1 MB → arquivo pequeno em 1 gravação */
-const SINGLE_DOC_MAX = 900 * 1024;
-/** Partes grandes = menos idas ao servidor */
-const CHUNK_SIZE = 900 * 1024;
-const WRITE_TIMEOUT_MS = 45000;
+/** Seguro abaixo do limite de 1 MB do documento Firestore */
+const SINGLE_DOC_MAX = 600 * 1024;
+const CHUNK_SIZE = 600 * 1024;
+const PARALLEL = 3;
+const WRITE_TIMEOUT_MS = 40000;
+const MAX_RETRIES = 2;
 
 const EXT_MIME = {
   pdf: 'application/pdf',
@@ -96,9 +97,15 @@ function isAllowedFile(file) {
 
 export function formatUploadError(err) {
   const code = err?.code || '';
-  if (code === 'permission-denied') return 'Sem permissão para registrar o anexo.';
-  if (err?.message?.includes('timeout') || code === 'upload-timeout') {
-    return 'O envio demorou demais. Verifique a internet e tente de novo.';
+  const msg = String(err?.message || '');
+  if (code === 'permission-denied') {
+    return 'Sem permissão para gravar o anexo. Aguarde o deploy das regras e tente de novo.';
+  }
+  if (code === 'invalid-argument' || msg.includes('longer than') || msg.includes('exceeds')) {
+    return 'Arquivo inválido para o banco. Tente compactar o PDF (até 10 MB).';
+  }
+  if (msg.includes('timeout') || code === 'upload-timeout') {
+    return 'Conexão lenta. Tente de novo ou use um arquivo um pouco menor.';
   }
   return err?.message || 'Erro ao enviar anexo.';
 }
@@ -127,9 +134,22 @@ function formatMb(n) {
 function splitBytes(uint8) {
   const chunks = [];
   for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
-    chunks.push(uint8.subarray(i, i + CHUNK_SIZE));
+    // Cópia própria (subarray pode falhar no Bytes.fromUint8Array)
+    chunks.push(uint8.slice(i, i + CHUNK_SIZE));
   }
   return chunks.length ? chunks : [new Uint8Array(0)];
+}
+
+async function runPool(items, concurrency, worker) {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(concurrency, items.length || 1) }, async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
 }
 
 function buildMeta(programacao, user, file, contentType, extra = {}) {
@@ -159,10 +179,28 @@ async function finishSideEffects(programacao, anexo) {
   ]);
 }
 
+async function writeChunkWithRetry(anexoId, index, part) {
+  let lastErr;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      await withTimeout(
+        setDoc(doc(db, 'programacao_anexos', anexoId, 'chunks', String(index)), {
+          index,
+          encoding: 'bytes',
+          data: Bytes.fromUint8Array(part),
+        }),
+        WRITE_TIMEOUT_MS,
+      );
+      return;
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 /**
- * Envio rápido até 10 MB sem Storage pago.
- * Arquivo grande: todas as partes sobem AO MESMO TEMPO (paralelo total).
- *
  * @param {string} programacaoId
  * @param {File} file
  * @param {{ onProgress?: (pct: number, label?: string) => void }} [options]
@@ -185,13 +223,12 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
 
   const contentType = guessContentType(file);
 
-  onProgress?.(5, 'Preparando...');
-  // arrayBuffer é mais rápido que FileReader
+  onProgress?.(8, 'Lendo arquivo...');
   const bytes = new Uint8Array(await file.arrayBuffer());
-  onProgress?.(15, 'Enviando...');
 
   // Pequeno: 1 gravação
   if (file.size <= SINGLE_DOC_MAX) {
+    onProgress?.(40, 'Enviando...');
     const anexoDoc = buildMeta(programacao, user, file, contentType, {
       storedIn: 'firestore',
       chunkCount: 0,
@@ -209,8 +246,10 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
     return anexo;
   }
 
-  // Até 10 MB: metadados + TODAS as partes em paralelo (1 onda de rede)
+  // Até 10 MB: 3 partes por vez (estável e rápido)
   const parts = splitBytes(bytes);
+  onProgress?.(15, 'Iniciando envio...');
+
   const anexoDoc = buildMeta(programacao, user, file, contentType, {
     storedIn: 'firestore-chunks',
     chunkCount: parts.length,
@@ -224,20 +263,15 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   let sentBytes = 0;
   onProgress?.(20, `Enviando 0.0 / ${formatMb(file.size)}`);
 
-  await Promise.all(parts.map((part, index) => (
-    withTimeout(
-      setDoc(doc(db, 'programacao_anexos', anexoId, 'chunks', String(index)), {
-        index,
-        encoding: 'bytes',
-        data: Bytes.fromUint8Array(part),
-      }),
-      WRITE_TIMEOUT_MS,
-    ).then(() => {
-      sentBytes += part.byteLength;
-      const pct = 20 + Math.round((sentBytes / file.size) * 70);
-      onProgress?.(Math.min(92, pct), `Enviando ${formatMb(Math.min(sentBytes, file.size))} / ${formatMb(file.size)}`);
-    })
-  )));
+  await runPool(parts, PARALLEL, async (part, index) => {
+    await writeChunkWithRetry(anexoId, index, part);
+    sentBytes += part.byteLength;
+    const pct = 20 + Math.round((sentBytes / file.size) * 70);
+    onProgress?.(
+      Math.min(92, pct),
+      `Enviando ${formatMb(Math.min(sentBytes, file.size))} / ${formatMb(file.size)}`,
+    );
+  });
 
   const anexo = { id: anexoId, ...anexoDoc, hasConteudo: true };
   onProgress?.(95, 'Finalizando...');

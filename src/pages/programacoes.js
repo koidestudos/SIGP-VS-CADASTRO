@@ -126,12 +126,17 @@ async function showAnexoDialog(prog) {
         return;
       } catch (err) {
         console.error(err);
-        toast(formatUploadError(err), 'error');
+        const msg = formatUploadError(err);
+        toast(msg, 'error');
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.textContent = msg;
+          statusEl.style.color = '#b42318';
+        }
         if (btn) {
           btn.disabled = false;
           btn.textContent = 'Enviar anexo';
         }
-        if (statusEl) statusEl.style.display = 'none';
         return false;
       }
     },
