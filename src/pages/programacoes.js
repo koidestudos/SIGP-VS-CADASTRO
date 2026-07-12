@@ -93,7 +93,7 @@ async function showAnexoDialog(prog) {
         <label>Documento (PDF, imagem ou Office — máx. 10 MB)</label>
         <input type="file" class="form-control" id="anexo-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
       </div>
-      <p class="text-sm text-muted mb-0 mt-2">Máximo <strong>10 MB</strong>. Um único envio — progresso em MB.</p>
+      <p class="text-sm text-muted mb-0 mt-2">Máximo <strong>10 MB</strong> — envio gratuito e rápido (sem Storage pago).</p>
       <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`,
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>

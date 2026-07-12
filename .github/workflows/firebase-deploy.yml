@@ -108,30 +108,3 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: npx firebase-tools@latest deploy --only firestore:rules,firestore:indexes --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
-
-      - name: Ensure Cloud Storage bucket (free quota)
-        continue-on-error: true
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
-          PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-        run: |
-          set -euo pipefail
-          NAME="${BUCKET:-${PROJECT_ID}.appspot.com}"
-          NAME="${NAME#gs://}"
-          echo "Bucket: gs://${NAME}"
-          if gcloud storage buckets describe "gs://${NAME}" --project="$PROJECT_ID" >/dev/null 2>&1; then
-            echo "Bucket já existe."
-          else
-            echo "Criando bucket gratuito no projeto..."
-            gcloud storage buckets create "gs://${NAME}" \
-              --project="$PROJECT_ID" \
-              --location=southamerica-east1 \
-              --uniform-bucket-level-access || true
-          fi
-
-      - name: Deploy Storage Rules
-        continue-on-error: true
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
-        run: npx firebase-tools@latest deploy --only storage --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive || true
