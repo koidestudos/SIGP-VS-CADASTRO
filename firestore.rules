@@ -169,9 +169,23 @@ service cloud.firestore {
         && (!('mimeType' in request.resource.data) || request.resource.data.mimeType is string)
         && (!('coordenacaoId' in request.resource.data) || request.resource.data.coordenacaoId is string)
         && (!('enviadoPorEmail' in request.resource.data) || request.resource.data.enviadoPorEmail is string)
-        && (!('storedIn' in request.resource.data) || request.resource.data.storedIn in ['storage', 'firestore']);
+        && (!('chunkCount' in request.resource.data) || request.resource.data.chunkCount is number)
+        && (!('storedIn' in request.resource.data) || request.resource.data.storedIn in [
+          'storage', 'firestore', 'firestore-chunks'
+        ]);
 
       allow update, delete: if isAdmin();
+
+      match /chunks/{chunkId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+          && request.resource.data.keys().hasAll(['index', 'data'])
+          && request.resource.data.index is number
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 450000
+          && get(/databases/$(database)/documents/programacao_anexos/$(anexoId)).data.enviadoPor == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
     }
 
     match /coordenacoes/{docId} {

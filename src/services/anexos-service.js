@@ -1,17 +1,15 @@
 import {
-  collection, addDoc, onSnapshot, query, orderBy, limit,
+  collection, doc, addDoc, setDoc, getDocs, onSnapshot, query, orderBy, limit,
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage, isFirebaseConfigured } from '../firebase/config.js';
+import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorAnexo } from './programacoes-service.js';
 import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, normalizeStatus, isRealizada } from '../utils/status.js';
 
-const MAX_FILE_SIZE = 15 * 1024 * 1024;
-/** Firestore doc ~1MB; base64 ~33% maior → limite seguro para fallback */
-const MAX_FIRESTORE_BYTES = 500 * 1024;
-const STORAGE_TIMEOUT_MS = 45000;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+/** ~400KB de base64 por chunk (abaixo do limite de 1MB do Firestore) */
+const CHUNK_CHARS = 400_000;
 
 const EXT_MIME = {
   pdf: 'application/pdf',
@@ -71,14 +69,6 @@ function requireUser() {
   return user;
 }
 
-function sanitizeFileName(name) {
-  return (name || 'arquivo')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
-    .slice(0, 120);
-}
-
 function guessContentType(file) {
   if (file.type) return file.type;
   const ext = file.name.split('.').pop()?.toLowerCase();
@@ -94,18 +84,8 @@ function isAllowedFile(file) {
 
 export function formatUploadError(err) {
   const code = err?.code || '';
-  const msg = err?.message || '';
-  if (code === 'storage/canceled' || msg === 'upload-canceled') {
-    return 'Envio cancelado.';
-  }
-  if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
-    return 'Sem permissão no Storage. Peça ao admin para publicar as regras do Storage no Firebase.';
-  }
-  if (code === 'storage/retry-limit-exceeded' || msg.includes('timeout')) {
-    return 'O envio demorou demais. Tente um arquivo menor (até 500 KB) ou verifique o Firebase Storage.';
-  }
   if (code === 'permission-denied') {
-    return 'Sem permissão para registrar o anexo no Firestore.';
+    return 'Sem permissão para registrar o anexo. Aguarde o deploy das regras do Firestore.';
   }
   return err?.message || 'Erro ao enviar anexo.';
 }
@@ -115,93 +95,25 @@ export function canUploadAnexo(programacao) {
   return canAttachAnexo(programacao.status);
 }
 
-function fileToDataUrl(file) {
+function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
     reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
     reader.readAsDataURL(file);
   });
 }
 
-function uploadToStorage(storageRef, file, contentType, user, programacaoId, onProgress) {
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, file, {
-      contentType,
-      customMetadata: {
-        programacaoId,
-        enviadoPor: user.uid,
-      },
-    });
-
-    const timer = setTimeout(() => {
-      try { task.cancel(); } catch { /* ignore */ }
-      reject(Object.assign(new Error('timeout'), { code: 'storage/retry-limit-exceeded' }));
-    }, STORAGE_TIMEOUT_MS);
-
-    task.on(
-      'state_changed',
-      (snap) => {
-        if (!snap.totalBytes) return;
-        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-        onProgress?.(pct);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-      async () => {
-        clearTimeout(timer);
-        try {
-          const url = await getDownloadURL(task.snapshot.ref);
-          resolve({ downloadUrl: url, storagePath: storageRef.fullPath });
-        } catch (err) {
-          reject(err);
-        }
-      },
-    );
-  });
-}
-
-async function saveAnexoMetadata(programacao, user, file, contentType, { downloadUrl, storagePath, storedIn }) {
-  const enviadoEm = new Date().toISOString();
-  const enviadoPorNome = user.displayName || user.email?.split('@')[0] || 'Usuário';
-
-  const anexoDoc = {
-    programacaoId: programacao.id,
-    programacaoTitulo: programacao.titulo || '',
-    coordenacaoId: programacao.coordenacaoId || '',
-    nomeArquivo: file.name,
-    tamanho: file.size,
-    mimeType: contentType,
-    storagePath: storagePath || '',
-    downloadUrl,
-    storedIn: storedIn || 'storage',
-    enviadoPor: user.uid,
-    enviadoPorNome,
-    enviadoPorEmail: user.email || '',
-    enviadoEm,
-  };
-
-  const refDoc = await addDoc(collection(db, 'programacao_anexos'), anexoDoc);
-  const anexo = { id: refDoc.id, ...anexoDoc };
-
-  try {
-    await notifyProgramacaoAnexo(programacao, anexo);
-  } catch (err) {
-    console.error('Falha ao criar notificação de anexo:', err);
+function splitChunks(base64) {
+  const chunks = [];
+  for (let i = 0; i < base64.length; i += CHUNK_CHARS) {
+    chunks.push(base64.slice(i, i + CHUNK_CHARS));
   }
-
-  const status = normalizeStatus(programacao.status);
-  if (!isRealizada(status) && canAttachAnexo(status)) {
-    try {
-      await markProgramacaoRealizadaPorAnexo(programacao.id);
-    } catch (err) {
-      console.error('Falha ao marcar Realizada:', err);
-    }
-  }
-
-  return anexo;
+  return chunks.length ? chunks : [''];
 }
 
 /**
@@ -220,60 +132,108 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
     throw new Error('Não é possível anexar documentos em programações reprovadas ou canceladas.');
   }
   if (!file) throw new Error('Selecione um arquivo.');
-  if (file.size > MAX_FILE_SIZE) throw new Error('Arquivo muito grande (máx. 15 MB).');
+  if (file.size > MAX_FILE_SIZE) throw new Error('Arquivo muito grande (máx. 10 MB).');
   if (!isAllowedFile(file)) {
     throw new Error('Tipo de arquivo não permitido. Use PDF, imagem ou documento Office.');
   }
 
   const contentType = guessContentType(file);
+  onProgress?.(5, 'Lendo arquivo...');
+  const base64 = await fileToBase64(file);
+  const chunks = splitChunks(base64);
+  onProgress?.(15, `Preparando ${chunks.length} parte(s)...`);
 
-  // Arquivos menores: Firestore (rápido, sem depender do Storage)
-  if (file.size <= MAX_FIRESTORE_BYTES) {
-    onProgress?.(10, 'Lendo arquivo...');
-    const dataUrl = await fileToDataUrl(file);
-    onProgress?.(70, 'Salvando...');
-    const anexo = await saveAnexoMetadata(programacao, user, file, contentType, {
-      downloadUrl: dataUrl,
-      storagePath: '',
-      storedIn: 'firestore',
+  const enviadoEm = new Date().toISOString();
+  const enviadoPorNome = user.displayName || user.email?.split('@')[0] || 'Usuário';
+
+  const anexoDoc = {
+    programacaoId: programacao.id,
+    programacaoTitulo: programacao.titulo || '',
+    coordenacaoId: programacao.coordenacaoId || '',
+    nomeArquivo: file.name,
+    tamanho: file.size,
+    mimeType: contentType,
+    storagePath: '',
+    downloadUrl: '',
+    storedIn: 'firestore-chunks',
+    chunkCount: chunks.length,
+    enviadoPor: user.uid,
+    enviadoPorNome,
+    enviadoPorEmail: user.email || '',
+    enviadoEm,
+  };
+
+  const refDoc = await addDoc(collection(db, 'programacao_anexos'), anexoDoc);
+  const anexoId = refDoc.id;
+
+  for (let i = 0; i < chunks.length; i += 1) {
+    await setDoc(doc(db, 'programacao_anexos', anexoId, 'chunks', String(i)), {
+      index: i,
+      data: chunks[i],
     });
-    onProgress?.(100, 'Concluído');
-    return anexo;
+    const pct = 15 + Math.round(((i + 1) / chunks.length) * 70);
+    onProgress?.(pct, `Enviando parte ${i + 1} de ${chunks.length}...`);
   }
 
-  // Arquivos maiores: Firebase Storage (com timeout)
-  if (!storage) {
-    throw new Error('Arquivo maior que 500 KB. Firebase Storage não está configurado (VITE_FIREBASE_STORAGE_BUCKET).');
-  }
+  const anexo = { id: anexoId, ...anexoDoc };
 
-  onProgress?.(0, 'Enviando para o Storage...');
-  const safeName = sanitizeFileName(file.name);
-  const storagePath = `programacoes/${programacaoId}/${Date.now()}_${safeName}`;
-  const storageRef = ref(storage, storagePath);
-
-  let uploaded;
+  onProgress?.(90, 'Notificando administração...');
   try {
-    uploaded = await uploadToStorage(storageRef, file, contentType, user, programacaoId, (pct) => {
-      onProgress?.(pct, `Enviando... ${pct}%`);
-    });
+    await notifyProgramacaoAnexo(programacao, anexo);
   } catch (err) {
-    // Fallback: se Storage falhar e o arquivo couber, tenta Firestore
-    if (file.size <= MAX_FIRESTORE_BYTES) {
-      onProgress?.(20, 'Storage falhou, salvando no banco...');
-      const dataUrl = await fileToDataUrl(file);
-      return saveAnexoMetadata(programacao, user, file, contentType, {
-        downloadUrl: dataUrl,
-        storagePath: '',
-        storedIn: 'firestore',
-      });
-    }
-    throw err;
+    console.error('Falha ao criar notificação de anexo:', err);
   }
 
-  onProgress?.(95, 'Registrando anexo...');
-  return saveAnexoMetadata(programacao, user, file, contentType, {
-    downloadUrl: uploaded.downloadUrl,
-    storagePath: uploaded.storagePath,
-    storedIn: 'storage',
-  });
+  const status = normalizeStatus(programacao.status);
+  if (!isRealizada(status) && canAttachAnexo(status)) {
+    try {
+      await markProgramacaoRealizadaPorAnexo(programacao.id);
+    } catch (err) {
+      console.error('Falha ao marcar Realizada:', err);
+    }
+  }
+
+  onProgress?.(100, 'Concluído');
+  return anexo;
+}
+
+/** Monta Blob a partir dos chunks (para download/visualização) */
+export async function getAnexoBlob(anexo) {
+  if (!anexo?.id) throw new Error('Anexo inválido.');
+
+  if (anexo.downloadUrl && String(anexo.downloadUrl).startsWith('data:')) {
+    const res = await fetch(anexo.downloadUrl);
+    return res.blob();
+  }
+  if (anexo.downloadUrl && /^https?:/i.test(anexo.downloadUrl)) {
+    const res = await fetch(anexo.downloadUrl);
+    if (!res.ok) throw new Error('Não foi possível baixar o arquivo.');
+    return res.blob();
+  }
+
+  if (!db) throw new Error('Firebase não configurado.');
+  const snap = await getDocs(collection(db, 'programacao_anexos', anexo.id, 'chunks'));
+  if (!snap.docs.length) throw new Error('Conteúdo do anexo não encontrado.');
+
+  const ordered = snap.docs
+    .map((d) => d.data())
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  const base64 = ordered.map((c) => c.data || '').join('');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: anexo.mimeType || 'application/octet-stream' });
+}
+
+export async function openAnexo(anexo) {
+  const blob = await getAnexoBlob(anexo);
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = anexo.nomeArquivo || 'anexo';
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

@@ -1,5 +1,5 @@
 import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed, deleteAllProgramacoes } from '../services/storage.js';
-import { getAnexos, subscribeAnexos } from '../services/anexos-service.js';
+import { getAnexos, subscribeAnexos, openAnexo } from '../services/anexos-service.js';
 import {
   saveCoordenacao, removeCoordenacao, saveMunicipio, removeMunicipio, saveRegional, removeRegional,
 } from '../services/catalog-service.js';
@@ -23,9 +23,7 @@ function renderAnexosRows() {
       <td>${a.nomeArquivo || '—'}</td>
       <td>${a.enviadoPorNome || '—'}</td>
       <td>
-        ${a.downloadUrl
-          ? `<a class="btn btn-outline btn-sm" href="${a.downloadUrl}" target="_blank" rel="noopener">Abrir</a>`
-          : '—'}
+        <button type="button" class="btn btn-outline btn-sm" data-open-anexo="${a.id}">Abrir</button>
       </td>
     </tr>`;
   }).join('');
@@ -259,6 +257,23 @@ export function bindAdministracao(user, params = []) {
 
   subscribeAnexos(() => {
     if (document.querySelector('#tabela-anexos')) refreshAnexosTable();
+  });
+
+  document.getElementById('tabela-anexos')?.closest('.tab-content')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-open-anexo]');
+    if (!btn) return;
+    const anexo = getAnexos().find((a) => a.id === btn.dataset.openAnexo);
+    if (!anexo) { toast('Anexo não encontrado.', 'error'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Abrindo...';
+    try {
+      await openAnexo(anexo);
+    } catch (err) {
+      toast(err.message || 'Erro ao abrir anexo.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Abrir';
+    }
   });
 
   return refreshAnexosTable;
