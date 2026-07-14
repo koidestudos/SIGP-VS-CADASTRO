@@ -236,28 +236,45 @@ function renderStep(step) {
 
 function collect(step) {
   if (step === 0) {
-    wizardState.titulo = document.getElementById('f-titulo')?.value || '';
-    wizardState.coordenacaoId = document.getElementById('f-coord')?.value || '';
-    wizardState.objetivo = document.getElementById('f-objetivo')?.value || '';
-    wizardState.publicoAlvo = document.getElementById('f-publico')?.value || '';
-    wizardState.tipoAtividade = document.getElementById('f-tipo')?.value || '';
+    const titulo = document.getElementById('f-titulo');
+    const coord = document.getElementById('f-coord');
+    const objetivo = document.getElementById('f-objetivo');
+    const publico = document.getElementById('f-publico');
+    const tipo = document.getElementById('f-tipo');
+    if (titulo) wizardState.titulo = titulo.value || '';
+    if (coord) wizardState.coordenacaoId = coord.value || '';
+    if (objetivo) wizardState.objetivo = objetivo.value || '';
+    if (publico) wizardState.publicoAlvo = publico.value || '';
+    if (tipo) wizardState.tipoAtividade = tipo.value || '';
   }
   if (step === 1) {
-    wizardState.dataInicial = document.getElementById('f-data-ini')?.value || '';
-    wizardState.dataFinal = document.getElementById('f-data-fim')?.value || '';
-    wizardState.semana = document.getElementById('f-semana')?.value || calcSemanaFromDate(wizardState.dataInicial);
-    wizardState.duracao = document.getElementById('f-duracao')?.value || calcDuracao(wizardState.dataInicial, wizardState.dataFinal);
-    wizardState.regionalId = document.getElementById('f-regional')?.value || '';
-    wizardState.localAtividade = document.getElementById('f-local')?.value || '';
-    wizardState.necessitaTransporte = document.querySelector('input[name="transporte"]:checked')?.value === 'sim';
-    wizardState.necessitaAlimentacao = document.querySelector('input[name="alimentacao"]:checked')?.value === 'sim';
-    wizardState.obsLogistica = document.getElementById('f-obs-log')?.value || '';
+    const dataIni = document.getElementById('f-data-ini');
+    const dataFim = document.getElementById('f-data-fim');
+    const semana = document.getElementById('f-semana');
+    const duracao = document.getElementById('f-duracao');
+    const regional = document.getElementById('f-regional');
+    const local = document.getElementById('f-local');
+    const obsLog = document.getElementById('f-obs-log');
+    if (dataIni) wizardState.dataInicial = dataIni.value || '';
+    if (dataFim) wizardState.dataFinal = dataFim.value || '';
+    if (semana) wizardState.semana = semana.value || calcSemanaFromDate(wizardState.dataInicial);
+    if (duracao) wizardState.duracao = duracao.value || calcDuracao(wizardState.dataInicial, wizardState.dataFinal);
+    if (regional) wizardState.regionalId = regional.value || '';
+    if (local) wizardState.localAtividade = local.value || '';
+    const transporte = document.querySelector('input[name="transporte"]:checked');
+    const alimentacao = document.querySelector('input[name="alimentacao"]:checked');
+    if (transporte) wizardState.necessitaTransporte = transporte.value === 'sim';
+    if (alimentacao) wizardState.necessitaAlimentacao = alimentacao.value === 'sim';
+    if (obsLog) wizardState.obsLogistica = obsLog.value || '';
     wizardState.municipioId = wizardState.municipioIds?.[0] || '';
   }
   if (step === 3) {
-    wizardState.codigoOrcamentario = document.getElementById('f-cod-orc')?.value || '';
-    wizardState.fonteRecurso = document.getElementById('f-fonte')?.value || '';
-    wizardState.observacoes = document.getElementById('f-obs')?.value || '';
+    const cod = document.getElementById('f-cod-orc');
+    const fonte = document.getElementById('f-fonte');
+    const obs = document.getElementById('f-obs');
+    if (cod) wizardState.codigoOrcamentario = cod.value || '';
+    if (fonte) wizardState.fonteRecurso = fonte.value || '';
+    if (obs) wizardState.observacoes = obs.value || '';
   }
 }
 
