@@ -291,6 +291,16 @@ function validate(step) {
   return true;
 }
 
+function validateForSubmit() {
+  if (!validate(0)) { goTo(0); return false; }
+  if (!validate(1)) { goTo(1); return false; }
+  if (!validate(2)) { goTo(2); return false; }
+  collect(3);
+  collect(4);
+  wizardState = normalizeWizardState(wizardState);
+  return true;
+}
+
 function refreshMunicipioSection() {
   document.getElementById('wizard-content').innerHTML = renderStep(1);
   bindStep();
@@ -399,6 +409,9 @@ function bindMain() {
       try {
         await persist('Rascunho');
         toast('Rascunho salvo!', 'success');
+      } catch (err) {
+        console.error(err);
+        toast(err.message || 'Erro ao salvar rascunho.', 'error');
       } finally {
         wizardSubmitting = false;
       }
@@ -411,11 +424,15 @@ function bindMain() {
         goTo(currentStep + 1);
         return;
       }
+      if (!validateForSubmit()) return;
       wizardSubmitting = true;
       try {
         await persist('Enviada para Gerência');
         toast('Enviada para a Gerência!', 'success');
         window.location.hash = 'programacoes';
+      } catch (err) {
+        console.error(err);
+        toast(err.message || 'Erro ao enviar programação. Tente novamente.', 'error');
       } finally {
         wizardSubmitting = false;
       }

@@ -166,7 +166,11 @@ export async function saveProgramacao(data, existingId = null) {
     const saved = { id: existingId, ...payload };
     await syncLogisticaToFirestore(saved);
     if (nextStatus === 'Enviada para Gerência' && prevStatus !== 'Enviada para Gerência') {
-      await notifyProgramacaoEnviada(saved);
+      try {
+        await notifyProgramacaoEnviada(saved);
+      } catch (err) {
+        console.error('Falha ao notificar envio da programação:', err);
+      }
     }
     return saved;
   }
@@ -179,7 +183,11 @@ export async function saveProgramacao(data, existingId = null) {
   const saved = { id: ref.id, ...payload };
   await syncLogisticaToFirestore(saved);
   if (nextStatus === 'Enviada para Gerência') {
-    await notifyProgramacaoEnviada(saved);
+    try {
+      await notifyProgramacaoEnviada(saved);
+    } catch (err) {
+      console.error('Falha ao notificar envio da programação:', err);
+    }
   }
   return saved;
 }
