@@ -14,6 +14,9 @@ export const STATUS_PROGRAMACAO = [
 /** Status que entram no BI Gerencial e indicadores públicos */
 export const STATUS_IN_BI = ['Autorizada', 'Em execução', 'Realizada'];
 
+/** Status visíveis no Dashboard operacional */
+export const STATUS_IN_DASHBOARD = ['Programada', 'Autorizada', 'Em execução', 'Realizada'];
+
 const LEGACY_MAP = {
   Aprovado: 'Autorizada',
   Autorizado: 'Autorizada',
@@ -29,6 +32,10 @@ export function normalizeStatus(status) {
 
 export function isInBI(status) {
   return STATUS_IN_BI.includes(normalizeStatus(status));
+}
+
+export function isInDashboard(status) {
+  return STATUS_IN_DASHBOARD.includes(normalizeStatus(status));
 }
 
 export function isAutorizada(status) {
@@ -95,6 +102,10 @@ export function getStatusOptionsForUser(user, programacao) {
 
 export function filterForBI(programacoes) {
   return programacoes.filter((p) => isInBI(p.status));
+}
+
+export function filterForDashboard(programacoes) {
+  return programacoes.filter((p) => isInDashboard(p.status));
 }
 
 export function needsApproval(status) {

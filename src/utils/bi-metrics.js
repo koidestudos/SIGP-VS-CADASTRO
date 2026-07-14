@@ -4,7 +4,7 @@ import {
   programacaoHasMunicipio, countUniqueMunicipios, forEachProgramacaoMunicipio,
   getMunicipioIdsFromProgramacao,
 } from '../data/seed.js';
-import { normalizeStatus, filterForBI, STATUS_PROGRAMACAO, isInBI, countByStatusGroup } from './status.js';
+import { normalizeStatus, filterForBI, STATUS_PROGRAMACAO, isInBI, isInDashboard, countByStatusGroup } from './status.js';
 
 export { filterForBI as getProgramacoesForBI };
 
@@ -231,7 +231,7 @@ export function proximasAcoes(programacoes) {
   weekEnd.setDate(weekEnd.getDate() + 7);
 
   const upcoming = programacoes
-    .filter((p) => isInBI(p.status))
+    .filter((p) => isInDashboard(p.status))
     .filter((p) => !['Realizada', 'Cancelada', 'Reprovada'].includes(normalizeStatus(p.status)))
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial));
 

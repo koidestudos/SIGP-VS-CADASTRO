@@ -4,7 +4,7 @@ import {
   getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
 import { proximasAcoes } from '../utils/bi-metrics.js';
-import { countByStatusGroup, filterForBI, normalizeStatus } from '../utils/status.js';
+import { countByStatusGroup, filterForDashboard, normalizeStatus } from '../utils/status.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -32,35 +32,41 @@ function renderMiniCalendar(programacoes, year, month) {
 
 function renderAcaoList(items, emptyMsg) {
   if (!items.length) return `<p class="text-muted text-sm">${emptyMsg}</p>`;
-  return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => {
-    const munLabel = getMunicipiosLabel(p);
-    return `<li>
+  return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => `
+    <li>
       <strong>${p.titulo}</strong>
-      <span>${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)}</span>
-    </li>`;
-  }).join('')}</ul>`;
+      <span>${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} · ${normalizeStatus(p.status)}</span>
+    </li>`).join('')}</ul>`;
 }
 
 export function renderDashboard(user) {
   const todas = getProgramacoes();
-  const programacoes = filterForBI(todas);
+  const programacoes = filterForDashboard(todas);
   const counts = countByStatusGroup(todas);
-  const autorizadas = counts.Autorizada + counts['Em execução'];
-  const realizadas = counts.Realizada;
+  const programadas = counts.Programada || 0;
+  const autorizadas = (counts.Autorizada || 0) + (counts['Em execução'] || 0);
+  const realizadas = counts.Realizada || 0;
 
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const mesAtual = now.getMonth();
   const anoAtual = now.getFullYear();
 
   const doMes = programacoes.filter((p) => {
-    const d = new Date(p.dataInicial + 'T12:00:00');
+    const d = new Date(`${p.dataInicial}T12:00:00`);
     return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
   });
 
   const proximas = programacoes
-    .filter((p) => new Date(p.dataInicial) >= now && !['Realizada', 'Cancelada', 'Reprovada'].includes(normalizeStatus(p.status)))
+    .filter((p) => {
+      const status = normalizeStatus(p.status);
+      if (['Realizada', 'Cancelada', 'Reprovada'].includes(status)) return false;
+      const ini = new Date(`${p.dataInicial}T12:00:00`);
+      const fim = new Date(`${(p.dataFinal || p.dataInicial)}T12:00:00`);
+      return fim >= now;
+    })
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial))
-    .slice(0, 6);
+    .slice(0, 10);
 
   const ultimas = [...programacoes]
     .sort((a, b) => (b.atualizadoEm || b.criadoEm || '').localeCompare(a.atualizadoEm || a.criadoEm || ''))
@@ -74,32 +80,58 @@ export function renderDashboard(user) {
       <div class="dash-header">
         <div>
           <h2 class="dash-greeting">Olá, ${primeiroNome}!</h2>
-          <p class="dash-subtitle">Acompanhe programações autorizadas e realizadas</p>
+          <p class="dash-subtitle">Acompanhe programações programadas, autorizadas e realizadas</p>
         </div>
         <button class="btn btn-primary btn-lg" id="dash-nova">+ Nova Programação</button>
       </div>
 
       <div class="dash-kpi-row">
         <div class="dash-kpi-card dash-kpi-blue">
+          <span class="dash-kpi-icon">📅</span>
+          <div>
+            <strong>${programadas}</strong>
+            <span>Programadas</span>
+          </div>
+        </div>
+        <div class="dash-kpi-card dash-kpi-blue">
           <span class="dash-kpi-icon">📊</span>
           <div>
             <strong>${autorizadas}</strong>
-            <span>Programações autorizadas</span>
+            <span>Autorizadas</span>
           </div>
         </div>
         <div class="dash-kpi-card dash-kpi-green">
           <span class="dash-kpi-icon">✅</span>
           <div>
             <strong>${realizadas}</strong>
-            <span>Programações realizadas</span>
+            <span>Realizadas</span>
           </div>
         </div>
       </div>
-      <p class="text-sm text-muted mb-3">Demais status (rascunho, em análise, canceladas etc.) ficam disponíveis em <a href="#programacoes">Programações</a>.</p>
+      <p class="text-sm text-muted mb-3">Rascunhos, enviadas, canceladas e reprovadas ficam em <a href="#programacoes">Programações</a>.</p>
+
+      <div class="card mb-3">
+        <div class="card-header">
+          <h3>⏭ Próximas programações</h3>
+          <a href="#programacoes" class="btn btn-ghost btn-sm">Ver todas</a>
+        </div>
+        <div class="card-body table-compact">
+          ${proximas.length ? `<div class="table-wrapper"><table>
+            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Status</th></tr></thead>
+            <tbody>${proximas.map((p) => `
+              <tr>
+                <td class="td-action">${p.titulo}</td>
+                <td>${getMunicipiosLabel(p)}</td>
+                <td>${formatDate(p.dataInicial)}</td>
+                <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+              </tr>`).join('')}</tbody>
+          </table></div>` : '<p class="text-muted">Nenhuma programação futura (Programada, Autorizada ou Em execução).</p>'}
+        </div>
+      </div>
 
       <div class="dash-quick-grid">
         <div class="card">
-          <div class="card-header"><h3>📋 Programações do mês</h3><span class="badge badge-autorizada">${doMes.length}</span></div>
+          <div class="card-header"><h3>📋 Programações do mês</h3><span class="badge badge-programada">${doMes.length}</span></div>
           <div class="card-body table-compact">
             ${doMes.length ? `<div class="table-wrapper"><table>
               <thead><tr><th>Ação</th><th>Gerência</th><th>Data</th><th>Status</th></tr></thead>
@@ -110,13 +142,13 @@ export function renderDashboard(user) {
                   <td>${formatDate(p.dataInicial)}</td>
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 </tr>`).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação autorizada neste mês.</p>'}
+            </table></div>` : '<p class="text-muted">Nenhuma programação neste mês.</p>'}
             ${doMes.length > 8 ? `<a href="#programacoes" class="dash-link">Ver todas →</a>` : ''}
           </div>
         </div>
 
         <div class="card">
-          <div class="card-header"><h3>⏭ Próximas ações</h3></div>
+          <div class="card-header"><h3>⏱ Agenda rápida</h3></div>
           <div class="card-body">
             <div class="proximas-tabs">
               <div class="proximas-block"><h4>Hoje</h4>${renderAcaoList(hoje, 'Nada para hoje.')}</div>
@@ -135,7 +167,7 @@ export function renderDashboard(user) {
         </div>
 
         <div class="card">
-          <div class="card-header"><h3>🕐 Últimas programações no BI</h3></div>
+          <div class="card-header"><h3>🕐 Últimas atualizações</h3></div>
           <div class="card-body table-compact">
             ${ultimas.length ? `<div class="table-wrapper"><table>
               <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
@@ -147,29 +179,10 @@ export function renderDashboard(user) {
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 </tr>`;
               }).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação autorizada ainda.</p>'}
+            </table></div>` : '<p class="text-muted">Nenhuma programação ainda.</p>'}
           </div>
         </div>
       </div>
-
-      ${proximas.length ? `
-      <div class="card mt-3">
-        <div class="card-header"><h3>Próximas programações</h3></div>
-        <div class="card-body table-compact">
-          <div class="table-wrapper"><table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Status</th></tr></thead>
-            <tbody>${proximas.map((p) => {
-              const munLabel = getMunicipiosLabel(p);
-              return `<tr>
-                <td class="td-action">${p.titulo}</td>
-                <td>${getMunicipiosLabel(p)}</td>
-                <td>${formatDate(p.dataInicial)}</td>
-                <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table></div>
-        </div>
-      </div>` : ''}
     </div>`;
 }
 
