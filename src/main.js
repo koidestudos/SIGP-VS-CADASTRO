@@ -32,6 +32,8 @@ function render() {
 
 function scheduleRender() {
   if (seedImportInProgress) return;
+  // Não recarregar o wizard enquanto alguém preenche — evita apagar dados
+  if (currentRoute === 'nova-programacao') return;
   clearTimeout(renderTimer);
   renderTimer = setTimeout(() => render(), 150);
 }

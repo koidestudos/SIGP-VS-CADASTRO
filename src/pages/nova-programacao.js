@@ -11,6 +11,21 @@ const STEPS = ['Dados Gerais', 'Local e Logística', 'Equipe', 'Recursos', 'Revi
 let wizardState = {};
 let currentStep = 0;
 let editId = null;
+/** Evita zerar o formulário quando outro usuário dispara re-render */
+let wizardSessionKey = null;
+
+export function resetWizardSession() {
+  wizardSessionKey = null;
+  currentStep = 0;
+  editId = null;
+  wizardState = {};
+}
+
+function sessionKeyFromParams(params = []) {
+  if (params[0] === 'edit' && params[1]) return `edit:${params[1]}`;
+  if (params[0] === 'duplicate' && params[1]) return `dup:${params[1]}`;
+  return 'new';
+}
 
 function normalizeWizardState(state) {
   const next = { ...state };
@@ -58,35 +73,49 @@ function updateCronogramaFromDates() {
 }
 
 export function renderNovaProgramacao(user, params = []) {
-  editId = params[0] === 'edit' && params[1] ? params[1] : null;
-  currentStep = 0;
-  if (editId) {
-    const existing = getProgramacaoById(editId);
-    if (!existing || !canEditProgramacao(user, existing)) {
-      return `<div class="card"><div class="card-body"><p class="alert alert-error">Você não pode editar esta programação.</p>
-        <button class="btn btn-primary" onclick="window.location.hash='programacoes'">Voltar</button></div></div>`;
+  const nextKey = sessionKeyFromParams(params);
+  const resume = wizardSessionKey === nextKey && wizardState && typeof wizardState === 'object';
+
+  if (!resume) {
+    wizardSessionKey = nextKey;
+    editId = params[0] === 'edit' && params[1] ? params[1] : null;
+    currentStep = 0;
+    if (editId) {
+      const existing = getProgramacaoById(editId);
+      if (!existing || !canEditProgramacao(user, existing)) {
+        wizardSessionKey = null;
+        return `<div class="card"><div class="card-body"><p class="alert alert-error">Você não pode editar esta programação.</p>
+          <button class="btn btn-primary" onclick="window.location.hash='programacoes'">Voltar</button></div></div>`;
+      }
+      wizardState = normalizeWizardState({
+        ...existing,
+        baseAtualizadoEm: existing.atualizadoEm || '',
+      });
+    } else if (params[0] === 'duplicate' && params[1]) {
+      const o = getProgramacaoById(params[1]);
+      wizardState = normalizeWizardState({
+        ...o,
+        id: undefined,
+        titulo: `${o.titulo} (Cópia)`,
+        status: 'Rascunho',
+        dataInicial: '',
+        dataFinal: '',
+        semana: '',
+        duracao: '',
+        baseAtualizadoEm: '',
+      });
+    } else {
+      wizardState = normalizeWizardState({
+        titulo: '', tipoAtividade: '', coordenacaoId: '', responsavel: '',
+        objetivo: '', publicoAlvo: '', semana: '', dataInicial: '', dataFinal: '',
+        duracao: '', regionalId: '', regionalIds: [], municipioId: '', municipioIds: [], localAtividade: '',
+        necessitaTransporte: false, necessitaAlimentacao: false, obsLogistica: '',
+        equipe: [], codigoOrcamentario: '', fonteRecurso: '', observacoes: '', status: 'Rascunho',
+        baseAtualizadoEm: '',
+      });
     }
-    wizardState = normalizeWizardState({ ...existing });
-  } else if (params[0] === 'duplicate' && params[1]) {
-    const o = getProgramacaoById(params[1]);
-    wizardState = normalizeWizardState({
-      ...o,
-      id: undefined,
-      titulo: `${o.titulo} (Cópia)`,
-      status: 'Rascunho',
-      dataInicial: '',
-      dataFinal: '',
-      semana: '',
-      duracao: '',
-    });
   } else {
-    wizardState = normalizeWizardState({
-      titulo: '', tipoAtividade: '', coordenacaoId: '', responsavel: '',
-      objetivo: '', publicoAlvo: '', semana: '', dataInicial: '', dataFinal: '',
-      duracao: '', regionalId: '', regionalIds: [], municipioId: '', municipioIds: [], localAtividade: '',
-      necessitaTransporte: false, necessitaAlimentacao: false, obsLogistica: '',
-      equipe: [], codigoOrcamentario: '', fonteRecurso: '', observacoes: '', status: 'Rascunho',
-    });
+    editId = params[0] === 'edit' && params[1] ? params[1] : null;
   }
 
   return `
@@ -94,7 +123,7 @@ export function renderNovaProgramacao(user, params = []) {
       <div class="card wizard-card">
         <div class="card-body">
           ${renderSteps()}
-          <div class="wizard-content" id="wizard-content">${renderStep(0)}</div>
+          <div class="wizard-content" id="wizard-content">${renderStep(currentStep)}</div>
           <div class="wizard-actions wizard-actions-v2">
             <button class="btn btn-ghost" id="wizard-cancel">Cancelar</button>
             <div class="wizard-actions-right">
@@ -442,6 +471,7 @@ async function persist(status) {
     wizardState.responsavel = wizardState.equipe[0].nome;
   }
   const saved = await saveProgramacao({ ...wizardState, status, criadoPor: wizardState.criadoPor }, editId);
+  if (saved?.atualizadoEm) wizardState.baseAtualizadoEm = saved.atualizadoEm;
   syncLogisticaFromProgramacao(saved);
   return saved;
 }
@@ -475,6 +505,7 @@ function bindMain() {
     if (!btn?.id) return;
 
     if (btn.id === 'wizard-cancel') {
+      resetWizardSession();
       window.location.hash = 'programacoes';
       return;
     }
@@ -509,6 +540,7 @@ function bindMain() {
       try {
         await persist('Enviada para Gerência');
         toast('Enviada para a Gerência!', 'success');
+        resetWizardSession();
         window.location.hash = 'programacoes';
       } catch (err) {
         console.error(err);

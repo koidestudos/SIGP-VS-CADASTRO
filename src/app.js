@@ -2,7 +2,7 @@ import { renderAppShell, bindLayoutEvents, breadcrumbHtml, refreshNotificationBa
 import { logoutUser } from './services/auth.js';
 import { renderDashboard, bindDashboard } from './pages/dashboard.js';
 import { renderProgramacoes, bindProgramacoes } from './pages/programacoes.js';
-import { renderNovaProgramacao, bindNovaProgramacao } from './pages/nova-programacao.js';
+import { renderNovaProgramacao, bindNovaProgramacao, resetWizardSession } from './pages/nova-programacao.js';
 import { renderCalendario, bindCalendario } from './pages/calendario.js';
 import { renderCoordenacoes, bindCoordenacoes } from './pages/coordenacoes.js';
 import { renderMunicipios, bindMunicipios } from './pages/municipios.js';
@@ -46,6 +46,9 @@ const PAGE_META = {
 export function renderApp(user, route, params) {
   if ((route === 'bi-gerencial' || route === 'administracao') && !canViewBI(user)) {
     route = 'dashboard';
+  }
+  if (route !== 'nova-programacao') {
+    resetWizardSession();
   }
   const page = PAGE_META[route] || PAGE_META.dashboard;
   const content = page.render(user, params);

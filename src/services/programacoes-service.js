@@ -146,26 +146,36 @@ function sanitizeProgramacao(data, uid, isNew) {
 export async function saveProgramacao(data, existingId = null) {
   const database = requireDb();
   const uid = requireUser();
-  const previous = existingId ? programacoesCache.find((p) => p.id === existingId) : null;
 
-  if (existingId && previous) {
-    const isOwner = previous.criadoPor === uid;
+  if (existingId) {
+    const ref = doc(database, 'programacoes', existingId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      throw new Error('Programação não encontrada. Pode ter sido removida por outro usuário.');
+    }
+    const server = snap.data();
+    const isOwner = server.criadoPor === uid;
     const isAdmin = getUserRole() === 'admin';
     if (!isOwner && !isAdmin) {
       throw new Error('Você só pode editar suas próprias programações.');
     }
-  }
+    if (data.baseAtualizadoEm && server.atualizadoEm && data.baseAtualizadoEm !== server.atualizadoEm) {
+      throw new Error('Esta programação foi alterada por outra pessoa. Recarregue a página e tente novamente.');
+    }
 
-  const payload = sanitizeProgramacao(data, uid, !existingId);
-  const prevStatus = normalizeStatus(previous?.status);
-  const nextStatus = normalizeStatus(payload.status);
+    const payload = sanitizeProgramacao({
+      ...server,
+      ...data,
+      criadoPor: server.criadoPor,
+    }, uid, false);
+    const prevStatus = normalizeStatus(server.status);
+    const nextStatus = normalizeStatus(payload.status);
 
-  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
-    throw new Error('Informe pelo menos um participante na equipe.');
-  }
+    if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
+      throw new Error('Informe pelo menos um participante na equipe.');
+    }
 
-  if (existingId) {
-    await updateDoc(doc(database, 'programacoes', existingId), payload);
+    await updateDoc(ref, payload);
     const saved = { id: existingId, ...payload };
     await syncLogisticaToFirestore(saved);
     if (nextStatus === 'Enviada para Gerência' && prevStatus !== 'Enviada para Gerência') {
@@ -176,6 +186,13 @@ export async function saveProgramacao(data, existingId = null) {
       }
     }
     return saved;
+  }
+
+  const payload = sanitizeProgramacao(data, uid, true);
+  const nextStatus = normalizeStatus(payload.status);
+
+  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
+    throw new Error('Informe pelo menos um participante na equipe.');
   }
 
   const { criadoEm, ...createPayload } = payload;
@@ -203,26 +220,42 @@ export async function removeProgramacao(id) {
   if (logItem) await deleteDoc(doc(database, 'logistica', logItem.id));
 }
 
-export async function approveProgramacao(id) {
+/** Atualiza somente o status — não sobrescreve o restante do documento */
+export async function patchProgramacaoStatus(id, status, extra = {}) {
+  const database = requireDb();
+  requireUser();
   const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
   if (!prog) return null;
-  return saveProgramacao({
-    ...prog,
-    status: 'Autorizada',
+
+  const nextStatus = normalizeStatus(status);
+  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
+    const equipe = prog.equipe || [];
+    if (!equipe.length) {
+      throw new Error('Informe pelo menos um participante na equipe antes de alterar o status.');
+    }
+  }
+
+  const patch = {
+    status: nextStatus,
+    atualizadoEm: new Date().toISOString(),
+    ...extra,
+  };
+  await updateDoc(doc(database, 'programacoes', id), patch);
+  return { ...prog, ...patch };
+}
+
+export async function approveProgramacao(id) {
+  return patchProgramacaoStatus(id, 'Autorizada', {
     autorizadoEm: new Date().toISOString(),
-  }, id);
+  });
 }
 
 export async function rejectProgramacao(id) {
-  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
-  if (!prog) return null;
-  return saveProgramacao({ ...prog, status: 'Reprovada' }, id);
+  return patchProgramacaoStatus(id, 'Reprovada');
 }
 
 export async function updateProgramacaoStatus(id, status) {
-  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
-  if (!prog) return null;
-  return saveProgramacao({ ...prog, status }, id);
+  return patchProgramacaoStatus(id, status);
 }
 
 /** Atualiza só o status para Realizada após anexo (sem exigir equipe). */
