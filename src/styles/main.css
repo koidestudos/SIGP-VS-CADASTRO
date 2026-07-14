@@ -213,6 +213,25 @@ tbody td { padding: 10px 14px; border-bottom: 1px solid var(--gray-200); vertica
 tbody tr:hover { background: var(--gray-50); }
 .table-actions { display: flex; gap: 4px; white-space: nowrap; }
 
+/* Linha inteira colorida por status (aba Programações) */
+#tabela-programacoes tbody tr.row-status-rascunho { background: #F3F4F6; }
+#tabela-programacoes tbody tr.row-status-enviada { background: #FEF9C3; }
+#tabela-programacoes tbody tr.row-status-programada { background: #DBEAFE; }
+#tabela-programacoes tbody tr.row-status-autorizada { background: #BBF7D0; }
+#tabela-programacoes tbody tr.row-status-execucao { background: #99F6E4; }
+#tabela-programacoes tbody tr.row-status-realizada { background: #DCFCE7; }
+#tabela-programacoes tbody tr.row-status-cancelada { background: #FECACA; }
+#tabela-programacoes tbody tr.row-status-reprovada { background: #FECACA; }
+#tabela-programacoes tbody tr.row-status-rascunho:hover { background: #E5E7EB; }
+#tabela-programacoes tbody tr.row-status-enviada:hover { background: #FDE68A; }
+#tabela-programacoes tbody tr.row-status-programada:hover { background: #BFDBFE; }
+#tabela-programacoes tbody tr.row-status-autorizada:hover { background: #86EFAC; }
+#tabela-programacoes tbody tr.row-status-execucao:hover { background: #5EEAD4; }
+#tabela-programacoes tbody tr.row-status-realizada:hover { background: #BBF7D0; }
+#tabela-programacoes tbody tr.row-status-cancelada:hover,
+#tabela-programacoes tbody tr.row-status-reprovada:hover { background: #FCA5A5; }
+#tabela-programacoes tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
+
 .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 .badge-rascunho { background: var(--gray-200); color: var(--gray-700); }
 .badge-enviada { background: #FEF9C3; color: #854d0e; border: 1px solid #FACC15; }
