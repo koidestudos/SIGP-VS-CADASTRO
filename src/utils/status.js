@@ -77,6 +77,22 @@ export function getStatusBadgeClass(status) {
   return map[s] || 'badge-rascunho';
 }
 
+/** Classe CSS para colorir a linha inteira na tabela de programações */
+export function getStatusRowClass(status) {
+  const s = normalizeStatus(status);
+  const map = {
+    Rascunho: 'row-status-rascunho',
+    'Enviada para Gerência': 'row-status-enviada',
+    Programada: 'row-status-programada',
+    Autorizada: 'row-status-autorizada',
+    'Em execução': 'row-status-execucao',
+    Realizada: 'row-status-realizada',
+    Cancelada: 'row-status-cancelada',
+    Reprovada: 'row-status-reprovada',
+  };
+  return map[s] || 'row-status-rascunho';
+}
+
 /** Opções de status que o usuário pode selecionar */
 export function getStatusOptionsForUser(user, programacao) {
   const current = normalizeStatus(programacao?.status);
