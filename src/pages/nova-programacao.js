@@ -2,8 +2,8 @@ import { saveProgramacao, syncLogisticaFromProgramacao, getProgramacaoById } fro
 import { canEditProgramacao } from '../services/roles.js';
 import {
   COORDENACOES, REGIONAIS, TIPOS_ATIVIDADE, formatDate,
-  getCoordenacaoById, getMunicipioById, getRegionalById, getMunicipiosByRegional,
-  getMunicipiosLabel,
+  getCoordenacaoById, getMunicipioById, getMunicipiosByRegionais,
+  getMunicipiosLabel, getRegionaisLabel, MUNICIPIO_OUTROS_ID,
 } from '../data/seed.js';
 import { toast } from '../components/ui.js';
 
@@ -19,6 +19,12 @@ function normalizeWizardState(state) {
   }
   next.municipioIds = next.municipioIds.filter(Boolean);
   next.municipioId = next.municipioIds[0] || next.municipioId || '';
+
+  if (!Array.isArray(next.regionalIds)) {
+    next.regionalIds = next.regionalId ? [next.regionalId] : [];
+  }
+  next.regionalIds = next.regionalIds.filter(Boolean);
+  next.regionalId = next.regionalIds[0] || next.regionalId || '';
   return next;
 }
 
@@ -77,7 +83,7 @@ export function renderNovaProgramacao(user, params = []) {
     wizardState = normalizeWizardState({
       titulo: '', tipoAtividade: '', coordenacaoId: '', responsavel: '',
       objetivo: '', publicoAlvo: '', semana: '', dataInicial: '', dataFinal: '',
-      duracao: '', regionalId: '', municipioId: '', municipioIds: [], localAtividade: '',
+      duracao: '', regionalId: '', regionalIds: [], municipioId: '', municipioIds: [], localAtividade: '',
       necessitaTransporte: false, necessitaAlimentacao: false, obsLogistica: '',
       equipe: [], codigoOrcamentario: '', fonteRecurso: '', observacoes: '', status: 'Rascunho',
     });
@@ -112,12 +118,28 @@ function renderSteps() {
 
 function esc(s) { return s ? String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;') : ''; }
 
-function municipioAddOptions(regionalId) {
+function municipioAddOptions(regionalIds) {
   const selected = new Set(wizardState.municipioIds || []);
-  return getMunicipiosByRegional(regionalId)
+  const list = getMunicipiosByRegionais(regionalIds || wizardState.regionalIds || []);
+  const options = list
     .filter((m) => !selected.has(m.id))
     .map((m) => `<option value="${m.id}">${m.nome}</option>`)
     .join('');
+  return `${options}<option value="${MUNICIPIO_OUTROS_ID}">Outros (fora do Piauí)</option>`;
+}
+
+function renderRegionaisList() {
+  const ids = wizardState.regionalIds || [];
+  if (!ids.length) {
+    return '<p class="text-sm text-muted mb-2">Nenhuma regional adicionada.</p>';
+  }
+  return `<ul class="mun-chip-list mb-2">${ids.map((id) => {
+    const reg = REGIONAIS.find((r) => r.id === id);
+    return `<li class="mun-chip">
+      <span>${reg?.nome || id}</span>
+      <button type="button" class="mun-chip-remove" data-rm-reg="${id}" title="Remover">×</button>
+    </li>`;
+  }).join('')}</ul>`;
 }
 
 function renderMunicipiosList() {
@@ -129,9 +151,17 @@ function renderMunicipiosList() {
     const mun = getMunicipioById(id);
     return `<li class="mun-chip">
       <span>${mun?.nome || id}</span>
-      <button type="button" class="mun-chip-remove" data-rm-mun="${id}" title="Remover">×</button>
+      <button type="button" class="mun-chip-remove" data-rm-mun="${esc(id)}" title="Remover">×</button>
     </li>`;
   }).join('')}</ul>`;
+}
+
+function regionalAddOptions() {
+  const selected = new Set(wizardState.regionalIds || []);
+  return REGIONAIS
+    .filter((r) => !selected.has(r.id))
+    .map((r) => `<option value="${r.id}">${r.nome}</option>`)
+    .join('');
 }
 
 function renderStep(step) {
@@ -161,21 +191,33 @@ function renderStep(step) {
       </div>
       <p class="text-sm text-muted mb-3">A semana e a duração são calculadas automaticamente a partir das datas de ida e volta.</p>
       <h4 class="form-section-title mt-3">Local</h4>
-      <div class="form-row">
-        <div class="form-group"><label>Regional de Saúde <span class="text-muted">(opcional)</span></label>
-          <select class="form-control" id="f-regional"><option value="">Todas / Não informada</option>
-          ${REGIONAIS.map((r) => `<option value="${r.id}" ${wizardState.regionalId === r.id ? 'selected' : ''}>${r.nome}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Regionais de Saúde <span class="text-muted">(opcional, pode adicionar várias)</span></label>
+        ${renderRegionaisList()}
+        <div class="form-row mun-add-row">
+          <div class="form-group flex-2">
+            <select class="form-control" id="f-regional-add"><option value="">Selecione uma regional...</option>${regionalAddOptions()}</select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-add-regional">➕ Adicionar regional</button>
+          </div>
+        </div>
       </div>
       <div class="form-group"><label>Municípios *</label>
         ${renderMunicipiosList()}
         <div class="form-row mun-add-row">
           <div class="form-group flex-2">
-            <select class="form-control" id="f-municipio-add"><option value="">Selecione um município...</option>${municipioAddOptions(wizardState.regionalId)}</select>
+            <select class="form-control" id="f-municipio-add"><option value="">Selecione um município...</option>${municipioAddOptions(wizardState.regionalIds)}</select>
           </div>
           <div class="form-group">
             <label>&nbsp;</label>
             <button type="button" class="btn btn-outline btn-sm" id="btn-add-municipio">➕ Adicionar município</button>
           </div>
+        </div>
+        <div class="form-group mt-2 hidden" id="outros-nome-wrap">
+          <label>Nome do município fora do Piauí</label>
+          <input class="form-control" id="f-municipio-outros-nome" placeholder="Ex.: São Luís - MA" />
+          <p class="text-sm text-muted mt-1">Opcional. Se deixar em branco, será registrado apenas como “Outros”.</p>
         </div>
       </div>
       <div class="form-group"><label>Local da atividade</label><input class="form-control" id="f-local" value="${esc(wizardState.localAtividade)}" /></div>
@@ -215,7 +257,6 @@ function renderStep(step) {
     </div>`;
 
   const coord = getCoordenacaoById(wizardState.coordenacaoId);
-  const reg = getRegionalById(wizardState.regionalId);
   const eq = (wizardState.equipe || []).map((e) => `${e.nome} (${e.cargo})`).join(', ');
   return `<div class="review-panel">
     <div class="detail-grid">
@@ -228,7 +269,7 @@ function renderStep(step) {
       <div class="detail-item"><label>Semana</label><span>${esc(wizardState.semana) || '—'}</span></div>
       <div class="detail-item"><label>Duração</label><span>${esc(wizardState.duracao) || '—'}</span></div>
       <div class="detail-item"><label>Municípios</label><span>${getMunicipiosLabel(wizardState)}</span></div>
-      <div class="detail-item"><label>Regional</label><span>${reg?.nome || 'Não informada'}</span></div>
+      <div class="detail-item"><label>Regionais</label><span>${getRegionaisLabel(wizardState)}</span></div>
       <div class="detail-item full-width"><label>Equipe</label><span>${eq || '—'}</span></div>
     </div>
   </div>`;
@@ -252,14 +293,12 @@ function collect(step) {
     const dataFim = document.getElementById('f-data-fim');
     const semana = document.getElementById('f-semana');
     const duracao = document.getElementById('f-duracao');
-    const regional = document.getElementById('f-regional');
     const local = document.getElementById('f-local');
     const obsLog = document.getElementById('f-obs-log');
     if (dataIni) wizardState.dataInicial = dataIni.value || '';
     if (dataFim) wizardState.dataFinal = dataFim.value || '';
     if (semana) wizardState.semana = semana.value || calcSemanaFromDate(wizardState.dataInicial);
     if (duracao) wizardState.duracao = duracao.value || calcDuracao(wizardState.dataInicial, wizardState.dataFinal);
-    if (regional) wizardState.regionalId = regional.value || '';
     if (local) wizardState.localAtividade = local.value || '';
     const transporte = document.querySelector('input[name="transporte"]:checked');
     const alimentacao = document.querySelector('input[name="alimentacao"]:checked');
@@ -267,6 +306,7 @@ function collect(step) {
     if (alimentacao) wizardState.necessitaAlimentacao = alimentacao.value === 'sim';
     if (obsLog) wizardState.obsLogistica = obsLog.value || '';
     wizardState.municipioId = wizardState.municipioIds?.[0] || '';
+    wizardState.regionalId = wizardState.regionalIds?.[0] || '';
   }
   if (step === 3) {
     const cod = document.getElementById('f-cod-orc');
@@ -341,17 +381,33 @@ function bindStep() {
   document.getElementById('f-data-ini')?.addEventListener('change', updateCronogramaFromDates);
   document.getElementById('f-data-fim')?.addEventListener('change', updateCronogramaFromDates);
 
-  document.getElementById('f-regional')?.addEventListener('change', (e) => {
-    wizardState.regionalId = e.target.value;
-    const sel = document.getElementById('f-municipio-add');
-    if (sel) sel.innerHTML = `<option value="">Selecione um município...</option>${municipioAddOptions(wizardState.regionalId)}`;
+  document.getElementById('f-municipio-add')?.addEventListener('change', (e) => {
+    const wrap = document.getElementById('outros-nome-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden', e.target.value !== MUNICIPIO_OUTROS_ID);
+  });
+
+  document.getElementById('btn-add-regional')?.addEventListener('click', () => {
+    const id = document.getElementById('f-regional-add')?.value;
+    if (!id) return toast('Selecione uma regional.', 'error');
+    wizardState.regionalIds = wizardState.regionalIds || [];
+    if (!wizardState.regionalIds.includes(id)) wizardState.regionalIds.push(id);
+    wizardState.regionalId = wizardState.regionalIds[0] || '';
+    refreshMunicipioSection();
   });
 
   document.getElementById('btn-add-municipio')?.addEventListener('click', () => {
-    const id = document.getElementById('f-municipio-add')?.value;
+    let id = document.getElementById('f-municipio-add')?.value;
     if (!id) return toast('Selecione um município.', 'error');
+    if (id === MUNICIPIO_OUTROS_ID) {
+      const nome = document.getElementById('f-municipio-outros-nome')?.value?.trim() || '';
+      id = nome ? `outros:${encodeURIComponent(nome)}` : MUNICIPIO_OUTROS_ID;
+    }
     wizardState.municipioIds = wizardState.municipioIds || [];
-    if (!wizardState.municipioIds.includes(id)) wizardState.municipioIds.push(id);
+    if (wizardState.municipioIds.includes(id)) {
+      return toast('Este município já foi adicionado.', 'error');
+    }
+    wizardState.municipioIds.push(id);
     wizardState.municipioId = wizardState.municipioIds[0] || '';
     refreshMunicipioSection();
   });
@@ -404,6 +460,13 @@ function bindMain() {
       wizardState.municipioId = wizardState.municipioIds[0] || '';
       refreshMunicipioSection();
       return;
+    }
+    const rmReg = e.target.closest('[data-rm-reg]');
+    if (rmReg && currentStep === 1) {
+      const id = rmReg.dataset.rmReg;
+      wizardState.regionalIds = (wizardState.regionalIds || []).filter((item) => item !== id);
+      wizardState.regionalId = wizardState.regionalIds[0] || '';
+      refreshMunicipioSection();
     }
   });
 

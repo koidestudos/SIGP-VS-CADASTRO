@@ -62,7 +62,9 @@ service cloud.firestore {
           || (('equipe' in data) && data.equipe is list && data.equipe.size() >= 1)
         )
         && (!('municipioIds' in data) || data.municipioIds is list)
-        && (!('municipioIds' in data) || data.municipioIds.size() <= 20);
+        && (!('municipioIds' in data) || data.municipioIds.size() <= 20)
+        && (!('regionalIds' in data) || data.regionalIds is list)
+        && (!('regionalIds' in data) || data.regionalIds.size() <= 20);
     }
 
     function validUserProfile(data) {

@@ -117,7 +117,10 @@ function sanitizeProgramacao(data, uid, isNew) {
     dataInicial: data.dataInicial || '',
     dataFinal: data.dataFinal || '',
     duracao: data.duracao || '',
-    regionalId: data.regionalId || '',
+    regionalId: (Array.isArray(data.regionalIds) && data.regionalIds[0]) || data.regionalId || '',
+    regionalIds: Array.isArray(data.regionalIds)
+      ? data.regionalIds.filter(Boolean).slice(0, 20)
+      : (data.regionalId ? [data.regionalId] : []),
     municipioIds: Array.isArray(data.municipioIds)
       ? data.municipioIds.filter(Boolean).slice(0, 20)
       : (data.municipioId ? [data.municipioId] : []),

@@ -8,6 +8,9 @@ import {
 
 export { GERENCIAS, COORDENACOES, REGIONAIS, MUNICIPIOS, EQUIPES };
 
+/** Município virtual para locais fora do Piauí */
+export const MUNICIPIO_OUTROS_ID = 'mun-outros';
+
 export const GERENCIA_COLORS = {
   GAS: { bg: '#dbeafe', border: '#1351B4', text: '#1351B4' },
   GAP: { bg: '#dcfce7', border: '#168821', text: '#168821' },
@@ -32,6 +35,15 @@ export function getGerenciaByProgramacao(p) {
 }
 
 export function getMunicipioById(id) {
+  if (!id) return null;
+  if (id === MUNICIPIO_OUTROS_ID) {
+    return { id: MUNICIPIO_OUTROS_ID, nome: 'Outros (fora do Piauí)', regionalId: '' };
+  }
+  if (String(id).startsWith('outros:')) {
+    let nome = String(id).slice(7);
+    try { nome = decodeURIComponent(nome); } catch { /* keep raw */ }
+    return { id, nome: nome ? `${nome} (fora do Piauí)` : 'Outros (fora do Piauí)', regionalId: '' };
+  }
   return getMunicipios().find((m) => m.id === id) || MUNICIPIOS.find((m) => m.id === id);
 }
 
@@ -48,7 +60,7 @@ export function getMunicipiosFromProgramacao(p) {
 }
 
 export function getMunicipiosLabel(p, separator = ', ') {
-  const names = getMunicipiosFromProgramacao(p).map((m) => m.nome);
+  const names = getMunicipioIdsFromProgramacao(p).map((id) => getMunicipioById(id)?.nome || id);
   return names.length ? names.join(separator) : '—';
 }
 
@@ -75,10 +87,33 @@ export function getRegionalById(id) {
   return getRegionais().find((r) => r.id === id) || REGIONAIS.find((r) => r.id === id);
 }
 
+export function getRegionalIdsFromProgramacao(p) {
+  if (Array.isArray(p?.regionalIds) && p.regionalIds.length) {
+    return p.regionalIds.filter(Boolean);
+  }
+  if (p?.regionalId) return [p.regionalId];
+  return [];
+}
+
+export function getRegionaisLabel(p, separator = ', ') {
+  const names = getRegionalIdsFromProgramacao(p)
+    .map((id) => getRegionalById(id)?.nome)
+    .filter(Boolean);
+  return names.length ? names.join(separator) : 'Não informada';
+}
+
 export function getMunicipiosByRegional(regionalId) {
   const list = getMunicipios();
   if (!regionalId) return list;
   return list.filter((m) => m.regionalId === regionalId);
+}
+
+export function getMunicipiosByRegionais(regionalIds = []) {
+  const list = getMunicipios();
+  const ids = (regionalIds || []).filter(Boolean);
+  if (!ids.length) return list;
+  const set = new Set(ids);
+  return list.filter((m) => set.has(m.regionalId));
 }
 
 export function getStatusBadgeClass(status) {
