@@ -5,13 +5,14 @@ import {
 } from '../data/seed.js';
 import { proximasAcoes } from '../utils/bi-metrics.js';
 import { countByStatusGroup, filterForDashboard, normalizeStatus } from '../utils/status.js';
+import { currentWeekRangeBR, programacaoNaSemana, todayBR, todayPartsBR } from '../utils/datetime-br.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 function renderMiniCalendar(programacoes, year, month) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
-  const today = new Date();
+  const { day: todayDay, month: todayMonth, year: todayYear } = todayPartsBR();
   const countOn = (d) => programacoes.filter((p) => {
     const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     return ds >= p.dataInicial && ds <= (p.dataFinal || p.dataInicial);
@@ -22,7 +23,7 @@ function renderMiniCalendar(programacoes, year, month) {
   for (let i = 0; i < firstDay; i++) html += '<span class="mini-cal-day empty"></span>';
   for (let d = 1; d <= daysInMonth; d++) {
     const n = countOn(d);
-    const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+    const isToday = todayDay === d && todayMonth === month + 1 && todayYear === year;
     const heat = n === 0 ? '' : n <= 2 ? 'heat-1' : n <= 5 ? 'heat-2' : 'heat-3';
     html += `<span class="mini-cal-day ${isToday ? 'today' : ''} ${heat}" title="${n} ação(ões)">${d}</span>`;
   }
@@ -47,23 +48,21 @@ export function renderDashboard(user) {
   const autorizadas = (counts.Autorizada || 0) + (counts['Em execução'] || 0);
   const realizadas = counts.Realizada || 0;
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const mesAtual = now.getMonth();
-  const anoAtual = now.getFullYear();
+  const hojeBR = todayBR();
+  const { year: anoAtual, month: mesNum } = todayPartsBR();
+  const mesAtual = mesNum - 1;
+  const semanaAtual = currentWeekRangeBR();
 
-  const doMes = programacoes.filter((p) => {
-    const d = new Date(`${p.dataInicial}T12:00:00`);
-    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
-  });
+  const daSemana = programacoes
+    .filter((p) => programacaoNaSemana(p, semanaAtual.start, semanaAtual.end))
+    .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial));
 
   const proximas = programacoes
     .filter((p) => {
       const status = normalizeStatus(p.status);
       if (['Realizada', 'Cancelada', 'Reprovada'].includes(status)) return false;
-      const ini = new Date(`${p.dataInicial}T12:00:00`);
-      const fim = new Date(`${(p.dataFinal || p.dataInicial)}T12:00:00`);
-      return fim >= now;
+      const fim = p.dataFinal || p.dataInicial;
+      return fim >= hojeBR;
     })
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial))
     .slice(0, 10);
@@ -131,19 +130,23 @@ export function renderDashboard(user) {
 
       <div class="dash-quick-grid">
         <div class="card">
-          <div class="card-header"><h3>📋 Programações do mês</h3><span class="badge badge-programada">${doMes.length}</span></div>
+          <div class="card-header">
+            <h3>📋 Programações da semana</h3>
+            <span class="badge badge-programada">${daSemana.length}</span>
+          </div>
+          <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana (Brasília): ${semanaAtual.label}</p>
           <div class="card-body table-compact">
-            ${doMes.length ? `<div class="table-wrapper"><table>
+            ${daSemana.length ? `<div class="table-wrapper"><table>
               <thead><tr><th>Ação</th><th>Gerência</th><th>Data</th><th>Status</th></tr></thead>
-              <tbody>${doMes.slice(0, 8).map((p) => `
+              <tbody>${daSemana.slice(0, 8).map((p) => `
                 <tr>
                   <td class="td-action">${p.titulo}</td>
                   <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
                   <td>${formatDate(p.dataInicial)}</td>
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 </tr>`).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação neste mês.</p>'}
-            ${doMes.length > 8 ? `<a href="#programacoes" class="dash-link">Ver todas →</a>` : ''}
+            </table></div>` : '<p class="text-muted">Nenhuma programação nesta semana.</p>'}
+            ${daSemana.length > 8 ? `<a href="#programacoes" class="dash-link">Ver todas →</a>` : ''}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { getCollection } from '../services/storage.js';
-import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass, programacaoHasMunicipio, getMunicipiosLabel } from '../data/seed.js';
-import { isAutorizada, isRealizada, normalizeStatus } from '../utils/status.js';
+import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass, programacaoHasMunicipio } from '../data/seed.js';
+import { isAutorizada, isRealizada, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
 
 function renderMunicipioCards(municipios, programacoes) {
@@ -23,6 +23,9 @@ function renderMunicipioCards(municipios, programacoes) {
 
 export function renderMunicipios(user, params = []) {
   if (params[0]) {
+    if (params[1] === 'canceladas-reprovadas') {
+      return renderMunicipioCanceladasReprovadas(params[0]);
+    }
     return renderMunicipioDetail(params[0]);
   }
 
@@ -51,6 +54,17 @@ export function renderMunicipios(user, params = []) {
   `;
 }
 
+function groupByStatus(programacoes) {
+  const programadas = programacoes.filter((p) => normalizeStatus(p.status) === 'Programada');
+  const autorizadas = programacoes.filter((p) => isAutorizada(p.status));
+  const realizadas = programacoes.filter((p) => isRealizada(p.status));
+  const canceladasReprovadas = programacoes.filter((p) => {
+    const s = normalizeStatus(p.status);
+    return s === 'Cancelada' || s === 'Reprovada';
+  });
+  return { programadas, autorizadas, realizadas, canceladasReprovadas };
+}
+
 function renderMunicipioDetail(munId) {
   const mun = getCollection('municipios').find((m) => m.id === munId);
   if (!mun) return '<p>Município não encontrado.</p>';
@@ -58,8 +72,7 @@ function renderMunicipioDetail(munId) {
   const coord = getCoordenacaoById(mun.coordenacaoId);
   const reg = getRegionalById(mun.regionalId);
   const programacoes = getCollection('programacoes').filter((p) => programacaoHasMunicipio(p, munId));
-  const previstas = programacoes.filter((p) => isAutorizada(p.status) && !isRealizada(p.status));
-  const realizadas = programacoes.filter((p) => isRealizada(p.status));
+  const { programadas, autorizadas, realizadas, canceladasReprovadas } = groupByStatus(programacoes);
 
   return `
     <div class="page-header">
@@ -68,6 +81,9 @@ function renderMunicipioDetail(munId) {
         <h2>${mun.nome}</h2>
         <p class="text-muted">${reg?.nome || ''}</p>
       </div>
+      <a href="#municipios/${munId}/canceladas-reprovadas" class="btn btn-outline">
+        Canceladas e Reprovadas (${canceladasReprovadas.length})
+      </a>
     </div>
 
     <div class="detail-grid mb-3">
@@ -77,29 +93,56 @@ function renderMunicipioDetail(munId) {
     </div>
 
     <div class="tabs" id="mun-tabs">
-      <button class="tab active" data-tab="prev">Programações previstas</button>
-      <button class="tab" data-tab="real">Programações realizadas</button>
-      <button class="tab" data-tab="docs">Documentos</button>
-      <button class="tab" data-tab="mapa">Mapa</button>
+      <button class="tab active" data-tab="programadas">Programadas (${programadas.length})</button>
+      <button class="tab" data-tab="autorizadas">Autorizadas (${autorizadas.length})</button>
+      <button class="tab" data-tab="realizadas">Realizadas (${realizadas.length})</button>
     </div>
 
-    <div class="tab-content active" data-tab-content="prev">
-      ${renderProgTable(previstas)}
+    <div class="tab-content active" data-tab-content="programadas">
+      ${renderProgTable(programadas)}
     </div>
-    <div class="tab-content" data-tab-content="real">
+    <div class="tab-content" data-tab-content="autorizadas">
+      ${renderProgTable(autorizadas)}
+    </div>
+    <div class="tab-content" data-tab-content="realizadas">
       ${renderProgTable(realizadas)}
     </div>
-    <div class="tab-content" data-tab-content="docs">
-      <div class="card"><div class="card-body">
-        ${programacoes.flatMap((p) => p.documentos || []).length ? `
-          <ul class="file-list">
-            ${programacoes.flatMap((p) => (p.documentos || []).map((d) => `<li>📄 ${d.nome}</li>`)).join('')}
-          </ul>
-        ` : '<p class="text-muted text-center">Nenhum documento.</p>'}
-      </div></div>
+  `;
+}
+
+function renderMunicipioCanceladasReprovadas(munId) {
+  const mun = getCollection('municipios').find((m) => m.id === munId);
+  if (!mun) return '<p>Município não encontrado.</p>';
+
+  const reg = getRegionalById(mun.regionalId);
+  const programacoes = getCollection('programacoes').filter((p) => programacaoHasMunicipio(p, munId));
+  const { canceladasReprovadas } = groupByStatus(programacoes);
+  const canceladas = canceladasReprovadas.filter((p) => normalizeStatus(p.status) === 'Cancelada');
+  const reprovadas = canceladasReprovadas.filter((p) => normalizeStatus(p.status) === 'Reprovada');
+
+  return `
+    <div class="page-header">
+      <div>
+        <a href="#municipios/${munId}" class="text-sm">← Voltar para ${mun.nome}</a>
+        <h2>Canceladas e Reprovadas</h2>
+        <p class="text-muted">${mun.nome}${reg?.nome ? ` · ${reg.nome}` : ''}</p>
+      </div>
     </div>
-    <div class="tab-content" data-tab-content="mapa">
-      <div class="map-placeholder">🗺 Mapa de ${mun.nome} — Piauí<br><span class="text-sm">Integração com mapa disponível em versão futura</span></div>
+
+    <div class="tabs" id="mun-tabs">
+      <button class="tab active" data-tab="canceladas">Canceladas (${canceladas.length})</button>
+      <button class="tab" data-tab="reprovadas">Reprovadas (${reprovadas.length})</button>
+      <button class="tab" data-tab="todas">Todas (${canceladasReprovadas.length})</button>
+    </div>
+
+    <div class="tab-content active" data-tab-content="canceladas">
+      ${renderProgTable(canceladas)}
+    </div>
+    <div class="tab-content" data-tab-content="reprovadas">
+      ${renderProgTable(reprovadas)}
+    </div>
+    <div class="tab-content" data-tab-content="todas">
+      ${renderProgTable(canceladasReprovadas)}
     </div>
   `;
 }
@@ -113,7 +156,7 @@ function renderProgTable(items) {
           <tbody>
             ${items.length ? items.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
-              return `<tr><td>${p.titulo}</td><td>${coord?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
+              return `<tr class="${getStatusRowClass(p.status)}"><td>${p.titulo}</td><td>${coord?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
             }).join('') : '<tr><td colspan="4" class="text-center text-muted">Nenhuma programação.</td></tr>'}
           </tbody>
