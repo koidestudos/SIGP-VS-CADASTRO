@@ -36,7 +36,7 @@ function renderAcaoList(items, emptyMsg) {
   return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => `
     <li>
       <strong>${p.titulo}</strong>
-      <span>${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} · ${normalizeStatus(p.status)}</span>
+      <span>${getMunicipiosLabel(p)} · Ida ${formatDate(p.dataInicial)} · Volta ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}</span>
     </li>`).join('')}</ul>`;
 }
 
@@ -116,12 +116,13 @@ export function renderDashboard(user) {
         </div>
         <div class="card-body table-compact">
           ${proximas.length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
             <tbody>${proximas.map((p) => `
               <tr>
                 <td class="td-action">${p.titulo}</td>
                 <td>${getMunicipiosLabel(p)}</td>
                 <td>${formatDate(p.dataInicial)}</td>
+                <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
               </tr>`).join('')}</tbody>
           </table></div>` : '<p class="text-muted">Nenhuma programação futura (Programada, Autorizada ou Em execução).</p>'}
@@ -137,12 +138,13 @@ export function renderDashboard(user) {
           <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana (Brasília): ${semanaAtual.label}</p>
           <div class="card-body table-compact">
             ${daSemana.length ? `<div class="table-wrapper"><table>
-              <thead><tr><th>Ação</th><th>Gerência</th><th>Data</th><th>Status</th></tr></thead>
+              <thead><tr><th>Ação</th><th>Gerência</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
               <tbody>${daSemana.slice(0, 8).map((p) => `
                 <tr>
                   <td class="td-action">${p.titulo}</td>
                   <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
                   <td>${formatDate(p.dataInicial)}</td>
+                  <td>${formatDate(p.dataFinal)}</td>
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 </tr>`).join('')}</tbody>
             </table></div>` : '<p class="text-muted">Nenhuma programação nesta semana.</p>'}

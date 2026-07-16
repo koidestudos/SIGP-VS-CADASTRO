@@ -152,13 +152,14 @@ function renderProgTable(items) {
     <div class="card"><div class="card-body">
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Ação</th><th>Coordenação</th><th>Data</th><th>Status</th></tr></thead>
+          <thead><tr><th>Ação</th><th>Coordenação</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
           <tbody>
             ${items.length ? items.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
-              return `<tr class="${getStatusRowClass(p.status)}"><td>${p.titulo}</td><td>${coord?.nome || '—'}</td><td>${formatDate(p.dataInicial)}</td>
+              return `<tr class="${getStatusRowClass(p.status)}"><td>${p.titulo}</td><td>${coord?.nome || '—'}</td>
+                <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
-            }).join('') : '<tr><td colspan="4" class="text-center text-muted">Nenhuma programação.</td></tr>'}
+            }).join('') : '<tr><td colspan="5" class="text-center text-muted">Nenhuma programação.</td></tr>'}
           </tbody>
         </table>
       </div>
