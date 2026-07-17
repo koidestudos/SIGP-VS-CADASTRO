@@ -33,7 +33,7 @@ service cloud.firestore {
 
     function validStatus(status) {
       return status in [
-        'Rascunho', 'Enviada para Gerência', 'Programada', 'Autorizada',
+        'Rascunho', 'Enviada para Gerência', 'Programada', 'Priorizada', 'Autorizada',
         'Em execução', 'Realizada', 'Cancelada', 'Reprovada',
         'Em análise', 'Pendente', 'Autorizado', 'Aprovado'
       ];

@@ -56,13 +56,14 @@ export function renderMunicipios(user, params = []) {
 
 function groupByStatus(programacoes) {
   const programadas = programacoes.filter((p) => normalizeStatus(p.status) === 'Programada');
+  const priorizadas = programacoes.filter((p) => normalizeStatus(p.status) === 'Priorizada');
   const autorizadas = programacoes.filter((p) => isAutorizada(p.status));
   const realizadas = programacoes.filter((p) => isRealizada(p.status));
   const canceladasReprovadas = programacoes.filter((p) => {
     const s = normalizeStatus(p.status);
     return s === 'Cancelada' || s === 'Reprovada';
   });
-  return { programadas, autorizadas, realizadas, canceladasReprovadas };
+  return { programadas, priorizadas, autorizadas, realizadas, canceladasReprovadas };
 }
 
 function renderMunicipioDetail(munId) {
@@ -72,7 +73,7 @@ function renderMunicipioDetail(munId) {
   const coord = getCoordenacaoById(mun.coordenacaoId);
   const reg = getRegionalById(mun.regionalId);
   const programacoes = getCollection('programacoes').filter((p) => programacaoHasMunicipio(p, munId));
-  const { programadas, autorizadas, realizadas, canceladasReprovadas } = groupByStatus(programacoes);
+  const { programadas, priorizadas, autorizadas, realizadas, canceladasReprovadas } = groupByStatus(programacoes);
 
   return `
     <div class="page-header">
@@ -94,12 +95,16 @@ function renderMunicipioDetail(munId) {
 
     <div class="tabs" id="mun-tabs">
       <button class="tab active" data-tab="programadas">Programadas (${programadas.length})</button>
+      <button class="tab" data-tab="priorizadas">Priorizadas (${priorizadas.length})</button>
       <button class="tab" data-tab="autorizadas">Autorizadas (${autorizadas.length})</button>
       <button class="tab" data-tab="realizadas">Realizadas (${realizadas.length})</button>
     </div>
 
     <div class="tab-content active" data-tab-content="programadas">
       ${renderProgTable(programadas)}
+    </div>
+    <div class="tab-content" data-tab-content="priorizadas">
+      ${renderProgTable(priorizadas)}
     </div>
     <div class="tab-content" data-tab-content="autorizadas">
       ${renderProgTable(autorizadas)}

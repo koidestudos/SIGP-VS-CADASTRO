@@ -45,6 +45,7 @@ export function renderDashboard(user) {
   const programacoes = filterForDashboard(todas);
   const counts = countByStatusGroup(todas);
   const programadas = counts.Programada || 0;
+  const priorizadas = counts.Priorizada || 0;
   const autorizadas = (counts.Autorizada || 0) + (counts['Em execução'] || 0);
   const realizadas = counts.Realizada || 0;
 
@@ -79,7 +80,7 @@ export function renderDashboard(user) {
       <div class="dash-header">
         <div>
           <h2 class="dash-greeting">Olá, ${primeiroNome}!</h2>
-          <p class="dash-subtitle">Acompanhe programações programadas, autorizadas e realizadas</p>
+          <p class="dash-subtitle">Acompanhe programações programadas, priorizadas, autorizadas e realizadas</p>
         </div>
         <button class="btn btn-primary btn-lg" id="dash-nova">+ Nova Programação</button>
       </div>
@@ -90,6 +91,13 @@ export function renderDashboard(user) {
           <div>
             <strong>${programadas}</strong>
             <span>Programadas</span>
+          </div>
+        </div>
+        <div class="dash-kpi-card dash-kpi-blue">
+          <span class="dash-kpi-icon">⚡</span>
+          <div>
+            <strong>${priorizadas}</strong>
+            <span>Priorizadas</span>
           </div>
         </div>
         <div class="dash-kpi-card dash-kpi-blue">
@@ -125,7 +133,7 @@ export function renderDashboard(user) {
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
               </tr>`).join('')}</tbody>
-          </table></div>` : '<p class="text-muted">Nenhuma programação futura (Programada, Autorizada ou Em execução).</p>'}
+          </table></div>` : '<p class="text-muted">Nenhuma programação futura (Programada, Priorizada, Autorizada ou Em execução).</p>'}
         </div>
       </div>
 

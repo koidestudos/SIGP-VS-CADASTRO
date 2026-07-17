@@ -26,7 +26,7 @@ export function renderIndicadores() {
     value: doMes.filter((p) => p.coordenacaoId === c.id).length,
   })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
 
-  const aguardando = counts.Programada + counts['Enviada para Gerência'];
+  const aguardando = counts.Programada + counts.Priorizada + counts['Enviada para Gerência'];
   const autorizadas = counts.Autorizada + counts['Em execução'];
   const taxaRealizacao = autorizadas + counts.Realizada
     ? Math.round((counts.Realizada / (autorizadas + counts.Realizada)) * 100)

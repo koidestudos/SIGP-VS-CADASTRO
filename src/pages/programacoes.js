@@ -21,7 +21,12 @@ export function renderProgramacoes(user) {
   return `
     <div class="page-header">
       <h2>Programações</h2>
-      <button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>
+      <div class="page-header-actions">
+        <a class="btn btn-outline" id="btn-modelo-anexo" href="/modelos/Relatorio_Simplificado_Execucao_Acao.pdf" download="Relatorio_Simplificado_Execucao_Acao.pdf">
+          Baixar modelo de anexo
+        </a>
+        <button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>
+      </div>
     </div>
     ${renderProgramacoesFilterBar({
       mesAtual,
@@ -150,12 +155,16 @@ async function showApproveDialog(id) {
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
       <button class="btn btn-outline" data-modal-action="programada">Programada</button>
+      <button class="btn btn-outline" data-modal-action="priorizada">Priorizada</button>
       <button class="btn btn-outline" data-modal-action="reprovar">Reprovar</button>
       <button class="btn btn-primary" data-modal-action="autorizar">Autorizar</button>`,
   });
   if (action === 'programada') {
     await updateProgramacaoStatus(id, 'Programada');
     toast('Programação marcada como Programada.', 'success');
+  } else if (action === 'priorizada') {
+    await updateProgramacaoStatus(id, 'Priorizada');
+    toast('Programação marcada como Priorizada.', 'success');
   } else if (action === 'reprovar') {
     await rejectProgramacao(id);
     toast('Programação reprovada.', 'success');

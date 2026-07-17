@@ -4,6 +4,7 @@ export const STATUS_PROGRAMACAO = [
   'Rascunho',
   'Enviada para Gerência',
   'Programada',
+  'Priorizada',
   'Autorizada',
   'Em execução',
   'Realizada',
@@ -15,7 +16,7 @@ export const STATUS_PROGRAMACAO = [
 export const STATUS_IN_BI = ['Autorizada', 'Em execução', 'Realizada'];
 
 /** Status visíveis no Dashboard operacional */
-export const STATUS_IN_DASHBOARD = ['Programada', 'Autorizada', 'Em execução', 'Realizada'];
+export const STATUS_IN_DASHBOARD = ['Programada', 'Priorizada', 'Autorizada', 'Em execução', 'Realizada'];
 
 const LEGACY_MAP = {
   Aprovado: 'Autorizada',
@@ -68,6 +69,7 @@ export function getStatusBadgeClass(status) {
     Rascunho: 'badge-rascunho',
     'Enviada para Gerência': 'badge-enviada',
     Programada: 'badge-programada',
+    Priorizada: 'badge-priorizada',
     Autorizada: 'badge-autorizada',
     'Em execução': 'badge-execucao',
     Realizada: 'badge-realizada',
@@ -84,6 +86,7 @@ export function getStatusRowClass(status) {
     Rascunho: 'row-status-rascunho',
     'Enviada para Gerência': 'row-status-enviada',
     Programada: 'row-status-programada',
+    Priorizada: 'row-status-priorizada',
     Autorizada: 'row-status-autorizada',
     'Em execução': 'row-status-execucao',
     Realizada: 'row-status-realizada',
@@ -107,6 +110,7 @@ export function getStatusOptionsForUser(user, programacao) {
     Rascunho: ['Rascunho', 'Enviada para Gerência'],
     'Enviada para Gerência': ['Enviada para Gerência'],
     Programada: ['Programada'],
+    Priorizada: ['Priorizada'],
     Autorizada: ['Autorizada', 'Em execução', 'Realizada'],
     'Em execução': ['Em execução', 'Realizada'],
     Realizada: ['Realizada'],
@@ -126,7 +130,7 @@ export function filterForDashboard(programacoes) {
 
 export function needsApproval(status) {
   const s = normalizeStatus(status);
-  return ['Enviada para Gerência', 'Programada'].includes(s)
+  return ['Enviada para Gerência', 'Programada', 'Priorizada'].includes(s)
     || status === 'Pendente' || status === 'Em análise';
 }
 
