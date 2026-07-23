@@ -4,7 +4,7 @@ import {
   getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
 import { proximasAcoes } from '../utils/bi-metrics.js';
-import { countByStatusGroup, filterForDashboard, normalizeStatus } from '../utils/status.js';
+import { countByStatusGroup, filterForDashboard, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { currentWeekRangeBR, programacaoNaSemana, todayBR, todayPartsBR } from '../utils/datetime-br.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -119,6 +119,28 @@ export function renderDashboard(user) {
 
       <div class="card mb-3">
         <div class="card-header">
+          <h3>📋 Programações da semana</h3>
+          <span class="badge badge-programada">${daSemana.length}</span>
+        </div>
+        <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana atual (Brasília): ${semanaAtual.label}</p>
+        <div class="card-body table-compact">
+          ${daSemana.length ? `<div class="table-wrapper"><table>
+            <thead><tr><th>Ação</th><th>Município</th><th>Gerência</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
+            <tbody>${daSemana.map((p) => `
+              <tr class="${normalizeStatus(p.status) ? '' : ''}">
+                <td class="td-action">${p.titulo}</td>
+                <td>${getMunicipiosLabel(p)}</td>
+                <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
+                <td>${formatDate(p.dataInicial)}</td>
+                <td>${formatDate(p.dataFinal)}</td>
+                <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+              </tr>`).join('')}</tbody>
+          </table></div>` : '<p class="text-muted">Nenhuma programação nesta semana.</p>'}
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">
           <h3>⏭ Próximas programações</h3>
           <a href="#programacoes" class="btn btn-ghost btn-sm">Ver todas</a>
         </div>
@@ -139,28 +161,6 @@ export function renderDashboard(user) {
 
       <div class="dash-quick-grid">
         <div class="card">
-          <div class="card-header">
-            <h3>📋 Programações da semana</h3>
-            <span class="badge badge-programada">${daSemana.length}</span>
-          </div>
-          <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana (Brasília): ${semanaAtual.label}</p>
-          <div class="card-body table-compact">
-            ${daSemana.length ? `<div class="table-wrapper"><table>
-              <thead><tr><th>Ação</th><th>Gerência</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
-              <tbody>${daSemana.slice(0, 8).map((p) => `
-                <tr>
-                  <td class="td-action">${p.titulo}</td>
-                  <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
-                  <td>${formatDate(p.dataInicial)}</td>
-                  <td>${formatDate(p.dataFinal)}</td>
-                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
-                </tr>`).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação nesta semana.</p>'}
-            ${daSemana.length > 8 ? `<a href="#programacoes" class="dash-link">Ver todas →</a>` : ''}
-          </div>
-        </div>
-
-        <div class="card">
           <div class="card-header"><h3>⏱ Agenda rápida</h3></div>
           <div class="card-body">
             <div class="proximas-tabs">
@@ -170,30 +170,28 @@ export function renderDashboard(user) {
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="dash-quick-grid">
         <div class="card">
           <div class="card-header"><h3>📆 Calendário — ${MESES[mesAtual]}/${anoAtual}</h3>
             <a href="#calendario" class="btn btn-ghost btn-sm">Abrir calendário</a></div>
           <div class="card-body">${renderMiniCalendar(programacoes, anoAtual, mesAtual)}</div>
         </div>
+      </div>
 
-        <div class="card">
-          <div class="card-header"><h3>🕐 Últimas atualizações</h3></div>
-          <div class="card-body table-compact">
-            ${ultimas.length ? `<div class="table-wrapper"><table>
-              <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
-              <tbody>${ultimas.map((p) => {
-                const coord = getCoordenacaoById(p.coordenacaoId);
-                return `<tr>
-                  <td class="td-action">${p.titulo}</td>
-                  <td>${coord?.nome || '—'}</td>
-                  <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
-                </tr>`;
-              }).join('')}</tbody>
-            </table></div>` : '<p class="text-muted">Nenhuma programação ainda.</p>'}
-          </div>
+      <div class="card mb-3">
+        <div class="card-header"><h3>🕐 Últimas atualizações</h3></div>
+        <div class="card-body table-compact">
+          ${ultimas.length ? `<div class="table-wrapper"><table>
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
+            <tbody>${ultimas.map((p) => {
+              const coord = getCoordenacaoById(p.coordenacaoId);
+              return `<tr>
+                <td class="td-action">${p.titulo}</td>
+                <td>${coord?.nome || '—'}</td>
+                <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>` : '<p class="text-muted">Nenhuma programação ainda.</p>'}
         </div>
       </div>
     </div>`;
