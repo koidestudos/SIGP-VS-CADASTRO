@@ -10,6 +10,12 @@ import { showModal, confirmDialog, toast, renderActionButtons } from '../compone
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf, downloadProgramacoesListPdf } from '../utils/programacao-report-pdf.js';
 import {
+  renderModeloAnexoFormHtml,
+  collectModeloAnexoForm,
+  validateModeloAnexoForm,
+  downloadModeloAnexoPdf,
+} from '../utils/modelo-anexo-pdf.js';
+import {
   filterProgramacoes, readFilterState, getFilterDescription,
   renderProgramacoesFilterBar, bindProgramacoesFilterBar,
 } from '../utils/programacoes-filters.js';
@@ -22,9 +28,7 @@ export function renderProgramacoes(user) {
     <div class="page-header">
       <h2>Programações</h2>
       <div class="page-header-actions">
-        <a class="btn btn-outline" id="btn-modelo-anexo" href="/modelos/Relatorio_Simplificado_Execucao_Acao.pdf" download="Relatorio_Simplificado_Execucao_Acao.pdf">
-          Baixar modelo de anexo
-        </a>
+        <button type="button" class="btn btn-outline" id="btn-modelo-anexo">Fazer modelo de anexo</button>
         <button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>
       </div>
     </div>
@@ -148,6 +152,37 @@ async function showAnexoDialog(prog) {
   });
 }
 
+async function showModeloAnexoDialog(user) {
+  await showModal({
+    title: 'Relatório Simplificado de Execução da Ação',
+    size: 'modal-lg',
+    body: renderModeloAnexoFormHtml({
+      responsavelNome: user?.nome || '',
+      responsavelCargo: user?.cargo || '',
+    }),
+    footer: `
+      <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+      <button class="btn btn-primary" data-modal-action="exportar">Exportar PDF</button>`,
+    onAction: async (act, overlay) => {
+      if (act !== 'exportar') return;
+      const data = collectModeloAnexoForm(overlay);
+      const err = validateModeloAnexoForm(data);
+      if (err) {
+        toast(err, 'error');
+        return false;
+      }
+      try {
+        downloadModeloAnexoPdf(data);
+        toast('PDF do relatório gerado com sucesso.', 'success');
+      } catch (e) {
+        console.error(e);
+        toast(e.message || 'Erro ao gerar PDF.', 'error');
+        return false;
+      }
+    },
+  });
+}
+
 async function showApproveDialog(id) {
   const action = await showModal({
     title: 'Analisar programação',
@@ -215,6 +250,7 @@ export function bindProgramacoes(user) {
   });
 
   document.getElementById('btn-nova')?.addEventListener('click', () => { window.location.hash = 'nova-programacao'; });
+  document.getElementById('btn-modelo-anexo')?.addEventListener('click', () => { showModeloAnexoDialog(user); });
   document.getElementById('tabela-programacoes')?.addEventListener('change', async (e) => {
     const sel = e.target.closest('[data-status-id]');
     if (!sel || !(isAdmin(user) || canEditProgramacao(user, getProgramacaoById(sel.dataset.statusId)))) return;

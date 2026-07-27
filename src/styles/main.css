@@ -342,6 +342,30 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
 .page-header h2 { font-size: 1.375rem; font-weight: 700; color: var(--gray-900); }
 .page-header-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.modelo-anexo-form { display: flex; flex-direction: column; gap: 12px; }
+.modelo-anexo-form .modelo-section {
+  border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px 14px 4px; margin: 0;
+  background: #fafbfc;
+}
+.modelo-anexo-form .modelo-section legend {
+  font-size: 0.875rem; font-weight: 700; color: var(--primary); padding: 0 6px;
+}
+.modelo-anexo-form .form-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.modelo-anexo-form .modelo-radio-row,
+.modelo-anexo-form .modelo-check-row {
+  display: flex; flex-wrap: wrap; gap: 12px 18px; padding: 4px 0 12px;
+}
+.modelo-anexo-form .modelo-radio-row label,
+.modelo-anexo-form .modelo-check-row label {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; color: var(--gray-800);
+  cursor: pointer; margin: 0;
+}
+@media (max-width: 640px) {
+  .modelo-anexo-form .form-row { grid-template-columns: 1fr; }
+}
 .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--gray-800); }
 
 .map-placeholder { background: var(--gray-100); border: 2px dashed var(--gray-300); border-radius: var(--radius); height: 200px; display: flex; align-items: center; justify-content: center; color: var(--gray-500); font-size: 0.875rem; }
