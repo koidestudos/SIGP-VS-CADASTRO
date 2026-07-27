@@ -137,19 +137,27 @@ export function renderAdministracao(user, params = []) {
 async function formCoord(id = null) {
   const coords = getCollection('coordenacoes');
   const c = id ? coords.find((x) => x.id === id) : { nome: '', sigla: '', gerencia: 'GAS' };
+  let payload = null;
   const action = await showModal({
     title: id ? 'Editar coordenação' : 'Nova coordenação',
     body: `<div class="form-group"><label>Nome completo</label><input class="form-control" id="adm-coord-nome" value="${c.nome || ''}"/></div>
       <div class="form-row"><div class="form-group"><label>Sigla</label><input class="form-control" id="adm-coord-sigla" value="${c.sigla || ''}"/></div>
       <div class="form-group"><label>Gerência</label><select class="form-control" id="adm-coord-ger">${GERENCIAS.map((g) => `<option ${c.gerencia === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div></div>`,
     footer: '<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button><button class="btn btn-primary" data-modal-action="save">Salvar</button>',
+    onAction: (act, overlay) => {
+      if (act !== 'save') return;
+      const nome = overlay.querySelector('#adm-coord-nome')?.value.trim() || '';
+      const sigla = overlay.querySelector('#adm-coord-sigla')?.value.trim() || '';
+      const gerencia = overlay.querySelector('#adm-coord-ger')?.value || 'GAS';
+      if (!nome || !sigla) {
+        toast('Informe nome e sigla da coordenação.', 'error');
+        return false;
+      }
+      payload = { nome, sigla, gerencia };
+    },
   });
-  if (action !== 'save') return;
-  await saveCoordenacao({
-    nome: document.getElementById('adm-coord-nome')?.value.trim(),
-    sigla: document.getElementById('adm-coord-sigla')?.value.trim(),
-    gerencia: document.getElementById('adm-coord-ger')?.value,
-  }, id);
+  if (action !== 'save' || !payload) return;
+  await saveCoordenacao(payload, id);
   toast('Coordenação salva.', 'success');
   window.location.hash = 'administracao';
 }
@@ -158,17 +166,25 @@ async function formMun(id = null) {
   const muns = getCollection('municipios');
   const regs = getCollection('regionais');
   const m = id ? muns.find((x) => x.id === id) : { nome: '', regionalId: regs[0]?.id || '' };
+  let payload = null;
   const action = await showModal({
     title: id ? 'Editar município' : 'Novo município',
     body: `<div class="form-group"><label>Nome</label><input class="form-control" id="adm-mun-nome" value="${m.nome || ''}"/></div>
       <div class="form-group"><label>Regional</label><select class="form-control" id="adm-mun-reg">${regs.map((r) => `<option value="${r.id}" ${m.regionalId === r.id ? 'selected' : ''}>${r.nome}</option>`).join('')}</select></div>`,
     footer: '<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button><button class="btn btn-primary" data-modal-action="save">Salvar</button>',
+    onAction: (act, overlay) => {
+      if (act !== 'save') return;
+      const nome = overlay.querySelector('#adm-mun-nome')?.value.trim() || '';
+      const regionalId = overlay.querySelector('#adm-mun-reg')?.value || '';
+      if (!nome) {
+        toast('Informe o nome do município.', 'error');
+        return false;
+      }
+      payload = { nome, regionalId };
+    },
   });
-  if (action !== 'save') return;
-  await saveMunicipio({
-    nome: document.getElementById('adm-mun-nome')?.value.trim(),
-    regionalId: document.getElementById('adm-mun-reg')?.value,
-  }, id);
+  if (action !== 'save' || !payload) return;
+  await saveMunicipio(payload, id);
   toast('Município salvo.', 'success');
   window.location.hash = 'administracao';
 }
@@ -176,13 +192,23 @@ async function formMun(id = null) {
 async function formReg(id = null) {
   const regs = getCollection('regionais');
   const r = id ? regs.find((x) => x.id === id) : { nome: '' };
+  let payload = null;
   const action = await showModal({
     title: id ? 'Editar regional' : 'Nova regional',
     body: `<div class="form-group"><label>Nome</label><input class="form-control" id="adm-reg-nome" value="${r.nome || ''}"/></div>`,
     footer: '<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button><button class="btn btn-primary" data-modal-action="save">Salvar</button>',
+    onAction: (act, overlay) => {
+      if (act !== 'save') return;
+      const nome = overlay.querySelector('#adm-reg-nome')?.value.trim() || '';
+      if (!nome) {
+        toast('Informe o nome da regional.', 'error');
+        return false;
+      }
+      payload = { nome };
+    },
   });
-  if (action !== 'save') return;
-  await saveRegional({ nome: document.getElementById('adm-reg-nome')?.value.trim() }, id);
+  if (action !== 'save' || !payload) return;
+  await saveRegional(payload, id);
   toast('Regional salva.', 'success');
   window.location.hash = 'administracao';
 }
