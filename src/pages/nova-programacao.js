@@ -538,8 +538,8 @@ function bindMain() {
       if (!validateForSubmit()) return;
       wizardSubmitting = true;
       try {
-        await persist('Enviada para Gerência');
-        toast('Enviada para a Gerência!', 'success');
+        await persist('Enviado para Diretoria');
+        toast('Enviado para a Diretoria!', 'success');
         resetWizardSession();
         window.location.hash = 'programacoes';
       } catch (err) {

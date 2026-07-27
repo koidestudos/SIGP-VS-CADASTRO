@@ -2,7 +2,7 @@
 
 export const STATUS_PROGRAMACAO = [
   'Rascunho',
-  'Enviada para Gerência',
+  'Enviado para Diretoria',
   'Programada',
   'Priorizada',
   'Autorizada',
@@ -23,6 +23,7 @@ const LEGACY_MAP = {
   Autorizado: 'Autorizada',
   'Em análise': 'Programada',
   Pendente: 'Programada',
+  'Enviada para Gerência': 'Enviado para Diretoria',
 };
 
 /** Normaliza status legado para o fluxo atual */
@@ -67,7 +68,7 @@ export function getStatusBadgeClass(status) {
   const s = normalizeStatus(status);
   const map = {
     Rascunho: 'badge-rascunho',
-    'Enviada para Gerência': 'badge-enviada',
+    'Enviado para Diretoria': 'badge-enviada',
     Programada: 'badge-programada',
     Priorizada: 'badge-priorizada',
     Autorizada: 'badge-autorizada',
@@ -84,7 +85,7 @@ export function getStatusRowClass(status) {
   const s = normalizeStatus(status);
   const map = {
     Rascunho: 'row-status-rascunho',
-    'Enviada para Gerência': 'row-status-enviada',
+    'Enviado para Diretoria': 'row-status-enviada',
     Programada: 'row-status-programada',
     Priorizada: 'row-status-priorizada',
     Autorizada: 'row-status-autorizada',
@@ -107,8 +108,8 @@ export function getStatusOptionsForUser(user, programacao) {
   if (!isOwner) return [current];
 
   const coordOptions = {
-    Rascunho: ['Rascunho', 'Enviada para Gerência'],
-    'Enviada para Gerência': ['Enviada para Gerência'],
+    Rascunho: ['Rascunho', 'Enviado para Diretoria'],
+    'Enviado para Diretoria': ['Enviado para Diretoria'],
     Programada: ['Programada'],
     Priorizada: ['Priorizada'],
     Autorizada: ['Autorizada', 'Em execução', 'Realizada'],
@@ -130,7 +131,7 @@ export function filterForDashboard(programacoes) {
 
 export function needsApproval(status) {
   const s = normalizeStatus(status);
-  return ['Enviada para Gerência', 'Programada', 'Priorizada'].includes(s)
+  return ['Enviado para Diretoria', 'Programada', 'Priorizada'].includes(s)
     || status === 'Pendente' || status === 'Em análise';
 }
 

@@ -115,7 +115,7 @@ export function renderDashboard(user) {
           </div>
         </div>
       </div>
-      <p class="text-sm text-muted mb-3">Rascunhos, enviadas, canceladas e reprovadas ficam em <a href="#programacoes">Programações</a>.</p>
+      <p class="text-sm text-muted mb-3">Rascunhos, enviados, canceladas e reprovadas ficam em <a href="#programacoes">Programações</a>.</p>
 
       <div class="card mb-3">
         <div class="card-header">

@@ -173,7 +173,7 @@ export function countByStatus(programacoes) {
     Realizada: { label: 'Realizadas', color: '#0d9488' },
     Programada: { label: 'Programadas', color: '#1351B4' },
     Priorizada: { label: 'Priorizadas', color: '#C2410C' },
-    'Enviada para Gerência': { label: 'Enviadas', color: '#ca8a04' },
+    'Enviado para Diretoria': { label: 'Enviados', color: '#ca8a04' },
     Rascunho: { label: 'Rascunhos', color: '#6C757D' },
     Cancelada: { label: 'Canceladas', color: '#E52207' },
     Reprovada: { label: 'Reprovadas', color: '#dc2626' },

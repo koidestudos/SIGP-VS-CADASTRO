@@ -178,7 +178,7 @@ export async function saveProgramacao(data, existingId = null) {
     await updateDoc(ref, payload);
     const saved = { id: existingId, ...payload };
     await syncLogisticaToFirestore(saved);
-    if (nextStatus === 'Enviada para Gerência' && prevStatus !== 'Enviada para Gerência') {
+    if (nextStatus === 'Enviado para Diretoria' && prevStatus !== 'Enviado para Diretoria') {
       try {
         await notifyProgramacaoEnviada(saved);
       } catch (err) {
@@ -202,7 +202,7 @@ export async function saveProgramacao(data, existingId = null) {
   });
   const saved = { id: ref.id, ...payload };
   await syncLogisticaToFirestore(saved);
-  if (nextStatus === 'Enviada para Gerência') {
+  if (nextStatus === 'Enviado para Diretoria') {
     try {
       await notifyProgramacaoEnviada(saved);
     } catch (err) {

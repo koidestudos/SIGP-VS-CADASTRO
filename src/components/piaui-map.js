@@ -12,7 +12,7 @@ const STATUS_COLORS = {
   Realizada: '#168821',
   Programada: '#1351B4',
   Priorizada: '#C2410C',
-  'Enviada para Gerência': '#ca8a04',
+  'Enviado para Diretoria': '#ca8a04',
   Rascunho: '#6C757D',
   Autorizado: '#168821',
   Aprovado: '#168821',
