@@ -54,6 +54,7 @@ export function renderApp(user, route, params) {
   const content = page.render(user, params);
   const breadcrumb = page.breadcrumb ? page.breadcrumb() : (params.length ? params.join(' / ') : '');
   const html = renderAppShell(user, route, page.title, content, breadcrumb);
+  document.title = `SIGP-VS — ${page.title}`;
 
   setTimeout(() => {
     bindLayoutEvents(

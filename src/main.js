@@ -23,6 +23,7 @@ let renderTimer = null;
 
 function render() {
   if (!currentUser) {
+    document.title = 'SIGP-VS — Login';
     app.innerHTML = renderLogin(!isFirebaseConfigured);
     bindLogin();
     return;
