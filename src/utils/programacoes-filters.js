@@ -1,6 +1,6 @@
 import {
   getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
-  GERENCIAS, COORDENACOES, getMunicipioIdsFromProgramacao,
+  GERENCIAS, getCoordenacoes, getMunicipioIdsFromProgramacao,
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
 
@@ -172,7 +172,7 @@ export function renderProgramacoesFilterBar({
       <div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
         ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
       <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
-        ${COORDENACOES.map((c) => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
+        ${getCoordenacoes().map((c) => `<option value="${c.id}">${c.sigla ? `${c.sigla} — ` : ''}${c.nome || c.id}</option>`).join('')}</select></div>
       ${statusOptions.length ? `<div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>
         ${statusHtml}</select></div>` : ''}
       ${showPdfButton ? `<div class="form-group">

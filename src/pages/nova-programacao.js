@@ -1,7 +1,7 @@
 import { saveProgramacao, syncLogisticaFromProgramacao, getProgramacaoById } from '../services/programacoes-service.js';
 import { canEditProgramacao } from '../services/roles.js';
 import {
-  COORDENACOES, REGIONAIS, TIPOS_ATIVIDADE, formatDate,
+  getCoordenacoes, getRegionais, TIPOS_ATIVIDADE, formatDate,
   getCoordenacaoById, getMunicipioById, getMunicipiosByRegionais,
   getMunicipiosLabel, getRegionaisLabel, MUNICIPIO_OUTROS_ID,
 } from '../data/seed.js';
@@ -162,8 +162,9 @@ function renderRegionaisList() {
   if (!ids.length) {
     return '<p class="text-sm text-muted mb-2">Nenhuma regional adicionada.</p>';
   }
+  const regionais = getRegionais();
   return `<ul class="mun-chip-list mb-2">${ids.map((id) => {
-    const reg = REGIONAIS.find((r) => r.id === id);
+    const reg = regionais.find((r) => r.id === id);
     return `<li class="mun-chip">
       <span>${reg?.nome || id}</span>
       <button type="button" class="mun-chip-remove" data-rm-reg="${id}" title="Remover">×</button>
@@ -187,7 +188,7 @@ function renderMunicipiosList() {
 
 function regionalAddOptions() {
   const selected = new Set(wizardState.regionalIds || []);
-  return REGIONAIS
+  return getRegionais()
     .filter((r) => !selected.has(r.id))
     .map((r) => `<option value="${r.id}">${r.nome}</option>`)
     .join('');
@@ -200,7 +201,7 @@ function renderStep(step) {
       <div class="form-row">
         <div class="form-group"><label>Coordenação responsável *</label>
           <select class="form-control" id="f-coord"><option value="">Selecione...</option>
-          ${COORDENACOES.map((c) => `<option value="${c.id}" ${wizardState.coordenacaoId === c.id ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div>
+          ${getCoordenacoes().map((c) => `<option value="${c.id}" ${wizardState.coordenacaoId === c.id ? 'selected' : ''}>${c.sigla ? `${c.sigla} — ` : ''}${c.nome || c.id}</option>`).join('')}</select></div>
         <div class="form-group"><label>Tipo de ação/atividade *</label>
           <select class="form-control" id="f-tipo"><option value="">Selecione...</option>
           ${TIPOS_ATIVIDADE.map((t) => `<option ${wizardState.tipoAtividade === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>

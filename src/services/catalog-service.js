@@ -84,7 +84,12 @@ export async function saveCoordenacao(data, id = null) {
     gerencia: data.gerencia || 'GAS',
   };
   await setDoc(doc(db, 'coordenacoes', docId), payload, { merge: true });
-  return { id: docId, ...payload };
+  const saved = { id: docId, ...payload };
+  const idx = coordsCache.findIndex((c) => c.id === docId);
+  if (idx >= 0) coordsCache[idx] = { ...coordsCache[idx], ...saved };
+  else coordsCache = [...coordsCache, saved];
+  notify();
+  return saved;
 }
 
 export async function removeCoordenacao(id) {

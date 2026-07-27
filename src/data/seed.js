@@ -7,6 +7,7 @@ import {
 } from '../utils/status.js';
 
 export { GERENCIAS, COORDENACOES, REGIONAIS, MUNICIPIOS, EQUIPES };
+export { getCoordenacoes, getMunicipios, getRegionais };
 
 /** Município virtual para locais fora do Piauí */
 export const MUNICIPIO_OUTROS_ID = 'mun-outros';

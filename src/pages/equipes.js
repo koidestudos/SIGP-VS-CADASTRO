@@ -1,10 +1,11 @@
 import { getCollection, addItem, updateItem, deleteItem, canEdit } from '../services/storage.js';
-import { COORDENACOES, generateId } from '../data/seed.js';
+import { getCoordenacoes, generateId } from '../data/seed.js';
 import { confirmDialog, toast } from '../components/ui.js';
 
 export function renderEquipes(user) {
   const equipes = getCollection('equipes');
   const edit = canEdit(user);
+  const coordenacoes = getCoordenacoes();
 
   return `
     <div class="page-header">
@@ -21,12 +22,12 @@ export function renderEquipes(user) {
             </thead>
             <tbody>
               ${equipes.map((e) => {
-                const coord = COORDENACOES.find((c) => c.id === e.coordenacaoId);
+                const coord = coordenacoes.find((c) => c.id === e.coordenacaoId);
                 return `
                   <tr>
                     <td>${e.nome}</td>
                     <td>${e.cargo}</td>
-                    <td>${coord?.sigla || 'Geral'}</td>
+                    <td>${coord?.sigla || coord?.nome || 'Geral'}</td>
                     ${edit ? `
                       <td>
                         <button class="btn-icon" data-edit-equipe="${e.id}">✏</button>
@@ -59,7 +60,7 @@ export function renderEquipes(user) {
               <label>Coordenação</label>
               <select class="form-control" id="eq-coord">
                 <option value="">Geral</option>
-                ${COORDENACOES.map((c) => `<option value="${c.id}">${c.sigla} — ${c.nome}</option>`).join('')}
+                ${coordenacoes.map((c) => `<option value="${c.id}">${c.sigla ? `${c.sigla} — ` : ''}${c.nome || c.id}</option>`).join('')}
               </select>
             </div>
           </div>

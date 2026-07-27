@@ -1,5 +1,5 @@
 import {
-  COORDENACOES, GERENCIAS, REGIONAIS, MUNICIPIOS,
+  getCoordenacoes, GERENCIAS, getRegionais, getMunicipios,
   getCoordenacaoById, getGerenciaByProgramacao, getMunicipioById, getRegionalById,
   programacaoHasMunicipio, countUniqueMunicipios, forEachProgramacaoMunicipio,
   getMunicipioIdsFromProgramacao,
@@ -56,7 +56,7 @@ export function countByGerencia(programacoes) {
 }
 
 export function countByCoordenacao(programacoes) {
-  return COORDENACOES.map((c) => ({
+  return getCoordenacoes().map((c) => ({
     label: c.sigla,
     fullName: c.nome,
     gerencia: c.gerencia,
@@ -97,8 +97,8 @@ export function municipioStats(programacoes, munId) {
 }
 
 export function countByRegional(programacoes) {
-  return REGIONAIS.map((r) => {
-    const muns = MUNICIPIOS.filter((m) => m.regionalId === r.id);
+  return getRegionais().map((r) => {
+    const muns = getMunicipios().filter((m) => m.regionalId === r.id);
     const munIds = new Set(muns.map((m) => m.id));
     const items = programacoes.filter((p) =>
       getMunicipioIdsFromProgramacao(p).some((id) => munIds.has(id)));

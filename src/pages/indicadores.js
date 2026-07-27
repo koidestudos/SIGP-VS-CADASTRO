@@ -1,7 +1,7 @@
 import { getProgramacoes } from '../services/programacoes-service.js';
 import {
   getCoordenacaoById, getMunicipioById, getGerenciaByProgramacao,
-  GERENCIAS, COORDENACOES, formatDate,
+  GERENCIAS, getCoordenacoes, formatDate,
 } from '../data/seed.js';
 import { renderDonutChart, renderBarChart } from '../components/charts.js';
 import { getProgramacoesForBI } from '../utils/bi-metrics.js';
@@ -21,8 +21,8 @@ export function renderIndicadores() {
     color: ['#1351B4', '#168821', '#ca8a04'][i],
   }));
 
-  const porCoord = COORDENACOES.map((c) => ({
-    label: c.sigla,
+  const porCoord = getCoordenacoes().map((c) => ({
+    label: c.sigla || c.nome,
     value: doMes.filter((p) => p.coordenacaoId === c.id).length,
   })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
 
