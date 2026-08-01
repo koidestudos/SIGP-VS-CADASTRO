@@ -3,7 +3,8 @@ import { canEditProgramacao } from '../services/roles.js';
 import {
   getCoordenacoes, getRegionais, TIPOS_ATIVIDADE, formatDate,
   getCoordenacaoById, getMunicipioById, getMunicipiosByRegionais,
-  getMunicipiosLabel, getRegionaisLabel, MUNICIPIO_OUTROS_ID,
+  getMunicipiosLabel, getRegionaisLabel, MUNICIPIO_OUTROS_ID, MUNICIPIO_TODOS_ID,
+  CODIGOS_ORCAMENTARIOS, CODIGOS_FONTE_RECURSO,
 } from '../data/seed.js';
 import { toast } from '../components/ui.js';
 
@@ -147,14 +148,25 @@ function renderSteps() {
 
 function esc(s) { return s ? String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;') : ''; }
 
+function selectOptions(options, selected) {
+  const list = [...options];
+  const current = String(selected || '').trim();
+  if (current && !list.includes(current)) list.push(current);
+  return list.map((opt) => `<option value="${esc(opt)}" ${current === opt ? 'selected' : ''}>${esc(opt)}</option>`).join('');
+}
+
 function municipioAddOptions(regionalIds) {
   const selected = new Set(wizardState.municipioIds || []);
+  const hasTodos = selected.has(MUNICIPIO_TODOS_ID);
   const list = getMunicipiosByRegionais(regionalIds || wizardState.regionalIds || []);
-  const options = list
-    .filter((m) => !selected.has(m.id))
-    .map((m) => `<option value="${m.id}">${m.nome}</option>`)
-    .join('');
-  return `${options}<option value="${MUNICIPIO_OUTROS_ID}">Outros (fora do Piauí)</option>`;
+  const munOptions = hasTodos
+    ? ''
+    : list
+      .filter((m) => !selected.has(m.id))
+      .map((m) => `<option value="${m.id}">${m.nome}</option>`)
+      .join('');
+  const todosOpt = hasTodos ? '' : `<option value="${MUNICIPIO_TODOS_ID}">Todos</option>`;
+  return `${todosOpt}${munOptions}<option value="${MUNICIPIO_OUTROS_ID}">Outros (fora do Piauí)</option>`;
 }
 
 function renderRegionaisList() {
@@ -279,9 +291,20 @@ function renderStep(step) {
   if (step === 3) return `
     <div class="wizard-form-section">
       <div class="form-row">
-        <div class="form-group"><label>Código orçamentário</label><input class="form-control" id="f-cod-orc" value="${esc(wizardState.codigoOrcamentario)}" /></div>
-        <div class="form-group"><label>Fonte do recurso</label>
-          <input class="form-control" id="f-fonte" value="${esc(wizardState.fonteRecurso)}" placeholder="Ex.: Fundo Estadual de Saúde, 600, online..." /></div>
+        <div class="form-group">
+          <label>Código da ação orçamentária</label>
+          <select class="form-control" id="f-cod-orc">
+            <option value="">Selecione...</option>
+            ${selectOptions(CODIGOS_ORCAMENTARIOS, wizardState.codigoOrcamentario)}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Código da Fonte</label>
+          <select class="form-control" id="f-fonte">
+            <option value="">Selecione...</option>
+            ${selectOptions(CODIGOS_FONTE_RECURSO, wizardState.fonteRecurso)}
+          </select>
+        </div>
       </div>
       <div class="form-group"><label>Observações</label><textarea class="form-control" id="f-obs" rows="4">${esc(wizardState.observacoes)}</textarea></div>
     </div>`;
@@ -300,6 +323,8 @@ function renderStep(step) {
       <div class="detail-item"><label>Duração</label><span>${esc(wizardState.duracao) || '—'}</span></div>
       <div class="detail-item"><label>Municípios</label><span>${getMunicipiosLabel(wizardState)}</span></div>
       <div class="detail-item"><label>Regionais</label><span>${getRegionaisLabel(wizardState)}</span></div>
+      <div class="detail-item"><label>Código da ação orçamentária</label><span>${esc(wizardState.codigoOrcamentario) || '—'}</span></div>
+      <div class="detail-item"><label>Código da Fonte</label><span>${esc(wizardState.fonteRecurso) || '—'}</span></div>
       <div class="detail-item full-width"><label>Equipe</label><span>${eq || '—'}</span></div>
     </div>
   </div>`;
@@ -429,11 +454,18 @@ function bindStep() {
   document.getElementById('btn-add-municipio')?.addEventListener('click', () => {
     let id = document.getElementById('f-municipio-add')?.value;
     if (!id) return toast('Selecione um município.', 'error');
+    if (id === MUNICIPIO_TODOS_ID) {
+      wizardState.municipioIds = [MUNICIPIO_TODOS_ID];
+      wizardState.municipioId = MUNICIPIO_TODOS_ID;
+      toast('Município definido como Todos (abrangência geral).', 'success');
+      refreshMunicipioSection();
+      return;
+    }
     if (id === MUNICIPIO_OUTROS_ID) {
       const nome = document.getElementById('f-municipio-outros-nome')?.value?.trim() || '';
       id = nome ? `outros:${encodeURIComponent(nome)}` : MUNICIPIO_OUTROS_ID;
     }
-    wizardState.municipioIds = wizardState.municipioIds || [];
+    wizardState.municipioIds = (wizardState.municipioIds || []).filter((item) => item !== MUNICIPIO_TODOS_ID);
     if (wizardState.municipioIds.includes(id)) {
       return toast('Este município já foi adicionado.', 'error');
     }

@@ -12,6 +12,39 @@ export { getCoordenacoes, getMunicipios, getRegionais };
 /** Município virtual para locais fora do Piauí */
 export const MUNICIPIO_OUTROS_ID = 'mun-outros';
 
+/** Município virtual para ações que abrangem todos / a maioria */
+export const MUNICIPIO_TODOS_ID = 'mun-todos';
+
+/** Códigos de ação orçamentária disponíveis no formulário */
+export const CODIGOS_ORCAMENTARIOS = [
+  'Não se aplica',
+  '6062',
+  '6063',
+  '6064',
+  '6116',
+  '6250',
+  '6253',
+  '17.101.10.305.0100.6062',
+  '17.101.10.305.0100.6063',
+  '17.101.10.305.0100.6064',
+  'online',
+  'presencial',
+];
+
+/** Códigos / fontes de recurso disponíveis no formulário */
+export const CODIGOS_FONTE_RECURSO = [
+  'Não se aplica',
+  '500',
+  '600',
+  '601',
+  '602',
+  '339039 (6021)',
+  'Fundo Estadual de Saúde',
+  'Fundo Nacional de Saúde',
+  'online',
+  'presencial',
+];
+
 export const GERENCIA_COLORS = {
   GAS: { bg: '#dbeafe', border: '#1351B4', text: '#1351B4' },
   GAP: { bg: '#dcfce7', border: '#168821', text: '#168821' },
@@ -37,6 +70,9 @@ export function getGerenciaByProgramacao(p) {
 
 export function getMunicipioById(id) {
   if (!id) return null;
+  if (id === MUNICIPIO_TODOS_ID) {
+    return { id: MUNICIPIO_TODOS_ID, nome: 'Todos', regionalId: '' };
+  }
   if (id === MUNICIPIO_OUTROS_ID) {
     return { id: MUNICIPIO_OUTROS_ID, nome: 'Outros (fora do Piauí)', regionalId: '' };
   }
