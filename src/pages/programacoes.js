@@ -38,9 +38,17 @@ export function renderProgramacoes(user) {
       showPdfButton: true,
       statusOptions: STATUS_PROGRAMACAO,
     })}
-    <div class="card"><div class="card-body"><div class="table-wrapper">
-      <table id="tabela-programacoes"><thead><tr>
-        <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Equipe</th><th>Status</th><th>Ações</th>
+    <div class="card prog-list-card"><div class="card-body"><div class="table-wrapper prog-table-wrap">
+      <table id="tabela-programacoes" class="prog-table"><thead><tr>
+        <th class="col-acao">Ação</th>
+        <th class="col-ger">Gerência</th>
+        <th class="col-coord">Coordenação</th>
+        <th class="col-mun">Município</th>
+        <th class="col-date">Data Ida</th>
+        <th class="col-date">Data Volta</th>
+        <th class="col-equipe">Equipe</th>
+        <th class="col-status">Status</th>
+        <th class="col-acoes">Ações</th>
       </tr></thead><tbody>${renderRows(getProgramacoes(), user)}</tbody></table>
     </div></div></div>`;
 }
@@ -69,14 +77,18 @@ function renderRows(items, user) {
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
     const canAttach = canAttachAnexo(p.status);
+    const titulo = String(p.titulo || '—');
+    const coordNome = coord?.nome || '—';
     return `<tr class="${getStatusRowClass(p.status)}">
-      <td>${p.titulo}</td>
-      <td><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
-      <td>${coord?.nome || '—'}</td><td>${munLabel}</td>
-      <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
-      <td>${equipeLabel(p)}</td>
-      <td>${statusCell}</td>
-      <td>${renderActionButtons(p.id, {
+      <td class="col-acao"><span class="prog-acao" title="${titulo.replace(/"/g, '&quot;')}">${titulo}</span></td>
+      <td class="col-ger"><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
+      <td class="col-coord"><span class="cell-clip" title="${coordNome.replace(/"/g, '&quot;')}">${coordNome}</span></td>
+      <td class="col-mun"><span class="cell-clip" title="${String(munLabel).replace(/"/g, '&quot;')}">${munLabel}</span></td>
+      <td class="col-date">${formatDate(p.dataInicial)}</td>
+      <td class="col-date">${formatDate(p.dataFinal)}</td>
+      <td class="col-equipe"><span class="cell-clip" title="${equipeLabel(p).replace(/"/g, '&quot;')}">${equipeLabel(p)}</span></td>
+      <td class="col-status">${statusCell}</td>
+      <td class="col-acoes">${renderActionButtons(p.id, {
         edit: canEdit,
         del: canDeleteProgramacao(user, p),
         extra: `<button class="btn-icon" data-action="pdf" data-id="${p.id}" title="Baixar PDF">📄</button>`
@@ -224,7 +236,7 @@ export function bindProgramacoes(user) {
 
   bindProgramacoesFilterBar(refresh);
 
-  document.getElementById('btn-download-filtro')?.addEventListener('click', () => {
+  document.getElementById('btn-download-filtro')?.addEventListener('click', async () => {
     const state = readFilterState();
     const items = filterProgramacoes(getProgramacoes(), state);
     if (state.tipo === 'intervalo' && (!state.dataIni || !state.dataFim)) {
@@ -239,14 +251,24 @@ export function bindProgramacoes(user) {
       toast('Informe o mês.', 'error');
       return;
     }
+    const btn = document.getElementById('btn-download-filtro');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Gerando Excel...';
+    }
     try {
-      downloadProgramacoesListXlsx(items, {
+      await downloadProgramacoesListXlsx(items, {
         title: getFilterDescription(state),
         subtitle: [state.gerencia, state.status].filter(Boolean).join(' · ') || undefined,
       });
       toast(`Excel com ${items.length} programação(ões) gerado.`, 'success');
     } catch (err) {
       toast(err.message || 'Erro ao gerar Excel.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '⬇ Baixar Excel do filtro';
+      }
     }
   });
 
