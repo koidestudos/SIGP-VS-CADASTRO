@@ -4,9 +4,20 @@ import {
   saveCoordenacao, removeCoordenacao, saveMunicipio, removeMunicipio, saveRegional, removeRegional,
 } from '../services/catalog-service.js';
 import { promoteUserToAdmin } from '../services/suporte-service.js';
+import {
+  getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync,
+} from '../services/users-service.js';
 import { isAdmin } from '../services/roles.js';
 import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 function renderAnexosRows() {
   const anexos = getAnexos();
@@ -18,10 +29,10 @@ function renderAnexosRows() {
     const quando = a.enviadoEm ? new Date(a.enviadoEm).toLocaleString('pt-BR') : '—';
     return `<tr>
       <td><small>${quando}</small></td>
-      <td>${a.programacaoTitulo || '—'}</td>
-      <td>${coord?.nome || '—'}</td>
-      <td>${a.nomeArquivo || '—'}</td>
-      <td>${a.enviadoPorNome || '—'}</td>
+      <td>${esc(a.programacaoTitulo) || '—'}</td>
+      <td>${esc(coord?.nome) || '—'}</td>
+      <td>${esc(a.nomeArquivo) || '—'}</td>
+      <td>${esc(a.enviadoPorNome) || '—'}</td>
       <td>
         <button type="button" class="btn btn-outline btn-sm" data-open-anexo="${a.id}">Abrir</button>
       </td>
@@ -29,21 +40,69 @@ function renderAnexosRows() {
   }).join('');
 }
 
+function renderContasRows(currentUid) {
+  const users = getUsers();
+  if (!users.length) {
+    return '<tr><td colspan="6" class="text-center text-muted">Nenhuma conta cadastrada ainda.</td></tr>';
+  }
+  return users.map((u) => {
+    const ativo = u.ativo !== false;
+    const role = u.role === 'admin' ? 'Admin' : 'Usuário';
+    const isSelf = u.id === currentUid;
+    return `<tr class="${ativo ? '' : 'row-status-cancelada'}">
+      <td>${esc(u.nome) || '—'}</td>
+      <td>${esc(u.email) || '—'}</td>
+      <td><span class="badge ${u.role === 'admin' ? 'badge-autorizada' : 'badge-rascunho'}">${role}</span></td>
+      <td><span class="badge ${ativo ? 'badge-realizada' : 'badge-cancelada'}">${ativo ? 'Ativa' : 'Desativada'}</span></td>
+      <td><small>${u.atualizadoEm ? new Date(u.atualizadoEm).toLocaleString('pt-BR') : '—'}</small></td>
+      <td>
+        ${isSelf ? '<span class="text-muted text-sm">Sua conta</span>' : `
+          <button type="button" class="btn btn-sm ${ativo ? 'btn-danger' : 'btn-outline'}" data-toggle-ativo="${u.id}" data-ativo="${ativo ? '1' : '0'}">
+            ${ativo ? 'Desativar' : 'Reativar'}
+          </button>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAcessosRows() {
+  const acessos = getAcessos();
+  const novos = firstAccessEmails(acessos);
+  if (!acessos.length) {
+    return '<tr><td colspan="4" class="text-center text-muted">Nenhum acesso registrado ainda.</td></tr>';
+  }
+  return acessos.map((a) => {
+    const email = String(a.email || '').toLowerCase();
+    const novo = novos.has(email);
+    return `<tr class="${novo ? 'row-status-enviada' : ''}">
+      <td><small>${a.criadoEm ? new Date(a.criadoEm).toLocaleString('pt-BR') : '—'}</small></td>
+      <td>${esc(a.nome) || '—'}${novo ? ' <span class="badge badge-enviada">Novo / incomum</span>' : ''}</td>
+      <td>${esc(a.email) || '—'}</td>
+      <td><small class="text-muted">${esc((a.userAgent || '').slice(0, 80))}${a.userAgent && a.userAgent.length > 80 ? '…' : ''}</small></td>
+    </tr>`;
+  }).join('');
+}
+
 export function renderAdministracao(user, params = []) {
-  const activeTab = params[0] === 'anexos' ? 'anexos' : 'coords';
+  const tabParam = params[0];
+  const known = ['coords', 'muns', 'regs', 'anexos', 'admins', 'contas'];
+  const activeTab = known.includes(tabParam) ? tabParam : 'coords';
   const coordenacoes = getCollection('coordenacoes');
   const municipios = getCollection('municipios');
   const regionais = getCollection('regionais');
   const anexosCount = getAnexos().length;
+  const usersCount = getUsers().length;
+  const acessosCount = getAcessos().length;
 
   return `
     <div class="page-header"><h2>Administração</h2></div>
-    <p class="text-muted mb-3">Gerencie coordenações, municípios, regionais, anexos e importação de viagens.</p>
+    <p class="text-muted mb-3">Gerencie coordenações, municípios, regionais, anexos, contas e acessos.</p>
     <div class="tabs" id="admin-tabs">
       <button class="tab ${activeTab === 'coords' ? 'active' : ''}" data-tab="coords">Coordenações</button>
       <button class="tab ${activeTab === 'muns' ? 'active' : ''}" data-tab="muns">Municípios (${municipios.length})</button>
       <button class="tab ${activeTab === 'regs' ? 'active' : ''}" data-tab="regs">Regionais (${regionais.length})</button>
       <button class="tab ${activeTab === 'anexos' ? 'active' : ''}" data-tab="anexos">Anexos (${anexosCount})</button>
+      <button class="tab ${activeTab === 'contas' ? 'active' : ''}" data-tab="contas">Contas e acessos (${usersCount})</button>
       <button class="tab ${activeTab === 'admins' ? 'active' : ''}" data-tab="admins">Administradores</button>
     </div>
     <div class="tab-content ${activeTab === 'coords' ? 'active' : ''}" data-tab-content="coords">
@@ -54,8 +113,8 @@ export function renderAdministracao(user, params = []) {
       <div class="table-wrapper"><table>
         <thead><tr><th>Nome</th><th>Sigla</th><th>Gerência</th><th>Ações</th></tr></thead>
         <tbody>${coordenacoes.map((c) => `
-          <tr><td>${c.nome}</td><td>${c.sigla}</td>
-          <td><span class="gerencia-tag gerencia-${c.gerencia.toLowerCase()}">${c.gerencia}</span></td>
+          <tr><td>${esc(c.nome)}</td><td>${esc(c.sigla)}</td>
+          <td><span class="gerencia-tag gerencia-${String(c.gerencia || '').toLowerCase()}">${esc(c.gerencia)}</span></td>
           <td><button class="btn-icon" data-edit-coord="${c.id}">✏</button>
           <button class="btn-icon danger" data-del-coord="${c.id}">🗑</button></td></tr>`).join('')}
         </tbody></table></div>
@@ -69,7 +128,7 @@ export function renderAdministracao(user, params = []) {
         <thead><tr><th>Município</th><th>Regional</th><th>Ações</th></tr></thead>
         <tbody>${municipios.map((m) => {
           const reg = regionais.find((r) => r.id === m.regionalId);
-          return `<tr><td>${m.nome}</td><td>${reg?.nome || '—'}</td>
+          return `<tr><td>${esc(m.nome)}</td><td>${esc(reg?.nome) || '—'}</td>
             <td><button class="btn-icon" data-edit-mun="${m.id}">✏</button>
             <button class="btn-icon danger" data-del-mun="${m.id}">🗑</button></td></tr>`;
         }).join('')}</tbody></table></div>
@@ -82,7 +141,7 @@ export function renderAdministracao(user, params = []) {
       <div class="table-wrapper"><table>
         <thead><tr><th>Regional de Saúde</th><th>Municípios</th><th>Ações</th></tr></thead>
         <tbody>${regionais.map((r) => `
-          <tr><td>${r.nome}</td><td>${municipios.filter((m) => m.regionalId === r.id).length}</td>
+          <tr><td>${esc(r.nome)}</td><td>${municipios.filter((m) => m.regionalId === r.id).length}</td>
           <td><button class="btn-icon" data-edit-reg="${r.id}">✏</button>
           <button class="btn-icon danger" data-del-reg="${r.id}">🗑</button></td></tr>`).join('')}
         </tbody></table></div>
@@ -97,6 +156,28 @@ export function renderAdministracao(user, params = []) {
               <th>Enviado em</th><th>Programação</th><th>Coordenação</th><th>Arquivo</th><th>Enviado por</th><th></th>
             </tr></thead>
             <tbody>${renderAnexosRows()}</tbody>
+          </table>
+        </div>
+      </div></div>
+    </div>
+    <div class="tab-content ${activeTab === 'contas' ? 'active' : ''}" data-tab-content="contas">
+      <div class="card" style="margin-top:12px"><div class="card-body">
+        <h3>Contas cadastradas (${usersCount})</h3>
+        <p class="text-sm text-muted mb-3">Gerencie quem pode entrar no sistema. Contas desativadas são bloqueadas no próximo acesso.</p>
+        <div class="table-wrapper" style="max-height:360px;overflow:auto">
+          <table id="tabela-contas">
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th>Atualizado</th><th>Ação</th></tr></thead>
+            <tbody>${renderContasRows(user?.uid)}</tbody>
+          </table>
+        </div>
+      </div></div>
+      <div class="card mt-3"><div class="card-body">
+        <h3>Quem acessou o site (${acessosCount})</h3>
+        <p class="text-sm text-muted mb-3">Últimos acessos. Linhas em amarelo / badge <strong>Novo / incomum</strong> indicam e-mails com poucos registros (possível acesso fora do comum).</p>
+        <div class="table-wrapper" style="max-height:420px;overflow:auto">
+          <table id="tabela-acessos">
+            <thead><tr><th>Quando</th><th>Nome</th><th>E-mail</th><th>Navegador</th></tr></thead>
+            <tbody>${renderAcessosRows()}</tbody>
           </table>
         </div>
       </div></div>
@@ -214,6 +295,8 @@ async function formReg(id = null) {
 }
 
 export function bindAdministracao(user, params = []) {
+  initUsersAdminSync();
+
   const refreshAnexosTable = () => {
     const tbody = document.querySelector('#tabela-anexos tbody');
     if (tbody) tbody.innerHTML = renderAnexosRows();
@@ -221,9 +304,17 @@ export function bindAdministracao(user, params = []) {
     if (tab) tab.textContent = `Anexos (${getAnexos().length})`;
   };
 
-  if (params[0] === 'anexos') {
-    refreshAnexosTable();
-  }
+  const refreshContasTables = () => {
+    const contasBody = document.querySelector('#tabela-contas tbody');
+    if (contasBody) contasBody.innerHTML = renderContasRows(user?.uid);
+    const acessosBody = document.querySelector('#tabela-acessos tbody');
+    if (acessosBody) acessosBody.innerHTML = renderAcessosRows();
+    const tab = document.querySelector('#admin-tabs [data-tab="contas"]');
+    if (tab) tab.textContent = `Contas e acessos (${getUsers().length})`;
+  };
+
+  if (params[0] === 'anexos') refreshAnexosTable();
+  if (params[0] === 'contas') refreshContasTables();
 
   document.getElementById('btn-reimport-seed')?.addEventListener('click', async () => {
     if ((await confirmDialog('Reimportar todas as viagens da planilha Excel? Itens existentes serão atualizados.')) !== 'confirm') return;
@@ -252,6 +343,7 @@ export function bindAdministracao(user, params = []) {
       tab.classList.add('active');
       tabs.parentElement.querySelector(`[data-tab-content="${tab.dataset.tab}"]`)?.classList.add('active');
       if (tab.dataset.tab === 'anexos') refreshAnexosTable();
+      if (tab.dataset.tab === 'contas') refreshContasTables();
     });
   });
   document.getElementById('btn-promote-admin')?.addEventListener('click', async () => {
@@ -261,6 +353,7 @@ export function bindAdministracao(user, params = []) {
       const res = await promoteUserToAdmin(email);
       toast(`${res.nome || res.email} agora é administrador.`, 'success');
       document.getElementById('promote-admin-email').value = '';
+      refreshContasTables();
     } catch (err) {
       toast(err.message || 'Erro ao promover usuário.', 'error');
     }
@@ -281,8 +374,33 @@ export function bindAdministracao(user, params = []) {
     if ((await confirmDialog('Excluir regional?')) === 'confirm') { await removeRegional(b.dataset.delReg); toast('Excluída.', 'success'); window.location.hash = 'administracao'; }
   }));
 
+  document.querySelector('[data-tab-content="contas"]')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-toggle-ativo]');
+    if (!btn) return;
+    const uid = btn.dataset.toggleAtivo;
+    const currentlyAtivo = btn.dataset.ativo === '1';
+    const action = currentlyAtivo ? 'desativar' : 'reativar';
+    if ((await confirmDialog(`Deseja ${action} esta conta?`)) !== 'confirm') return;
+    btn.disabled = true;
+    try {
+      await setUserAtivo(uid, !currentlyAtivo);
+      toast(currentlyAtivo ? 'Conta desativada.' : 'Conta reativada.', 'success');
+      refreshContasTables();
+    } catch (err) {
+      toast(err.message || 'Erro ao atualizar conta.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   subscribeAnexos(() => {
     if (document.querySelector('#tabela-anexos')) refreshAnexosTable();
+  });
+  subscribeUsers(() => {
+    if (document.querySelector('#tabela-contas')) refreshContasTables();
+  });
+  subscribeAcessos(() => {
+    if (document.querySelector('#tabela-acessos')) refreshContasTables();
   });
 
   document.getElementById('tabela-anexos')?.closest('.tab-content')?.addEventListener('click', async (e) => {

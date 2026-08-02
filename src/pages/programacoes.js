@@ -8,7 +8,8 @@ import {
 import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO, canAttachAnexo, getStatusRowClass } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
-import { downloadProgramacaoPdf, downloadProgramacoesListPdf } from '../utils/programacao-report-pdf.js';
+import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
+import { downloadProgramacoesListXlsx } from '../utils/programacoes-report-xlsx.js';
 import {
   renderModeloAnexoFormHtml,
   collectModeloAnexoForm,
@@ -239,13 +240,13 @@ export function bindProgramacoes(user) {
       return;
     }
     try {
-      downloadProgramacoesListPdf(items, {
+      downloadProgramacoesListXlsx(items, {
         title: getFilterDescription(state),
         subtitle: [state.gerencia, state.status].filter(Boolean).join(' · ') || undefined,
       });
-      toast(`PDF com ${items.length} programação(ões) gerado.`, 'success');
+      toast(`Excel com ${items.length} programação(ões) gerado.`, 'success');
     } catch (err) {
-      toast(err.message || 'Erro ao gerar PDF.', 'error');
+      toast(err.message || 'Erro ao gerar Excel.', 'error');
     }
   });
 

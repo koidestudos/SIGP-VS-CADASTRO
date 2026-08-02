@@ -8,10 +8,12 @@ import { initCatalogSync, seedCatalogIfEmpty, subscribeCatalog } from './service
 import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
 import { initAnexosSync, subscribeAnexos } from './services/anexos-service.js';
 import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './services/suporte-service.js';
+import { initUsersAdminSync, logUserAccess } from './services/users-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
 import { isFirebaseConfigured } from './firebase/config.js';
+import { toast } from './components/ui.js';
 
 const app = document.getElementById('app');
 let currentUser = null;
@@ -119,15 +121,37 @@ watchAuth(async (user) => {
       initCatalogSync();
       initNotificationsSync();
       initAnexosSync();
-      await upsertUserProfile(user);
+      const profile = await upsertUserProfile(user);
+      if (profile && profile.ativo === false) {
+        await logoutUser();
+        currentUser = null;
+        window.location.hash = 'login';
+        render();
+        setTimeout(() => toast('Esta conta foi desativada. Fale com o administrador.', 'error'), 50);
+        return;
+      }
       await seedCatalogIfEmpty();
-      unsubUserRole = subscribeUserRole(user.uid, (role) => {
+      try { await logUserAccess(user); } catch (err) { console.error('Falha ao registrar acesso:', err); }
+      unsubUserRole = subscribeUserRole(user.uid, async (role, meta = {}) => {
+        if (meta.ativo === false) {
+          await logoutUser();
+          currentUser = null;
+          window.location.hash = 'login';
+          render();
+          setTimeout(() => toast('Esta conta foi desativada. Fale com o administrador.', 'error'), 50);
+          return;
+        }
         currentUser = { ...user, role };
         initSuporteSync(role === 'admin');
-        if (role === 'admin') registerSuporteAdmin(user);
+        if (role === 'admin') {
+          registerSuporteAdmin(user);
+          initUsersAdminSync();
+        }
         if (!appInitialized) {
           appInitialized = true;
           handleHash();
+        } else {
+          scheduleRender();
         }
       });
     } catch (err) {

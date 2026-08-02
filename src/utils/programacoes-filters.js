@@ -177,7 +177,7 @@ export function renderProgramacoesFilterBar({
         ${statusHtml}</select></div>` : ''}
       ${showPdfButton ? `<div class="form-group">
         <label>&nbsp;</label>
-        <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtro">⬇ Baixar relatório do filtro</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtro">⬇ Baixar Excel do filtro</button>
       </div>` : ''}
     </div>
     <p class="text-sm text-muted mb-2" id="${resumoId}">${resumoText}</p>`;

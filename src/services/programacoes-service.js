@@ -311,30 +311,44 @@ export function syncLogisticaFromProgramacao(programacao) {
 /** Salva perfil mínimo do usuário (somente o próprio uid) */
 export async function upsertUserProfile(user) {
   if (!db || !user?.uid) return;
+  const ref = doc(db, 'users', user.uid);
+  const existing = await getDoc(ref);
   const payload = {
     nome: user.nome || '',
     email: user.email || '',
     atualizadoEm: new Date().toISOString(),
   };
+  if (!existing.exists()) {
+    payload.ativo = true;
+    payload.criadoEm = new Date().toISOString();
+  }
   if (isBootstrapAdminEmail(user.email)) {
     payload.role = 'admin';
+    payload.ativo = true;
   }
-  await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+  await setDoc(ref, payload, { merge: true });
+  const data = existing.exists() ? { ...existing.data(), ...payload } : payload;
+  return {
+    ativo: data.ativo !== false,
+    role: data.role === 'admin' ? 'admin' : 'usuario',
+  };
 }
 
 /** Carrega papel do usuário e mantém sincronizado */
 export function subscribeUserRole(uid, callback) {
   if (!db || !uid) {
-    callback('usuario');
+    callback('usuario', { ativo: true });
     return () => {};
   }
   return onSnapshot(doc(db, 'users', uid), (snap) => {
-    const role = snap.exists() && snap.data().role === 'admin' ? 'admin' : 'usuario';
+    const data = snap.exists() ? snap.data() : {};
+    const role = data.role === 'admin' ? 'admin' : 'usuario';
+    const ativo = data.ativo !== false;
     setUserRole(role);
-    callback(role);
+    callback(role, { ativo });
   }, () => {
     setUserRole('usuario');
-    callback('usuario');
+    callback('usuario', { ativo: true });
   });
 }
 

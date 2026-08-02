@@ -57,6 +57,7 @@ export function getAuthErrorMessage(code) {
     'auth/wrong-password': 'Senha incorreta.',
     'auth/invalid-credential': 'E-mail ou senha incorretos.',
     'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.',
+    'auth/account-disabled': 'Esta conta foi desativada. Fale com o administrador.',
   };
   return messages[code] || 'Erro ao autenticar. Verifique seus dados.';
 }

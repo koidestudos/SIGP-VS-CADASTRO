@@ -73,7 +73,8 @@ service cloud.firestore {
         && data.nome.size() <= 200
         && data.email is string
         && data.email.size() <= 320
-        && (!('role' in data) || data.role in ['admin', 'usuario']);
+        && (!('role' in data) || data.role in ['admin', 'usuario'])
+        && (!('ativo' in data) || data.ativo is bool);
     }
 
     function canSetAdminRole(data) {
@@ -128,7 +129,8 @@ service cloud.firestore {
 
       allow create: if isOwner(userId)
         && validUserProfile(request.resource.data)
-        && (!('role' in request.resource.data) || canSetAdminRole(request.resource.data));
+        && (!('role' in request.resource.data) || canSetAdminRole(request.resource.data))
+        && (!('ativo' in request.resource.data) || request.resource.data.ativo == true);
 
       allow update: if isOwner(userId)
         && validUserProfile(request.resource.data)
@@ -136,11 +138,27 @@ service cloud.firestore {
           !('role' in request.resource.data)
           || request.resource.data.role == resource.data.get('role', 'usuario')
           || canSetAdminRole(request.resource.data)
+        )
+        && (
+          !('ativo' in request.resource.data)
+          || request.resource.data.ativo == resource.data.get('ativo', true)
         );
 
       allow update: if isAdmin()
         && validUserProfile(request.resource.data)
         && request.resource.data.role in ['admin', 'usuario'];
+    }
+
+    match /acessos/{acessoId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() <= 200
+        && request.resource.data.criadoEm is string;
+      allow delete: if isAdmin();
     }
 
     match /notificacoes/{notifId} {
