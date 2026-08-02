@@ -40,29 +40,63 @@ function renderAnexosRows() {
   }).join('');
 }
 
+function formatQuando(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function deviceLabel(ua) {
+  const s = String(ua || '');
+  if (!s) return '—';
+  if (/iPhone|iPad/i.test(s)) return 'iPhone/iPad';
+  if (/Android/i.test(s)) return 'Android';
+  if (/Edg\//i.test(s)) return 'Edge';
+  if (/Chrome\//i.test(s)) return 'Chrome';
+  if (/Firefox\//i.test(s)) return 'Firefox';
+  if (/Safari\//i.test(s)) return 'Safari';
+  return 'Navegador';
+}
+
 function renderContasRows(currentUid) {
   const users = getUsers();
   if (!users.length) {
-    return '<tr><td colspan="6" class="text-center text-muted">Nenhuma conta cadastrada ainda.</td></tr>';
+    return '<div class="admin-empty">Nenhuma conta cadastrada ainda.</div>';
   }
-  return users.map((u) => {
+  return `<div class="admin-account-list">${users.map((u) => {
     const ativo = u.ativo !== false;
     const role = u.role === 'admin' ? 'Admin' : 'Usuário';
     const isSelf = u.id === currentUid;
-    return `<tr class="${ativo ? '' : 'row-status-cancelada'}">
-      <td>${esc(u.nome) || '—'}</td>
-      <td>${esc(u.email) || '—'}</td>
-      <td><span class="badge ${u.role === 'admin' ? 'badge-autorizada' : 'badge-rascunho'}">${role}</span></td>
-      <td><span class="badge ${ativo ? 'badge-realizada' : 'badge-cancelada'}">${ativo ? 'Ativa' : 'Desativada'}</span></td>
-      <td><small>${u.atualizadoEm ? new Date(u.atualizadoEm).toLocaleString('pt-BR') : '—'}</small></td>
-      <td>
-        ${isSelf ? '<span class="text-muted text-sm">Sua conta</span>' : `
-          <button type="button" class="btn btn-sm ${ativo ? 'btn-danger' : 'btn-outline'}" data-toggle-ativo="${u.id}" data-ativo="${ativo ? '1' : '0'}">
-            ${ativo ? 'Desativar' : 'Reativar'}
-          </button>`}
-      </td>
-    </tr>`;
-  }).join('');
+    const initials = String(u.nome || u.email || '?')
+      .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '?';
+    return `
+      <article class="admin-account-card ${ativo ? '' : 'is-disabled'}">
+        <div class="admin-account-avatar" aria-hidden="true">${esc(initials)}</div>
+        <div class="admin-account-main">
+          <div class="admin-account-title">
+            <strong class="admin-account-name" title="${esc(u.nome) || '—'}">${esc(u.nome) || '—'}</strong>
+            <div class="admin-account-pills">
+              <span class="admin-pill ${u.role === 'admin' ? 'admin-pill-admin' : 'admin-pill-user'}">${role}</span>
+              <span class="admin-pill ${ativo ? 'admin-pill-ok' : 'admin-pill-off'}">${ativo ? 'Ativa' : 'Desativada'}</span>
+            </div>
+          </div>
+          <div class="admin-account-meta" title="${esc(u.email) || ''}">${esc(u.email) || '—'}</div>
+          <div class="admin-account-date">Atualizado: ${formatQuando(u.atualizadoEm)}</div>
+        </div>
+        <div class="admin-account-actions">
+          ${isSelf ? '<span class="admin-self-tag">Sua conta</span>' : `
+            <button type="button" class="btn btn-sm ${ativo ? 'btn-outline-danger' : 'btn-outline'}" data-toggle-ativo="${u.id}" data-ativo="${ativo ? '1' : '0'}">
+              ${ativo ? 'Desativar' : 'Reativar'}
+            </button>`}
+        </div>
+      </article>`;
+  }).join('')}</div>`;
 }
 
 function renderAcessosRows() {
@@ -74,11 +108,16 @@ function renderAcessosRows() {
   return acessos.map((a) => {
     const email = String(a.email || '').toLowerCase();
     const novo = novos.has(email);
-    return `<tr class="${novo ? 'row-status-enviada' : ''}">
-      <td><small>${a.criadoEm ? new Date(a.criadoEm).toLocaleString('pt-BR') : '—'}</small></td>
-      <td>${esc(a.nome) || '—'}${novo ? ' <span class="badge badge-enviada">Novo / incomum</span>' : ''}</td>
-      <td>${esc(a.email) || '—'}</td>
-      <td><small class="text-muted">${esc((a.userAgent || '').slice(0, 80))}${a.userAgent && a.userAgent.length > 80 ? '…' : ''}</small></td>
+    return `<tr class="${novo ? 'admin-access-new' : ''}">
+      <td class="col-when"><span class="cell-clip">${formatQuando(a.criadoEm)}</span></td>
+      <td class="col-name">
+        <div class="admin-access-name">
+          <span class="cell-clip" title="${esc(a.nome) || '—'}">${esc(a.nome) || '—'}</span>
+          ${novo ? '<span class="admin-pill admin-pill-warn">Novo</span>' : ''}
+        </div>
+      </td>
+      <td class="col-email"><span class="cell-clip" title="${esc(a.email) || ''}">${esc(a.email) || '—'}</span></td>
+      <td class="col-device"><span class="cell-clip" title="${esc(a.userAgent || '')}">${esc(deviceLabel(a.userAgent))}</span></td>
     </tr>`;
   }).join('');
 }
@@ -102,7 +141,7 @@ export function renderAdministracao(user, params = []) {
       <button class="tab ${activeTab === 'muns' ? 'active' : ''}" data-tab="muns">Municípios (${municipios.length})</button>
       <button class="tab ${activeTab === 'regs' ? 'active' : ''}" data-tab="regs">Regionais (${regionais.length})</button>
       <button class="tab ${activeTab === 'anexos' ? 'active' : ''}" data-tab="anexos">Anexos (${anexosCount})</button>
-      <button class="tab ${activeTab === 'contas' ? 'active' : ''}" data-tab="contas">Contas e acessos (${usersCount})</button>
+      <button class="tab ${activeTab === 'contas' ? 'active' : ''}" data-tab="contas">Contas (${usersCount})</button>
       <button class="tab ${activeTab === 'admins' ? 'active' : ''}" data-tab="admins">Administradores</button>
     </div>
     <div class="tab-content ${activeTab === 'coords' ? 'active' : ''}" data-tab-content="coords">
@@ -161,26 +200,39 @@ export function renderAdministracao(user, params = []) {
       </div></div>
     </div>
     <div class="tab-content ${activeTab === 'contas' ? 'active' : ''}" data-tab-content="contas">
-      <div class="card" style="margin-top:12px"><div class="card-body">
-        <h3>Contas cadastradas (${usersCount})</h3>
-        <p class="text-sm text-muted mb-3">Gerencie quem pode entrar no sistema. Contas desativadas são bloqueadas no próximo acesso.</p>
-        <div class="table-wrapper" style="max-height:360px;overflow:auto">
-          <table id="tabela-contas">
-            <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th>Atualizado</th><th>Ação</th></tr></thead>
-            <tbody>${renderContasRows(user?.uid)}</tbody>
-          </table>
+      <div class="admin-panel mt-2">
+        <div class="admin-panel-head">
+          <div>
+            <h3>Contas cadastradas</h3>
+            <p>Quem pode entrar no sistema. Contas desativadas ficam bloqueadas.</p>
+          </div>
+          <span class="admin-count">${usersCount}</span>
         </div>
-      </div></div>
-      <div class="card mt-3"><div class="card-body">
-        <h3>Quem acessou o site (${acessosCount})</h3>
-        <p class="text-sm text-muted mb-3">Últimos acessos. Linhas em amarelo / badge <strong>Novo / incomum</strong> indicam e-mails com poucos registros (possível acesso fora do comum).</p>
-        <div class="table-wrapper" style="max-height:420px;overflow:auto">
-          <table id="tabela-acessos">
-            <thead><tr><th>Quando</th><th>Nome</th><th>E-mail</th><th>Navegador</th></tr></thead>
+        <div id="lista-contas">${renderContasRows(user?.uid)}</div>
+      </div>
+
+      <div class="admin-panel mt-3">
+        <div class="admin-panel-head">
+          <div>
+            <h3>Acessos recentes</h3>
+            <p>Últimos logins. Badge <strong>Novo</strong> marca e-mail com pouco histórico.</p>
+          </div>
+          <span class="admin-count">${acessosCount}</span>
+        </div>
+        <div class="table-wrapper admin-access-wrap">
+          <table id="tabela-acessos" class="admin-access-table">
+            <thead>
+              <tr>
+                <th class="col-when">Quando</th>
+                <th class="col-name">Nome</th>
+                <th class="col-email">E-mail</th>
+                <th class="col-device">Dispositivo</th>
+              </tr>
+            </thead>
             <tbody>${renderAcessosRows()}</tbody>
           </table>
         </div>
-      </div></div>
+      </div>
     </div>
     <div class="tab-content ${activeTab === 'admins' ? 'active' : ''}" data-tab-content="admins">
       <div class="card" style="margin-top:12px"><div class="card-body">
@@ -305,12 +357,15 @@ export function bindAdministracao(user, params = []) {
   };
 
   const refreshContasTables = () => {
-    const contasBody = document.querySelector('#tabela-contas tbody');
-    if (contasBody) contasBody.innerHTML = renderContasRows(user?.uid);
+    const lista = document.getElementById('lista-contas');
+    if (lista) lista.innerHTML = renderContasRows(user?.uid);
     const acessosBody = document.querySelector('#tabela-acessos tbody');
     if (acessosBody) acessosBody.innerHTML = renderAcessosRows();
     const tab = document.querySelector('#admin-tabs [data-tab="contas"]');
-    if (tab) tab.textContent = `Contas e acessos (${getUsers().length})`;
+    if (tab) tab.textContent = `Contas (${getUsers().length})`;
+    document.querySelectorAll('[data-tab-content="contas"] .admin-count').forEach((el, i) => {
+      el.textContent = i === 0 ? String(getUsers().length) : String(getAcessos().length);
+    });
   };
 
   if (params[0] === 'anexos') refreshAnexosTable();
@@ -397,7 +452,7 @@ export function bindAdministracao(user, params = []) {
     if (document.querySelector('#tabela-anexos')) refreshAnexosTable();
   });
   subscribeUsers(() => {
-    if (document.querySelector('#tabela-contas')) refreshContasTables();
+    if (document.getElementById('lista-contas')) refreshContasTables();
   });
   subscribeAcessos(() => {
     if (document.querySelector('#tabela-acessos')) refreshContasTables();
