@@ -238,8 +238,8 @@ function showEvent(id) {
       <div class="detail-item"><label>Gerência</label><span>${getGerenciaByProgramacao(p)}</span></div>
       <div class="detail-item"><label>Coordenação</label><span>${coord?.nome || '—'}</span></div>
       <div class="detail-item"><label>Município(s)</label><span>${munLabel}</span></div>
-      <div class="detail-item"><label>Data Ida</label><span>${formatDate(p.dataInicial)}</span></div>
-      <div class="detail-item"><label>Data Volta</label><span>${formatDate(p.dataFinal)}</span></div>
+      <div class="detail-item"><label>Data inicial</label><span>${formatDate(p.dataInicial)}</span></div>
+      <div class="detail-item"><label>Data final</label><span>${formatDate(p.dataFinal)}</span></div>
     </div>`,
     footer: `<button class="btn btn-outline" data-modal-action="edit">Editar</button><button class="btn btn-primary" data-modal-action="close">Fechar</button>`,
   }).then((a) => { if (a === 'edit') window.location.hash = `nova-programacao/edit/${id}`; });

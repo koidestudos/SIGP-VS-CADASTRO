@@ -226,8 +226,8 @@ function renderStep(step) {
     <div class="wizard-form-section">
       <h4 class="form-section-title">Cronograma</h4>
       <div class="form-row">
-        <div class="form-group"><label>Data de Ida *</label><input type="date" class="form-control" id="f-data-ini" value="${wizardState.dataInicial || ''}" /></div>
-        <div class="form-group"><label>Data de Volta *</label><input type="date" class="form-control" id="f-data-fim" value="${wizardState.dataFinal || ''}" /></div>
+        <div class="form-group"><label>Data inicial *</label><input type="date" class="form-control" id="f-data-ini" value="${wizardState.dataInicial || ''}" /></div>
+        <div class="form-group"><label>Data final *</label><input type="date" class="form-control" id="f-data-fim" value="${wizardState.dataFinal || ''}" /></div>
         <div class="form-group"><label>Semana</label><input class="form-control" id="f-semana" value="${esc(wizardState.semana)}" readonly placeholder="Calculada automaticamente" /></div>
         <div class="form-group"><label>Duração</label><input class="form-control" id="f-duracao" value="${esc(wizardState.duracao)}" readonly placeholder="Calculada automaticamente" /></div>
       </div>
@@ -317,8 +317,8 @@ function renderStep(step) {
       <div class="detail-item"><label>Gerência</label><span>${coord?.gerencia || '—'}</span></div>
       <div class="detail-item"><label>Coordenação</label><span>${coord?.nome || '—'}</span></div>
       <div class="detail-item"><label>Tipo</label><span>${esc(wizardState.tipoAtividade) || '—'}</span></div>
-      <div class="detail-item"><label>Data Ida</label><span>${formatDate(wizardState.dataInicial)}</span></div>
-      <div class="detail-item"><label>Data Volta</label><span>${formatDate(wizardState.dataFinal)}</span></div>
+      <div class="detail-item"><label>Data inicial</label><span>${formatDate(wizardState.dataInicial)}</span></div>
+      <div class="detail-item"><label>Data final</label><span>${formatDate(wizardState.dataFinal)}</span></div>
       <div class="detail-item"><label>Semana</label><span>${esc(wizardState.semana) || '—'}</span></div>
       <div class="detail-item"><label>Duração</label><span>${esc(wizardState.duracao) || '—'}</span></div>
       <div class="detail-item"><label>Municípios</label><span>${getMunicipiosLabel(wizardState)}</span></div>

@@ -62,7 +62,7 @@ function renderCoordDetail(coordId) {
       <div class="card"><div class="card-body">
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
             <tbody>
               ${programacoes.length ? programacoes.map((p) => {
                 const munLabel = getMunicipiosLabel(p);

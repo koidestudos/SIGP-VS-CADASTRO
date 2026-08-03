@@ -1,5 +1,8 @@
 import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
-import { canUploadAnexo, uploadProgramacaoAnexo, formatUploadError } from '../services/anexos-service.js';
+import {
+  canUploadAnexo, uploadProgramacaoAnexo, formatUploadError,
+  getAnexosByProgramacao, canDeleteAnexo, deleteAnexo, openAnexo,
+} from '../services/anexos-service.js';
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
@@ -44,8 +47,8 @@ export function renderProgramacoes(user) {
         <th class="col-ger">Gerência</th>
         <th class="col-coord">Coordenação</th>
         <th class="col-mun">Município</th>
-        <th class="col-date">Data Ida</th>
-        <th class="col-date">Data Volta</th>
+        <th class="col-date">Data inicial</th>
+        <th class="col-date">Data final</th>
         <th class="col-equipe">Equipe</th>
         <th class="col-status">Status</th>
         <th class="col-acoes">Ações</th>
@@ -77,6 +80,7 @@ function renderRows(items, user) {
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
     const canAttach = canAttachAnexo(p.status);
+    const temAnexo = getAnexosByProgramacao(p.id).length > 0;
     const titulo = String(p.titulo || '—');
     const coordNome = coord?.nome || '—';
     return `<tr class="${getStatusRowClass(p.status)}">
@@ -92,8 +96,8 @@ function renderRows(items, user) {
         edit: canEdit,
         del: canDeleteProgramacao(user, p),
         extra: `<button class="btn-icon" data-action="pdf" data-id="${p.id}" title="Baixar PDF">📄</button>`
-          + (canAttach
-            ? `<button class="btn-icon" data-action="anexo" data-id="${p.id}" title="Enviar anexo">📎</button>`
+          + ((canAttach || temAnexo)
+            ? `<button class="btn-icon" data-action="anexo" data-id="${p.id}" title="Anexos">📎</button>`
             : `<button class="btn-icon" disabled title="Anexo indisponível (reprovada/cancelada)">📎</button>`)
           + approve + (canEdit ? `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` : ''),
       })}</td>
@@ -101,68 +105,142 @@ function renderRows(items, user) {
   }).join('');
 }
 
-async function showAnexoDialog(prog) {
-  if (!canUploadAnexo(prog)) {
-    toast('Não é possível anexar documentos em programações reprovadas ou canceladas.', 'error');
-    return;
+function renderAnexosListHtml(prog, user) {
+  const anexos = getAnexosByProgramacao(prog.id);
+  if (!anexos.length) {
+    return '<p class="text-sm text-muted mb-3">Nenhum anexo enviado nesta programação.</p>';
   }
-  await showModal({
-    title: 'Enviar anexo',
-    body: `
-      <p class="text-sm text-muted mb-2">Programação: <strong>${prog.titulo || '—'}</strong></p>
-      <p class="text-sm text-muted mb-3">Ao enviar um documento, a programação será marcada automaticamente como <strong>Realizada</strong>.</p>
+  const rows = anexos.map((a) => {
+    const quando = a.enviadoEm ? new Date(a.enviadoEm).toLocaleString('pt-BR') : '—';
+    const canDel = canDeleteAnexo(a, user);
+    const nome = String(a.nomeArquivo || 'Arquivo').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    return `<li class="anexo-manage-item">
+      <div class="anexo-manage-info">
+        <strong title="${nome}">${nome}</strong>
+        <span>${String(a.enviadoPorNome || '—').replace(/</g, '&lt;')} · ${quando}</span>
+      </div>
+      <div class="table-actions">
+        <button type="button" class="btn btn-outline btn-sm" data-modal-action="open-anexo" data-anexo-id="${a.id}">Abrir</button>
+        ${canDel ? `<button type="button" class="btn btn-outline-danger btn-sm" data-modal-action="del-anexo" data-anexo-id="${a.id}">Excluir</button>` : ''}
+      </div>
+    </li>`;
+  }).join('');
+  return `
+    <div class="anexo-manage-block mb-3">
+      <h4 class="text-sm" style="margin:0 0 8px;font-weight:700;color:var(--primary-dark)">Anexos enviados</h4>
+      <p class="text-sm text-muted mb-2">Enviou errado? Exclua o seu anexo e envie novamente.</p>
+      <ul class="anexo-manage-list">${rows}</ul>
+    </div>`;
+}
+
+async function showAnexoDialog(prog, user) {
+  let reopen = true;
+  while (reopen) {
+    reopen = false;
+    const existentes = getAnexosByProgramacao(prog.id);
+    const canUpload = canUploadAnexo(prog);
+    if (!canUpload && !existentes.length) {
+      toast('Não é possível anexar documentos em programações reprovadas ou canceladas.', 'error');
+      return;
+    }
+
+    const uploadBlock = canUpload ? `
       <div class="form-group">
-        <label>Documento (PDF, imagem ou Office — máx. 10 MB)</label>
+        <label>Novo documento (PDF, imagem ou Office — máx. 10 MB)</label>
         <input type="file" class="form-control" id="anexo-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
       </div>
-      <p class="text-sm text-muted mb-0 mt-2">Máximo <strong>10 MB</strong> — envio gratuito e rápido (sem Storage pago).</p>
-      <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`,
-    footer: `
-      <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
-      <button class="btn btn-primary" data-modal-action="enviar">Enviar anexo</button>`,
-    onAction: async (act, overlay) => {
-      if (act !== 'enviar') return;
-      const file = overlay.querySelector('#anexo-file')?.files?.[0] || null;
-      if (!file) {
-        toast('Selecione um arquivo.', 'error');
-        return false;
-      }
-      const btn = overlay.querySelector('[data-modal-action="enviar"]');
-      const statusEl = overlay.querySelector('#anexo-status');
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Enviando...';
-      }
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.textContent = 'Preparando envio...';
-      }
-      try {
-        await uploadProgramacaoAnexo(prog.id, file, {
-          onProgress: (pct, label) => {
-            if (statusEl) statusEl.textContent = label || `Enviando... ${pct}%`;
-            if (btn) btn.textContent = pct >= 100 ? 'Concluído' : `Enviando ${pct}%`;
-          },
-        });
-        toast('Anexo enviado! Programação marcada como Realizada.', 'success');
-        return;
-      } catch (err) {
-        console.error(err);
-        const msg = formatUploadError(err);
-        toast(msg, 'error');
+      <p class="text-sm text-muted mb-0 mt-2">Ao enviar, a programação será marcada como <strong>Realizada</strong>.</p>
+      <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`
+      : '<p class="text-sm text-muted">Envio bloqueado para programações reprovadas ou canceladas. Você ainda pode excluir o seu anexo, se houver.</p>';
+
+    const result = await showModal({
+      title: 'Anexos da programação',
+      size: 'modal-lg',
+      body: `
+        <p class="text-sm text-muted mb-2">Programação: <strong>${String(prog.titulo || '—').replace(/</g, '&lt;')}</strong></p>
+        ${renderAnexosListHtml(prog, user)}
+        ${uploadBlock}`,
+      footer: `
+        <button class="btn btn-ghost" data-modal-action="cancel">Fechar</button>
+        ${canUpload ? '<button class="btn btn-primary" data-modal-action="enviar">Enviar anexo</button>' : ''}`,
+      onAction: async (act, overlay, btn) => {
+        if (act === 'open-anexo') {
+          const found = getAnexosByProgramacao(prog.id).find((a) => a.id === btn?.dataset?.anexoId);
+          if (!found) { toast('Anexo não encontrado.', 'error'); return false; }
+          try {
+            btn.disabled = true;
+            await openAnexo(found);
+          } catch (err) {
+            toast(err.message || 'Erro ao abrir anexo.', 'error');
+          } finally {
+            btn.disabled = false;
+          }
+          return false;
+        }
+        if (act === 'del-anexo') {
+          const found = getAnexosByProgramacao(prog.id).find((a) => a.id === btn?.dataset?.anexoId);
+          if (!found) { toast('Anexo não encontrado.', 'error'); return false; }
+          if (!canDeleteAnexo(found, user)) {
+            toast('Você só pode excluir anexos que você enviou.', 'error');
+            return false;
+          }
+          if ((await confirmDialog(`Excluir o anexo "${found.nomeArquivo || 'arquivo'}"?`)) !== 'confirm') return false;
+          try {
+            btn.disabled = true;
+            await deleteAnexo(found.id);
+            toast('Anexo excluído.', 'success');
+            return; // fecha e reabre
+          } catch (err) {
+            toast(err.message || 'Erro ao excluir anexo.', 'error');
+            btn.disabled = false;
+            return false;
+          }
+        }
+        if (act !== 'enviar') return;
+        if (!canUpload) return false;
+        const file = overlay.querySelector('#anexo-file')?.files?.[0] || null;
+        if (!file) {
+          toast('Selecione um arquivo.', 'error');
+          return false;
+        }
+        const sendBtn = overlay.querySelector('[data-modal-action="enviar"]');
+        const statusEl = overlay.querySelector('#anexo-status');
+        if (sendBtn) {
+          sendBtn.disabled = true;
+          sendBtn.textContent = 'Enviando...';
+        }
         if (statusEl) {
           statusEl.style.display = 'block';
-          statusEl.textContent = msg;
-          statusEl.style.color = '#b42318';
+          statusEl.textContent = 'Preparando envio...';
         }
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = 'Enviar anexo';
+        try {
+          await uploadProgramacaoAnexo(prog.id, file, {
+            onProgress: (pct, label) => {
+              if (statusEl) statusEl.textContent = label || `Enviando... ${pct}%`;
+              if (sendBtn) sendBtn.textContent = pct >= 100 ? 'Concluído' : `Enviando ${pct}%`;
+            },
+          });
+          toast('Anexo enviado! Programação marcada como Realizada.', 'success');
+          return;
+        } catch (err) {
+          console.error(err);
+          const msg = formatUploadError(err);
+          toast(msg, 'error');
+          if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.textContent = msg;
+            statusEl.style.color = '#b42318';
+          }
+          if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Enviar anexo';
+          }
+          return false;
         }
-        return false;
-      }
-    },
-  });
+      },
+    });
+    if (result === 'del-anexo') reopen = true;
+  }
 }
 
 async function showModeloAnexoDialog(user) {
@@ -291,8 +369,15 @@ export function bindProgramacoes(user) {
     const prog = getProgramacaoById(id);
     if (action === 'view') showProgramacaoDetail(prog);
     if (action === 'pdf') {
-      try { downloadProgramacaoPdf(prog); toast('PDF gerado.', 'success'); }
-      catch (err) { toast(err.message || 'Erro ao gerar PDF.', 'error'); }
+      btn.disabled = true;
+      try {
+        await downloadProgramacaoPdf(prog);
+        toast('PDF gerado.', 'success');
+      } catch (err) {
+        toast(err.message || 'Erro ao gerar PDF.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
     }
     if (action === 'edit') {
       if (!canEditProgramacao(user, prog)) { toast('Você só pode editar suas próprias programações.', 'error'); return; }
@@ -303,7 +388,7 @@ export function bindProgramacoes(user) {
       await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
     }
     if (action === 'approve') { await showApproveDialog(id); refresh(); }
-    if (action === 'anexo' && prog) { await showAnexoDialog(prog); refresh(); }
+    if (action === 'anexo' && prog) { await showAnexoDialog(prog, user); refresh(); }
   });
   refresh();
 }

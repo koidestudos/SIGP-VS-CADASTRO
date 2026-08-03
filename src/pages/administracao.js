@@ -1,5 +1,5 @@
 import { getCollection, getSeedProgramacoesCount, importProgramacoesSeed, deleteAllProgramacoes } from '../services/storage.js';
-import { getAnexos, subscribeAnexos, openAnexo } from '../services/anexos-service.js';
+import { getAnexos, subscribeAnexos, openAnexo, deleteAnexo } from '../services/anexos-service.js';
 import {
   saveCoordenacao, removeCoordenacao, saveMunicipio, removeMunicipio, saveRegional, removeRegional,
 } from '../services/catalog-service.js';
@@ -33,8 +33,9 @@ function renderAnexosRows() {
       <td>${esc(coord?.nome) || '—'}</td>
       <td>${esc(a.nomeArquivo) || '—'}</td>
       <td>${esc(a.enviadoPorNome) || '—'}</td>
-      <td>
+      <td class="table-actions">
         <button type="button" class="btn btn-outline btn-sm" data-open-anexo="${a.id}">Abrir</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-del-anexo="${a.id}">Excluir</button>
       </td>
     </tr>`;
   }).join('');
@@ -188,7 +189,7 @@ export function renderAdministracao(user, params = []) {
     <div class="tab-content ${activeTab === 'anexos' ? 'active' : ''}" data-tab-content="anexos">
       <div class="card" style="margin-top:12px"><div class="card-body">
         <h3>Anexos de programações</h3>
-        <p class="text-sm text-muted mb-3">Documentos enviados pelos usuários, ordenados pela data de entrega (mais recentes primeiro).</p>
+        <p class="text-sm text-muted mb-3">Documentos enviados pelos usuários. O administrador pode abrir ou excluir qualquer anexo.</p>
         <div class="table-wrapper" style="max-height:480px;overflow:auto">
           <table id="tabela-anexos">
             <thead><tr>
@@ -459,19 +460,36 @@ export function bindAdministracao(user, params = []) {
   });
 
   document.getElementById('tabela-anexos')?.closest('.tab-content')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-open-anexo]');
-    if (!btn) return;
-    const anexo = getAnexos().find((a) => a.id === btn.dataset.openAnexo);
+    const openBtn = e.target.closest('[data-open-anexo]');
+    if (openBtn) {
+      const anexo = getAnexos().find((a) => a.id === openBtn.dataset.openAnexo);
+      if (!anexo) { toast('Anexo não encontrado.', 'error'); return; }
+      openBtn.disabled = true;
+      openBtn.textContent = 'Abrindo...';
+      try {
+        await openAnexo(anexo);
+      } catch (err) {
+        toast(err.message || 'Erro ao abrir anexo.', 'error');
+      } finally {
+        openBtn.disabled = false;
+        openBtn.textContent = 'Abrir';
+      }
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-anexo]');
+    if (!delBtn) return;
+    const anexo = getAnexos().find((a) => a.id === delBtn.dataset.delAnexo);
     if (!anexo) { toast('Anexo não encontrado.', 'error'); return; }
-    btn.disabled = true;
-    btn.textContent = 'Abrindo...';
+    if ((await confirmDialog(`Excluir o anexo "${anexo.nomeArquivo || 'arquivo'}"?`)) !== 'confirm') return;
+    delBtn.disabled = true;
     try {
-      await openAnexo(anexo);
+      await deleteAnexo(anexo.id);
+      toast('Anexo excluído.', 'success');
+      refreshAnexosTable();
     } catch (err) {
-      toast(err.message || 'Erro ao abrir anexo.', 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Abrir';
+      toast(err.message || 'Erro ao excluir anexo.', 'error');
+      delBtn.disabled = false;
     }
   });
 

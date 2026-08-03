@@ -1,12 +1,13 @@
 import {
   Bytes,
-  collection, doc, addDoc, setDoc, getDoc, getDocs, onSnapshot, query, orderBy, limit,
+  collection, doc, addDoc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorAnexo } from './programacoes-service.js';
 import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, isRealizada } from '../utils/status.js';
+import { isAdmin } from './roles.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** Seguro abaixo do limite de 1 MB do documento Firestore */
@@ -358,4 +359,32 @@ export async function openAnexo(anexo) {
     a.click();
   }
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** Admin ou quem enviou o anexo pode excluir. */
+export function canDeleteAnexo(anexo, user) {
+  if (!anexo || !user) return false;
+  if (isAdmin(user)) return true;
+  return Boolean(anexo.enviadoPor && anexo.enviadoPor === user.uid);
+}
+
+/**
+ * Remove o anexo e seus chunks (se houver).
+ * @param {string} anexoId
+ */
+export async function deleteAnexo(anexoId) {
+  if (!db) throw new Error('Firebase não configurado.');
+  requireUser();
+  if (!anexoId) throw new Error('Anexo inválido.');
+
+  const ref = doc(db, 'programacao_anexos', anexoId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Anexo não encontrado.');
+
+  const chunkSnap = await getDocs(collection(db, 'programacao_anexos', anexoId, 'chunks'));
+  await Promise.all(chunkSnap.docs.map((d) => deleteDoc(d.ref)));
+  await deleteDoc(ref);
+
+  anexosCache = anexosCache.filter((a) => a.id !== anexoId);
+  notify();
 }

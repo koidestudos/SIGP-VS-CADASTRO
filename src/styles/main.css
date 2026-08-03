@@ -600,6 +600,22 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .page-header h2 { font-size: 1.375rem; font-weight: 700; color: var(--gray-900); }
 .page-header-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
+.anexo-manage-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.anexo-manage-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: 8px; background: #fff;
+}
+.anexo-manage-info { min-width: 0; flex: 1; }
+.anexo-manage-info strong {
+  display: block; font-size: 0.875rem; color: var(--gray-900);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.anexo-manage-info span { display: block; font-size: 0.75rem; color: var(--gray-600); margin-top: 2px; }
+@media (max-width: 640px) {
+  .anexo-manage-item { flex-direction: column; align-items: stretch; }
+  .anexo-manage-item .table-actions { justify-content: flex-end; }
+}
+
 .modelo-anexo-form { display: flex; flex-direction: column; gap: 10px; }
 .modelo-anexo-form > .text-sm { margin-bottom: 0 !important; }
 .modelo-anexo-form .modelo-section {

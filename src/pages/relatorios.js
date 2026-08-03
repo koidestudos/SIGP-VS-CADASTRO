@@ -18,7 +18,7 @@ const RELATORIOS = [
 function renderTable(items) {
   if (!items.length) return '<p class="text-muted">Nenhum registro no período.</p>';
   return `<table><thead><tr>
-    <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Responsável</th><th>Status</th>
+    <th>Ação</th><th>Gerência</th><th>Coordenação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Responsável</th><th>Status</th>
   </tr></thead><tbody>${items.map((p) => {
     const c = getCoordenacaoById(p.coordenacaoId);
     const mun = getMunicipiosLabel(p);
@@ -51,7 +51,7 @@ function exportPDF(items, titulo, periodo) {
 }
 
 function exportCSV(items) {
-  const header = 'Ação;Gerência;Coordenação;Município;Data Ida;Data Volta;Responsável;Status\n';
+  const header = 'Ação;Gerência;Coordenação;Município;Data inicial;Data final;Responsável;Status\n';
   const rows = items.map((p) => {
     const c = getCoordenacaoById(p.coordenacaoId);
     const mun = getMunicipiosLabel(p);
@@ -72,8 +72,8 @@ export function renderRelatorios() {
       <div class="card-header"><h3>Exportar PDF por período de viagem</h3></div>
       <div class="card-body">
         <div class="filters-bar">
-          <div class="form-group"><label>Data Ida (de)</label><input type="date" class="form-control" id="pdf-data-ini" /></div>
-          <div class="form-group"><label>Data Volta (até)</label><input type="date" class="form-control" id="pdf-data-fim" value="${hoje}" /></div>
+          <div class="form-group"><label>Data inicial (de)</label><input type="date" class="form-control" id="pdf-data-ini" /></div>
+          <div class="form-group"><label>Data final (até)</label><input type="date" class="form-control" id="pdf-data-fim" value="${hoje}" /></div>
           <button class="btn btn-primary" id="export-pdf-range">📄 Exportar PDF do período</button>
         </div>
         <p class="text-sm text-muted">Exporta apenas programações com viagem entre as datas informadas.</p>
