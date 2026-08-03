@@ -8,6 +8,21 @@ import { normalizeStatus } from './status.js';
 import { getAnexosByProgramacao, getAnexoBlob } from '../services/anexos-service.js';
 
 const BRAND = [19, 81, 180];
+let pdfDownloadLock = null;
+
+/** Remove anexos duplicados (mesmo id ou mesmo arquivo). */
+function uniqueAnexos(anexos) {
+  const byId = new Map();
+  const byFile = new Set();
+  (anexos || []).forEach((a) => {
+    if (!a?.id || byId.has(a.id)) return;
+    const key = `${String(a.nomeArquivo || '').toLowerCase()}|${a.tamanho || 0}|${a.enviadoPor || ''}`;
+    if (byFile.has(key)) return;
+    byFile.add(key);
+    byId.set(a.id, a);
+  });
+  return [...byId.values()];
+}
 
 function downloadBlob(bytes, filename) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -99,7 +114,7 @@ function buildFichaDoc(prog) {
   const reg = getRegionalById(prog.regionalId || getMunicipioById(getMunicipioIdsFromProgramacao(prog)[0])?.regionalId);
   const now = new Date();
   const equipe = (prog.equipe || []).map((e) => `${e.nome}${e.cargo ? ` (${e.cargo})` : ''}`).join(', ');
-  const anexos = getAnexosByProgramacao(prog.id);
+  const anexos = uniqueAnexos(getAnexosByProgramacao(prog.id));
 
   doc.setFillColor(...BRAND);
   doc.rect(0, 0, pageW, 28, 'F');
@@ -201,76 +216,89 @@ function buildFichaDoc(prog) {
  */
 export async function downloadProgramacaoPdf(prog) {
   if (!prog) return;
-  const { doc, now, anexos } = buildFichaDoc(prog);
-  const slug = (prog.titulo || 'programacao').slice(0, 30).replace(/[^\w\-]+/g, '-');
-  const filename = `sigp-vs-${slug}-${now.toISOString().slice(0, 10)}.pdf`;
+  // Impede download duplo (clique rápido / listeners re-bindados)
+  if (pdfDownloadLock) return pdfDownloadLock;
 
-  if (!anexos.length) {
-    doc.save(filename);
-    return;
-  }
+  pdfDownloadLock = (async () => {
+    const { doc, now, anexos } = buildFichaDoc(prog);
+    const slug = (prog.titulo || 'programacao').slice(0, 30).replace(/[^\w\-]+/g, '-');
+    const filename = `sigp-vs-${slug}-${now.toISOString().slice(0, 10)}.pdf`;
 
-  const PDFLib = await import('pdf-lib');
-  const { PDFDocument, rgb, StandardFonts } = PDFLib;
-  const merged = await PDFDocument.create();
-  const ficha = await PDFDocument.load(doc.output('arraybuffer'));
-  (await merged.copyPages(ficha, ficha.getPageIndices())).forEach((p) => merged.addPage(p));
-
-  for (const anexo of anexos) {
-    try {
-      const blob = await getAnexoBlob(anexo);
-      const mime = blob.type || anexo.mimeType || '';
-      if (isPdfAnexo(anexo, mime)) {
-        const src = await PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true });
-        (await merged.copyPages(src, src.getPageIndices())).forEach((p) => merged.addPage(p));
-        continue;
-      }
-      if (isImageAnexo(anexo, mime)) {
-        const jpegBytes = await blobToJpegBytes(blob);
-        const image = await merged.embedJpg(jpegBytes);
-        const page = merged.addPage([595.28, 841.89]);
-        page.drawRectangle({
-          x: 0, y: page.getHeight() - 28, width: page.getWidth(), height: 28,
-          color: rgb(19 / 255, 81 / 255, 180 / 255),
-        });
-        const font = await merged.embedFont(StandardFonts.HelveticaBold);
-        page.drawText(truncatePdfText(`Anexo: ${anexo.nomeArquivo || 'imagem'}`, 80), {
-          x: 14, y: page.getHeight() - 18, size: 10, font, color: rgb(1, 1, 1),
-        });
-        const margin = 36;
-        const headerH = 36;
-        const maxW = page.getWidth() - margin * 2;
-        const maxH = page.getHeight() - margin - headerH;
-        const scale = Math.min(maxW / image.width, maxH / image.height, 1);
-        const w = image.width * scale;
-        const h = image.height * scale;
-        page.drawImage(image, {
-          x: (page.getWidth() - w) / 2,
-          y: margin + Math.max(0, (maxH - h) / 2),
-          width: w,
-          height: h,
-        });
-        continue;
-      }
-      await appendNotePage(merged, PDFLib, `Anexo: ${anexo.nomeArquivo || 'arquivo'}`, [
-        'Este tipo de arquivo não pode ser embutido no PDF.',
-        `Arquivo: ${anexo.nomeArquivo || '—'}`,
-        `Tipo: ${mime || anexo.mimeType || '—'}`,
-        `Enviado por: ${anexo.enviadoPorNome || '—'}`,
-        'Abra o anexo pelo sistema SIGP-VS para visualizar o conteúdo original.',
-      ]);
-    } catch (err) {
-      console.error('Falha ao embutir anexo no PDF:', err);
-      try {
-        await appendNotePage(merged, PDFLib, `Anexo: ${anexo.nomeArquivo || 'arquivo'}`, [
-          'Não foi possível embutir este anexo no PDF.',
-          err?.message || 'Erro desconhecido.',
-        ]);
-      } catch (_) { /* ignore */ }
+    if (!anexos.length) {
+      doc.save(filename);
+      return;
     }
-  }
 
-  downloadBlob(await merged.save(), filename);
+    const PDFLib = await import('pdf-lib');
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+    const merged = await PDFDocument.create();
+    const ficha = await PDFDocument.load(doc.output('arraybuffer'));
+    (await merged.copyPages(ficha, ficha.getPageIndices())).forEach((p) => merged.addPage(p));
+
+    const embeddedKeys = new Set();
+    for (const anexo of anexos) {
+      const embedKey = `${anexo.id}|${String(anexo.nomeArquivo || '').toLowerCase()}|${anexo.tamanho || 0}`;
+      if (embeddedKeys.has(embedKey)) continue;
+      embeddedKeys.add(embedKey);
+      try {
+        const blob = await getAnexoBlob(anexo);
+        const mime = blob.type || anexo.mimeType || '';
+        if (isPdfAnexo(anexo, mime)) {
+          const src = await PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true });
+          (await merged.copyPages(src, src.getPageIndices())).forEach((p) => merged.addPage(p));
+          continue;
+        }
+        if (isImageAnexo(anexo, mime)) {
+          const jpegBytes = await blobToJpegBytes(blob);
+          const image = await merged.embedJpg(jpegBytes);
+          const page = merged.addPage([595.28, 841.89]);
+          page.drawRectangle({
+            x: 0, y: page.getHeight() - 28, width: page.getWidth(), height: 28,
+            color: rgb(19 / 255, 81 / 255, 180 / 255),
+          });
+          const font = await merged.embedFont(StandardFonts.HelveticaBold);
+          page.drawText(truncatePdfText(`Anexo: ${anexo.nomeArquivo || 'imagem'}`, 80), {
+            x: 14, y: page.getHeight() - 18, size: 10, font, color: rgb(1, 1, 1),
+          });
+          const margin = 36;
+          const headerH = 36;
+          const maxW = page.getWidth() - margin * 2;
+          const maxH = page.getHeight() - margin - headerH;
+          const scale = Math.min(maxW / image.width, maxH / image.height, 1);
+          const w = image.width * scale;
+          const h = image.height * scale;
+          page.drawImage(image, {
+            x: (page.getWidth() - w) / 2,
+            y: margin + Math.max(0, (maxH - h) / 2),
+            width: w,
+            height: h,
+          });
+          continue;
+        }
+        await appendNotePage(merged, PDFLib, `Anexo: ${anexo.nomeArquivo || 'arquivo'}`, [
+          'Este tipo de arquivo não pode ser embutido no PDF.',
+          `Arquivo: ${anexo.nomeArquivo || '—'}`,
+          `Tipo: ${mime || anexo.mimeType || '—'}`,
+          `Enviado por: ${anexo.enviadoPorNome || '—'}`,
+          'Abra o anexo pelo sistema SIGP-VS para visualizar o conteúdo original.',
+        ]);
+      } catch (err) {
+        console.error('Falha ao embutir anexo no PDF:', err);
+        try {
+          await appendNotePage(merged, PDFLib, `Anexo: ${anexo.nomeArquivo || 'arquivo'}`, [
+            'Não foi possível embutir este anexo no PDF.',
+            err?.message || 'Erro desconhecido.',
+          ]);
+        } catch (_) { /* ignore */ }
+      }
+    }
+
+    downloadBlob(await merged.save(), filename);
+  })().finally(() => {
+    pdfDownloadLock = null;
+  });
+
+  return pdfDownloadLock;
 }
 
 export function downloadProgramacoesListPdf(items, { title = 'Relatório de Programações', subtitle = '' } = {}) {

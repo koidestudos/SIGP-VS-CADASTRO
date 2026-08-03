@@ -1,4 +1,6 @@
-import { saveProgramacao, syncLogisticaFromProgramacao, getProgramacaoById } from '../services/programacoes-service.js';
+import {
+  saveProgramacao, syncLogisticaFromProgramacao, getProgramacaoById, formatProgramacaoError,
+} from '../services/programacoes-service.js';
 import { canEditProgramacao } from '../services/roles.js';
 import {
   getCoordenacoes, getRegionais, TIPOS_ATIVIDADE, formatDate,
@@ -381,11 +383,11 @@ function validate(step) {
   }
   if (step === 1) {
     if (!wizardState.dataInicial || !wizardState.dataFinal) {
-      toast('Informe as datas de ida e volta.', 'error');
+      toast('Informe a data inicial e a data final.', 'error');
       return false;
     }
     if (wizardState.dataFinal < wizardState.dataInicial) {
-      toast('A data de volta deve ser igual ou posterior à data de ida.', 'error');
+      toast('A data final deve ser igual ou posterior à data inicial.', 'error');
       return false;
     }
     if (!wizardState.municipioIds?.length) {
@@ -550,14 +552,16 @@ function bindMain() {
     if (btn.id === 'wizard-save') {
       if (wizardSubmitting) return;
       wizardSubmitting = true;
+      btn.disabled = true;
       try {
         await persist('Rascunho');
         toast('Rascunho salvo!', 'success');
       } catch (err) {
         console.error(err);
-        toast(err.message || 'Erro ao salvar rascunho.', 'error');
+        toast(formatProgramacaoError(err, 'Erro ao salvar rascunho.'), 'error');
       } finally {
         wizardSubmitting = false;
+        btn.disabled = false;
       }
       return;
     }
@@ -570,6 +574,7 @@ function bindMain() {
       }
       if (!validateForSubmit()) return;
       wizardSubmitting = true;
+      btn.disabled = true;
       try {
         await persist('Enviado para Diretoria');
         toast('Enviado para a Diretoria!', 'success');
@@ -577,9 +582,10 @@ function bindMain() {
         window.location.hash = 'programacoes';
       } catch (err) {
         console.error(err);
-        toast(err.message || 'Erro ao enviar programação. Tente novamente.', 'error');
+        toast(formatProgramacaoError(err, 'Erro ao enviar programação. Tente novamente.'), 'error');
       } finally {
         wizardSubmitting = false;
+        btn.disabled = false;
       }
     }
   });
