@@ -27,7 +27,7 @@ export function showModal({ title, body, footer, size = '', onAction }) {
       btn.addEventListener('click', async () => {
         const action = btn.dataset.modalAction;
         if (onAction) {
-          const keepOpen = await onAction(action, overlay);
+          const keepOpen = await onAction(action, overlay, btn);
           if (keepOpen === false) return;
         }
         close(action);

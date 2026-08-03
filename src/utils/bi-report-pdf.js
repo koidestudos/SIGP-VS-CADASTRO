@@ -137,7 +137,7 @@ export async function downloadBiReportPdf() {
 
   autoTable(doc, {
     startY: 24,
-    head: [['Ação', 'Ger.', 'Coordenação', 'Município', 'Ida', 'Volta', 'Status', 'Equipe']],
+    head: [['Ação', 'Ger.', 'Coordenação', 'Município', 'Inicial', 'Final', 'Status', 'Equipe']],
     body: rows,
     styles: { fontSize: 7, cellPadding: 2 },
     headStyles: { fillColor: BRAND.primary, textColor: 255, fontStyle: 'bold' },

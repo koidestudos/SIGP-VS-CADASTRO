@@ -81,10 +81,17 @@ function bindRowActions() {
     });
   });
   document.querySelectorAll('[data-pdf-prog]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const prog = getProgramacaoRawById(btn.dataset.pdfProg);
-      try { downloadProgramacaoPdf(prog); toast('PDF gerado.', 'success'); }
-      catch (err) { toast(err.message || 'Erro ao gerar PDF.', 'error'); }
+      btn.disabled = true;
+      try {
+        await downloadProgramacaoPdf(prog);
+        toast('PDF gerado.', 'success');
+      } catch (err) {
+        toast(err.message || 'Erro ao gerar PDF.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
     });
   });
   document.querySelectorAll('[data-update-situacao]').forEach((sel) => {

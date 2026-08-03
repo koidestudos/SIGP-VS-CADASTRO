@@ -13,8 +13,8 @@ export function programacaoDetailHtml(p) {
     <div class="detail-item"><label>Equipe</label><span>${eq || p.responsavel || '—'}</span></div>
     <div class="detail-item"><label>Tipo</label><span>${p.tipoAtividade || '—'}</span></div>
     <div class="detail-item"><label>Status</label><span>${normalizeStatus(p.status)}</span></div>
-    <div class="detail-item"><label>Data Ida</label><span>${formatDate(p.dataInicial)}</span></div>
-    <div class="detail-item"><label>Data Volta</label><span>${formatDate(p.dataFinal)}</span></div>
+    <div class="detail-item"><label>Data inicial</label><span>${formatDate(p.dataInicial)}</span></div>
+    <div class="detail-item"><label>Data final</label><span>${formatDate(p.dataFinal)}</span></div>
     <div class="detail-item"><label>Município(s)</label><span>${getMunicipiosLabel(p)}</span></div>
     <div class="detail-item"><label>Regional(is)</label><span>${getRegionaisLabel(p)}</span></div>
     <div class="detail-item"><label>Local</label><span>${p.localAtividade || '—'}</span></div>

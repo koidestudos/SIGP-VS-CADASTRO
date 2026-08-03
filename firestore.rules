@@ -211,7 +211,9 @@ service cloud.firestore {
           'storage', 'firestore', 'firestore-chunks'
         ]);
 
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.enviadoPor == request.auth.uid);
 
       match /chunks/{chunkId} {
         allow read: if isSignedIn();
@@ -222,7 +224,11 @@ service cloud.firestore {
             (request.resource.data.data is bytes && request.resource.data.data.size() <= 700000)
             || (request.resource.data.data is string && request.resource.data.data.size() <= 450000)
           );
-        allow update, delete: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin()
+          || (isSignedIn()
+            && get(/databases/$(database)/documents/programacao_anexos/$(anexoId)).data.enviadoPor
+              == request.auth.uid);
       }
     }
 

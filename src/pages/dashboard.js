@@ -36,7 +36,7 @@ function renderAcaoList(items, emptyMsg) {
   return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => `
     <li>
       <strong>${p.titulo}</strong>
-      <span>${getMunicipiosLabel(p)} · Ida ${formatDate(p.dataInicial)} · Volta ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}</span>
+      <span>${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} a ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}</span>
     </li>`).join('')}</ul>`;
 }
 
@@ -125,7 +125,7 @@ export function renderDashboard(user) {
         <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana atual (Brasília): ${semanaAtual.label}</p>
         <div class="card-body table-compact">
           ${daSemana.length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Gerência</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Município</th><th>Gerência</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
             <tbody>${daSemana.map((p) => `
               <tr class="${normalizeStatus(p.status) ? '' : ''}">
                 <td class="td-action">${p.titulo}</td>
@@ -146,7 +146,7 @@ export function renderDashboard(user) {
         </div>
         <div class="card-body table-compact">
           ${proximas.length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Data Ida</th><th>Data Volta</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
             <tbody>${proximas.map((p) => `
               <tr>
                 <td class="td-action">${p.titulo}</td>
