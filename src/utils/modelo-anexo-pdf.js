@@ -119,7 +119,7 @@ export function renderModeloAnexoFormHtml(defaults = {}) {
       <fieldset class="modelo-section">
         <legend>3. Resumo da Execução *</legend>
         <div class="form-group">
-          <textarea class="form-control" id="modelo-resumo" rows="4" required placeholder="Descreva brevemente a execução da ação">${v('resumo')}</textarea>
+          <textarea class="form-control" id="modelo-resumo" rows="3" required placeholder="Descreva brevemente a execução da ação">${v('resumo')}</textarea>
         </div>
       </fieldset>
 
@@ -140,7 +140,7 @@ export function renderModeloAnexoFormHtml(defaults = {}) {
       <fieldset class="modelo-section">
         <legend>5. Pendências ou Observações</legend>
         <div class="form-group">
-          <textarea class="form-control" id="modelo-observacoes" rows="3" placeholder="Pendências, observações ou restrições">${v('observacoes')}</textarea>
+          <textarea class="form-control" id="modelo-observacoes" rows="2" placeholder="Pendências, observações ou restrições">${v('observacoes')}</textarea>
         </div>
       </fieldset>
 
