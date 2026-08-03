@@ -195,7 +195,11 @@ export function bindNotifications() {
     panel.classList.add('hidden');
   });
 
-  document.addEventListener('click', () => panel.classList.add('hidden'));
+  if (bindNotifications._docClick) {
+    document.removeEventListener('click', bindNotifications._docClick);
+  }
+  bindNotifications._docClick = () => panel.classList.add('hidden');
+  document.addEventListener('click', bindNotifications._docClick);
   panel.addEventListener('click', (e) => e.stopPropagation());
 }
 
@@ -437,7 +441,11 @@ export function bindSuporte(user) {
     panel.classList.toggle('hidden');
     if (!panel.classList.contains('hidden')) await renderSuportePanelContent();
   });
-  document.addEventListener('click', () => panel.classList.add('hidden'));
+  if (bindSuporte._docClick) {
+    document.removeEventListener('click', bindSuporte._docClick);
+  }
+  bindSuporte._docClick = () => panel.classList.add('hidden');
+  document.addEventListener('click', bindSuporte._docClick);
   panel.addEventListener('click', (e) => e.stopPropagation());
 }
 

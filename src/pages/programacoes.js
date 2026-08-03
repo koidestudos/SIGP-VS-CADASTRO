@@ -301,6 +301,10 @@ async function showApproveDialog(id) {
 }
 
 export function bindProgramacoes(user) {
+  const table = document.getElementById('tabela-programacoes');
+  if (table?.dataset.bound === '1') return;
+  if (table) table.dataset.bound = '1';
+
   const refresh = () => {
     const items = filterProgramacoes(getProgramacoes());
     const tbody = document.querySelector('#tabela-programacoes tbody');

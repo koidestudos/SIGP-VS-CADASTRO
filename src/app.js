@@ -43,6 +43,8 @@ const PAGE_META = {
   administracao: { title: 'Administração', render: renderAdministracao, bind: bindAdministracao },
 };
 
+let bindGeneration = 0;
+
 export function renderApp(user, route, params) {
   if ((route === 'bi-gerencial' || route === 'administracao') && !canViewBI(user)) {
     route = 'dashboard';
@@ -56,7 +58,10 @@ export function renderApp(user, route, params) {
   const html = renderAppShell(user, route, page.title, content, breadcrumb);
   document.title = `SIGP-VS — ${page.title}`;
 
+  // Evita bind duplicado quando vários re-renders enfileiram setTimeout(0)
+  const generation = ++bindGeneration;
   setTimeout(() => {
+    if (generation !== bindGeneration) return;
     bindLayoutEvents(
       (r) => { window.location.hash = r; },
       async () => { await logoutUser(); window.location.hash = 'login'; },

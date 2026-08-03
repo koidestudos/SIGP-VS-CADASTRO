@@ -35,6 +35,18 @@ function requireDb() {
   return db;
 }
 
+export function formatProgramacaoError(err, fallback = 'Erro ao salvar programação.') {
+  const code = err?.code || '';
+  const msg = String(err?.message || '');
+  if (code === 'permission-denied' || /insufficient permissions|permission/i.test(msg)) {
+    return 'Sem permissão para salvar agora. Confirme que está logada e tente de novo em alguns segundos.';
+  }
+  if (code === 'unauthenticated') {
+    return 'Sessão expirada. Faça login novamente e tente de novo.';
+  }
+  return err?.message || fallback;
+}
+
 function requireUser() {
   const uid = auth?.currentUser?.uid;
   if (!uid) throw new Error('Usuário não autenticado.');
@@ -177,7 +189,11 @@ export async function saveProgramacao(data, existingId = null) {
 
     await updateDoc(ref, payload);
     const saved = { id: existingId, ...payload };
-    await syncLogisticaToFirestore(saved);
+    try {
+      await syncLogisticaToFirestore(saved);
+    } catch (err) {
+      console.error('Falha ao sincronizar logística (programação já salva):', err);
+    }
     if (nextStatus === 'Enviado para Diretoria' && prevStatus !== 'Enviado para Diretoria') {
       try {
         await notifyProgramacaoEnviada(saved);
@@ -201,7 +217,12 @@ export async function saveProgramacao(data, existingId = null) {
     criadoEm: serverTimestamp(),
   });
   const saved = { id: ref.id, ...payload };
-  await syncLogisticaToFirestore(saved);
+  // Logística/notificação não podem invalidar o salvamento da programação
+  try {
+    await syncLogisticaToFirestore(saved);
+  } catch (err) {
+    console.error('Falha ao sincronizar logística (programação já salva):', err);
+  }
   if (nextStatus === 'Enviado para Diretoria') {
     try {
       await notifyProgramacaoEnviada(saved);
