@@ -75,7 +75,7 @@ function renderRows(items, user) {
     const statusOptions = getStatusOptionsForUser(user, p);
     const canChangeStatus = isAdmin(user) || (canEdit && statusOptions.length > 1);
     const statusCell = canChangeStatus
-      ? `<select class="form-control status-select" data-status-id="${p.id}" style="min-width:120px;padding:2px 6px;font-size:0.75rem">
+      ? `<select class="form-control status-select" data-status-id="${p.id}">
           ${statusOptions.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
