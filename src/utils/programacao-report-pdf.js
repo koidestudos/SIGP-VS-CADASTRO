@@ -6,6 +6,7 @@ import {
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
 import { getAnexosByProgramacao, getAnexoBlob } from '../services/anexos-service.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const BRAND = [19, 81, 180];
 let pdfDownloadLock = null;
@@ -147,6 +148,7 @@ function buildFichaDoc(prog) {
     ['Semana', prog.semana || '—'],
     ['Duração', prog.duracao || '—'],
     ['Tipo de ação', prog.tipoAtividade || '—'],
+    ['Incluído por', [getIncluidoPorLabel(prog), prog.criadoPorEmail].filter((v, i, arr) => v && arr.indexOf(v) === i).join(' — ') || '—'],
     ['Equipe / Responsável', equipe || prog.responsavel || '—'],
     ['Público-alvo', prog.publicoAlvo || '—'],
     ['Local', prog.localAtividade || '—'],

@@ -134,9 +134,10 @@ function renderNotifList() {
     const coord = getCoordenacaoById(n.coordenacaoId);
     const time = n.criadoEm ? new Date(n.criadoEm).toLocaleString('pt-BR') : '';
     const isAnexo = n.tipo === 'programacao_anexo';
+    const incluidoPor = n.criadoPorNome || '';
     const subtitle = isAnexo
       ? `Novo anexo: ${n.nomeArquivo || 'documento'}${n.enviadoPorNome ? ` — ${n.enviadoPorNome}` : ''}${coord ? ` · ${coord.nome}` : ''}`
-      : `Nova programação aguardando aprovação${coord ? ` — ${coord.nome}` : ''}`;
+      : `Nova programação aguardando aprovação${incluidoPor ? ` — incluída por ${incluidoPor}` : ''}${coord ? ` · ${coord.nome}` : ''}`;
     const navTarget = isAnexo ? 'administracao/anexos' : 'programacoes';
     return `
       <div class="notif-item-wrap ${n.lido ? '' : 'unread'}">

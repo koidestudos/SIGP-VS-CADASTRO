@@ -991,8 +991,10 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .prog-table .col-mun { width: 110px; }
 .prog-table .col-date { width: 92px; white-space: nowrap; }
 .prog-table .col-equipe { width: 110px; }
+.prog-table .col-incluido { width: 132px; }
 .prog-table .col-status { width: 168px; }
 .prog-table .col-acoes { width: 220px; }
+.prog-table-admin { min-width: 1260px; }
 .prog-acao {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1060,6 +1062,7 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 
 @media (max-width: 1100px) {
   .prog-table { min-width: 900px; }
+  .prog-table-admin { min-width: 1020px; }
   .prog-table .col-equipe,
   .prog-table .col-coord { display: none; }
   .prog-table .col-status { width: 160px; }

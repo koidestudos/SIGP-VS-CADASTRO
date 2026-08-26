@@ -5,6 +5,8 @@ import {
 } from '../data/seed.js';
 import { showModal } from '../components/ui.js';
 import { normalizeStatus, isAutorizada, isRealizada } from '../utils/status.js';
+import { isAdmin } from '../services/roles.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const DIAS_SEM = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
@@ -12,6 +14,7 @@ const DIAS_CURTOS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
 const now = new Date();
 let calState = { view: 'mes', year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+let calUser = null;
 
 function dateStr(y, m, d) {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -188,7 +191,7 @@ function bindEvents(body) {
   body.querySelectorAll('[data-event-id]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      showEvent(el.dataset.eventId);
+      showEvent(el.dataset.eventId, calUser);
     });
   });
   body.querySelectorAll('.cal-clickable-day').forEach((cell) => {
@@ -227,16 +230,18 @@ function refresh() {
   bindEvents(body);
 }
 
-function showEvent(id) {
+function showEvent(id, user) {
   const p = getProgramacoes().find((x) => x.id === id);
   if (!p) return;
   const coord = getCoordenacaoById(p.coordenacaoId);
   const munLabel = getMunicipiosLabel(p);
+  const incluidoPor = isAdmin(user) ? getIncluidoPorLabel(p) : '';
   showModal({
     title: p.titulo,
     body: `<div class="detail-grid">
       <div class="detail-item"><label>Gerência</label><span>${getGerenciaByProgramacao(p)}</span></div>
       <div class="detail-item"><label>Coordenação</label><span>${coord?.nome || '—'}</span></div>
+      ${incluidoPor ? `<div class="detail-item"><label>Incluído por</label><span>${incluidoPor.replace(/</g, '&lt;')}</span></div>` : ''}
       <div class="detail-item"><label>Município(s)</label><span>${munLabel}</span></div>
       <div class="detail-item"><label>Data inicial</label><span>${formatDate(p.dataInicial)}</span></div>
       <div class="detail-item"><label>Data final</label><span>${formatDate(p.dataFinal)}</span></div>
@@ -245,7 +250,8 @@ function showEvent(id) {
   }).then((a) => { if (a === 'edit') window.location.hash = `nova-programacao/edit/${id}`; });
 }
 
-export function bindCalendario() {
+export function bindCalendario(user) {
+  calUser = user || null;
   refresh();
   document.querySelectorAll('#cal-view-toggle button').forEach((btn) => {
     btn.addEventListener('click', () => {

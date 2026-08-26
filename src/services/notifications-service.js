@@ -52,6 +52,8 @@ export async function notifyProgramacaoEnviada(programacao) {
     titulo: programacao.titulo || 'Nova programação',
     coordenacaoId: programacao.coordenacaoId || '',
     criadoPor: programacao.criadoPor || '',
+    criadoPorNome: programacao.criadoPorNome || '',
+    criadoPorEmail: programacao.criadoPorEmail || '',
     lido: false,
     criadoEm: new Date().toISOString(),
   });

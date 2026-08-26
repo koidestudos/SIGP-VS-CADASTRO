@@ -2,6 +2,8 @@ import { getCollection } from '../services/storage.js';
 import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass, programacaoHasMunicipio } from '../data/seed.js';
 import { isAutorizada, isRealizada, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
+import { isAdmin } from '../services/roles.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
 function renderMunicipioCards(municipios, programacoes) {
   if (!municipios.length) {
@@ -24,9 +26,9 @@ function renderMunicipioCards(municipios, programacoes) {
 export function renderMunicipios(user, params = []) {
   if (params[0]) {
     if (params[1] === 'canceladas-reprovadas') {
-      return renderMunicipioCanceladasReprovadas(params[0]);
+      return renderMunicipioCanceladasReprovadas(params[0], user);
     }
-    return renderMunicipioDetail(params[0]);
+    return renderMunicipioDetail(params[0], user);
   }
 
   const municipios = getCollection('municipios');
@@ -66,7 +68,7 @@ function groupByStatus(programacoes) {
   return { programadas, priorizadas, autorizadas, realizadas, canceladasReprovadas };
 }
 
-function renderMunicipioDetail(munId) {
+function renderMunicipioDetail(munId, user) {
   const mun = getCollection('municipios').find((m) => m.id === munId);
   if (!mun) return '<p>Município não encontrado.</p>';
 
@@ -101,21 +103,21 @@ function renderMunicipioDetail(munId) {
     </div>
 
     <div class="tab-content active" data-tab-content="programadas">
-      ${renderProgTable(programadas)}
+      ${renderProgTable(programadas, user)}
     </div>
     <div class="tab-content" data-tab-content="priorizadas">
-      ${renderProgTable(priorizadas)}
+      ${renderProgTable(priorizadas, user)}
     </div>
     <div class="tab-content" data-tab-content="autorizadas">
-      ${renderProgTable(autorizadas)}
+      ${renderProgTable(autorizadas, user)}
     </div>
     <div class="tab-content" data-tab-content="realizadas">
-      ${renderProgTable(realizadas)}
+      ${renderProgTable(realizadas, user)}
     </div>
   `;
 }
 
-function renderMunicipioCanceladasReprovadas(munId) {
+function renderMunicipioCanceladasReprovadas(munId, user) {
   const mun = getCollection('municipios').find((m) => m.id === munId);
   if (!mun) return '<p>Município não encontrado.</p>';
 
@@ -141,30 +143,33 @@ function renderMunicipioCanceladasReprovadas(munId) {
     </div>
 
     <div class="tab-content active" data-tab-content="canceladas">
-      ${renderProgTable(canceladas)}
+      ${renderProgTable(canceladas, user)}
     </div>
     <div class="tab-content" data-tab-content="reprovadas">
-      ${renderProgTable(reprovadas)}
+      ${renderProgTable(reprovadas, user)}
     </div>
     <div class="tab-content" data-tab-content="todas">
-      ${renderProgTable(canceladasReprovadas)}
+      ${renderProgTable(canceladasReprovadas, user)}
     </div>
   `;
 }
 
-function renderProgTable(items) {
+function renderProgTable(items, user) {
+  const admin = isAdmin(user);
   return `
     <div class="card"><div class="card-body">
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Ação</th><th>Coordenação</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
+          <thead><tr><th>Ação</th><th>Coordenação</th><th>Data inicial</th><th>Data final</th>${admin ? '<th>Incluído por</th>' : ''}<th>Status</th></tr></thead>
           <tbody>
             ${items.length ? items.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
+              const autor = getIncluidoPorLabel(p) || '—';
               return `<tr class="${getStatusRowClass(p.status)}"><td>${p.titulo}</td><td>${coord?.nome || '—'}</td>
                 <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
+                ${admin ? `<td>${autor.replace(/</g, '&lt;')}</td>` : ''}
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
-            }).join('') : '<tr><td colspan="5" class="text-center text-muted">Nenhuma programação.</td></tr>'}
+            }).join('') : `<tr><td colspan="${admin ? 6 : 5}" class="text-center text-muted">Nenhuma programação.</td></tr>`}
           </tbody>
         </table>
       </div>

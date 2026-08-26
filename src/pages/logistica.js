@@ -5,6 +5,7 @@ import { STATUS_PROGRAMACAO } from '../utils/status.js';
 import { toast } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
+import { isAdmin } from '../services/roles.js';
 import {
   filterProgramacoes, readFilterState, getFilterDescription,
   renderProgramacoesFilterBar, bindProgramacoesFilterBar,
@@ -77,11 +78,11 @@ export function renderLogistica() {
     </div>`;
 }
 
-function bindRowActions() {
+function bindRowActions(user) {
   document.querySelectorAll('[data-view-prog]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const prog = getProgramacaoRawById(btn.dataset.viewProg);
-      showProgramacaoDetail(prog);
+      showProgramacaoDetail(prog, { showAuthor: isAdmin(user) });
     });
   });
   document.querySelectorAll('[data-pdf-prog]').forEach((btn) => {
@@ -110,7 +111,7 @@ function bindRowActions() {
   });
 }
 
-export function bindLogistica() {
+export function bindLogistica(user) {
   const refresh = () => {
     const items = getFilteredLogistica();
     const tbody = document.querySelector('#tabela-logistica tbody');
@@ -119,10 +120,10 @@ export function bindLogistica() {
     if (resumo) {
       resumo.textContent = `${getFilterDescription()} — ${items.length} solicitação(ões)`;
     }
-    bindRowActions();
+    bindRowActions(user);
   };
 
   bindProgramacoesFilterBar(refresh);
-  bindRowActions();
+  bindRowActions(user);
   refresh();
 }

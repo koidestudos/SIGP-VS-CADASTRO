@@ -97,7 +97,7 @@ export function filterProgramacoes(items, state = readFilterState()) {
       const muns = getMunicipioIdsFromProgramacao(p).map((id) => getMunicipioById(id)?.nome || '').join(' ');
       const coordNome = getCoordenacaoById(p.coordenacaoId)?.nome || '';
       const eq = (p.equipe || []).map((e) => e.nome).join(' ');
-      return [p.titulo, p.responsavel, p.objetivo, muns, coordNome, eq].join(' ').toLowerCase().includes(state.busca);
+      return [p.titulo, p.responsavel, p.objetivo, muns, coordNome, eq, p.criadoPorNome, p.criadoPorEmail].join(' ').toLowerCase().includes(state.busca);
     });
   }
   if (state.gerencia) result = result.filter((p) => getGerenciaByProgramacao(p) === state.gerencia);
@@ -168,7 +168,7 @@ export function renderProgramacoesFilterBar({
         <input type="month" class="form-control" id="filtro-mes" value="${mes}" />
       </div>
       <div class="form-group flex-2"><label>Buscar</label>
-        <input type="search" class="form-control" id="filtro-busca" placeholder="Título, município, equipe..." /></div>
+        <input type="search" class="form-control" id="filtro-busca" placeholder="Título, município, equipe, usuário..." /></div>
       <div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
         ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
       <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>

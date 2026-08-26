@@ -8,7 +8,7 @@ import { initCatalogSync, seedCatalogIfEmpty, subscribeCatalog } from './service
 import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
 import { initAnexosSync, subscribeAnexos } from './services/anexos-service.js';
 import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './services/suporte-service.js';
-import { initUsersAdminSync, logUserAccess } from './services/users-service.js';
+import { initUsersAdminSync, logUserAccess, subscribeUsers } from './services/users-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { renderApp } from './app.js';
@@ -171,6 +171,7 @@ subscribeLogistica(() => { if (currentUser) scheduleRender(); });
 subscribeNotifications(() => { if (currentUser) refreshNotificationBadge(); });
 subscribeAnexos(() => { if (currentUser) scheduleRender(); });
 subscribeCatalog(() => { if (currentUser) scheduleRender(); });
+subscribeUsers(() => { if (currentUser) scheduleRender(); });
 subscribeSuporteChats(() => { if (currentUser) refreshSuporteBadge(); });
 
 window.addEventListener('hashchange', handleHash);

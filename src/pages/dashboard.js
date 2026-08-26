@@ -7,6 +7,8 @@ import { proximasAcoes } from '../utils/bi-metrics.js';
 import { countByStatusGroup, filterForDashboard, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { currentWeekRangeBR, nextWeekRangeBR, programacaoNaSemana, todayPartsBR } from '../utils/datetime-br.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
+import { isAdmin } from '../services/roles.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -32,15 +34,16 @@ function renderMiniCalendar(programacoes, year, month) {
   return html;
 }
 
-function renderAcaoList(items, emptyMsg) {
+function renderAcaoList(items, emptyMsg, { showAuthor = false } = {}) {
   if (!items.length) return `<p class="text-muted text-sm">${emptyMsg}</p>`;
   return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
     const coordLabel = coord?.sigla || coord?.nome || '—';
+    const autor = showAuthor ? getIncluidoPorLabel(p) : '';
     return `
     <li>
       <strong class="dash-action-title">${p.titulo || '—'}</strong>
-      <span>${coordLabel} · ${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} a ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}</span>
+      <span>${coordLabel} · ${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} a ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}${autor ? ` · ${autor}` : ''}</span>
     </li>`;
   }).join('')}</ul>`;
 }
@@ -53,6 +56,7 @@ export function renderDashboard(user) {
   const priorizadas = counts.Priorizada || 0;
   const autorizadas = (counts.Autorizada || 0) + (counts['Em execução'] || 0);
   const realizadas = counts.Realizada || 0;
+  const admin = isAdmin(user);
 
   const { year: anoAtual, month: mesNum } = todayPartsBR();
   const mesAtual = mesNum - 1;
@@ -124,15 +128,17 @@ export function renderDashboard(user) {
         <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana atual (Brasília): ${semanaAtual.label}</p>
         <div class="card-body table-compact">
           ${daSemana.length ? `<div class="table-wrapper"><table class="dash-prog-table">
-            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Gerência</th><th>Data inicial</th><th>Data final</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Gerência</th>${admin ? '<th>Incluído por</th>' : ''}<th>Data inicial</th><th>Data final</th><th>Status</th><th></th></tr></thead>
             <tbody>${daSemana.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
+              const autor = getIncluidoPorLabel(p) || '—';
               return `
               <tr class="${getStatusRowClass(p.status)}">
                 <td class="td-action">${p.titulo || '—'}</td>
                 <td class="td-coord" title="${coord?.nome || ''}">${coord?.sigla || coord?.nome || '—'}</td>
                 <td>${getMunicipiosLabel(p)}</td>
                 <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
+                ${admin ? `<td title="${String(p.criadoPorEmail || '').replace(/"/g, '&quot;')}">${autor.replace(/</g, '&lt;')}</td>` : ''}
                 <td>${formatDate(p.dataInicial)}</td>
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
@@ -151,14 +157,16 @@ export function renderDashboard(user) {
         <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana seguinte (Brasília): ${semanaSeguinte.label}</p>
         <div class="card-body table-compact">
           ${proximas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
-            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th>${admin ? '<th>Incluído por</th>' : ''}<th>Data inicial</th><th>Data final</th><th>Status</th><th></th></tr></thead>
             <tbody>${proximas.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
+              const autor = getIncluidoPorLabel(p) || '—';
               return `
               <tr class="${getStatusRowClass(p.status)}">
                 <td class="td-action">${p.titulo || '—'}</td>
                 <td class="td-coord" title="${coord?.nome || ''}">${coord?.sigla || coord?.nome || '—'}</td>
                 <td>${getMunicipiosLabel(p)}</td>
+                ${admin ? `<td title="${String(p.criadoPorEmail || '').replace(/"/g, '&quot;')}">${autor.replace(/</g, '&lt;')}</td>` : ''}
                 <td>${formatDate(p.dataInicial)}</td>
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
@@ -174,9 +182,9 @@ export function renderDashboard(user) {
           <div class="card-header"><h3>⏱ Agenda rápida</h3></div>
           <div class="card-body">
             <div class="proximas-tabs">
-              <div class="proximas-block"><h4>Hoje</h4>${renderAcaoList(hoje, 'Nada para hoje.')}</div>
-              <div class="proximas-block"><h4>Amanhã</h4>${renderAcaoList(amanha, 'Nada para amanhã.')}</div>
-              <div class="proximas-block"><h4>Próxima semana</h4>${renderAcaoList(semana, 'Nada na próxima semana.')}</div>
+              <div class="proximas-block"><h4>Hoje</h4>${renderAcaoList(hoje, 'Nada para hoje.', { showAuthor: admin })}</div>
+              <div class="proximas-block"><h4>Amanhã</h4>${renderAcaoList(amanha, 'Nada para amanhã.', { showAuthor: admin })}</div>
+              <div class="proximas-block"><h4>Próxima semana</h4>${renderAcaoList(semana, 'Nada na próxima semana.', { showAuthor: admin })}</div>
             </div>
           </div>
         </div>
@@ -192,12 +200,14 @@ export function renderDashboard(user) {
         <div class="card-header"><h3>🕐 Últimas atualizações</h3></div>
         <div class="card-body table-compact">
           ${ultimas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
-            <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Ação</th><th>Coordenação</th>${admin ? '<th>Incluído por</th>' : ''}<th>Status</th><th></th></tr></thead>
             <tbody>${ultimas.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
+              const autor = getIncluidoPorLabel(p) || '—';
               return `<tr class="${getStatusRowClass(p.status)}">
                 <td class="td-action">${p.titulo || '—'}</td>
                 <td class="td-coord" title="${coord?.nome || ''}">${coord?.nome || coord?.sigla || '—'}</td>
+                ${admin ? `<td title="${String(p.criadoPorEmail || '').replace(/"/g, '&quot;')}">${autor.replace(/</g, '&lt;')}</td>` : ''}
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
                 <td class="td-view"><button type="button" class="btn-icon" data-dash-view="${p.id}" title="Visualizar">👁</button></td>
               </tr>`;
@@ -208,7 +218,7 @@ export function renderDashboard(user) {
     </div>`;
 }
 
-export function bindDashboard() {
+export function bindDashboard(user) {
   document.getElementById('dash-nova')?.addEventListener('click', () => {
     window.location.hash = 'nova-programacao';
   });
@@ -216,6 +226,6 @@ export function bindDashboard() {
     const btn = e.target.closest('[data-dash-view]');
     if (!btn) return;
     const prog = getProgramacoes().find((p) => p.id === btn.dataset.dashView);
-    if (prog) showProgramacaoDetail(prog);
+    if (prog) showProgramacaoDetail(prog, { showAuthor: isAdmin(user) });
   });
 }

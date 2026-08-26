@@ -1,15 +1,30 @@
 import { showModal } from './ui.js';
 import { getCoordenacaoById, formatDate, getGerenciaByProgramacao, getMunicipiosLabel, getRegionaisLabel } from '../data/seed.js';
 import { normalizeStatus } from '../utils/status.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
-export function programacaoDetailHtml(p) {
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function programacaoDetailHtml(p, { showAuthor = false } = {}) {
   if (!p) return '<p class="text-muted">Programação não encontrada.</p>';
   const coord = getCoordenacaoById(p.coordenacaoId);
   const eq = (p.equipe || []).map((e) => `${e.nome} (${e.cargo})`).join(', ');
+  const incluidoPor = getIncluidoPorLabel(p);
+  const incluidoEmail = String(p.criadoPorEmail || '').trim();
+  const authorHtml = showAuthor
+    ? `<div class="detail-item"><label>Incluído por</label><span title="${esc(incluidoEmail)}">${esc(incluidoPor) || '—'}${incluidoEmail && incluidoPor !== incluidoEmail ? `<br><small class="text-muted">${esc(incluidoEmail)}</small>` : ''}</span></div>`
+    : '';
   return `<div class="detail-grid">
     <div class="detail-item"><label>Título</label><span>${p.titulo}</span></div>
     <div class="detail-item"><label>Gerência</label><span>${getGerenciaByProgramacao(p)}</span></div>
     <div class="detail-item"><label>Coordenação</label><span>${coord?.nome || '—'}</span></div>
+    ${authorHtml}
     <div class="detail-item"><label>Equipe</label><span>${eq || p.responsavel || '—'}</span></div>
     <div class="detail-item"><label>Tipo</label><span>${p.tipoAtividade || '—'}</span></div>
     <div class="detail-item"><label>Status</label><span>${normalizeStatus(p.status)}</span></div>
@@ -27,10 +42,10 @@ export function programacaoDetailHtml(p) {
   </div>`;
 }
 
-export function showProgramacaoDetail(p, { footer = '' } = {}) {
+export function showProgramacaoDetail(p, { footer = '', showAuthor = false } = {}) {
   return showModal({
     title: p?.titulo || 'Programação',
-    body: programacaoDetailHtml(p),
+    body: programacaoDetailHtml(p, { showAuthor }),
     footer: footer || '<button class="btn btn-primary" data-modal-action="close">Fechar</button>',
     size: 'modal-lg',
   });
