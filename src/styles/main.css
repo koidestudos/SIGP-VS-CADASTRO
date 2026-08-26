@@ -808,11 +808,7 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
   line-height: 1.35;
   min-width: 220px;
 }
-.td-coord {
-  white-space: nowrap;
-  font-size: 0.8125rem;
-  color: var(--gray-700);
-}
+.td-view { width: 44px; text-align: center; white-space: nowrap; }
 .dash-prog-table { width: 100%; }
 .dash-prog-table .td-action { min-width: 260px; }
 .dash-action-list li strong.dash-action-title {
@@ -976,7 +972,22 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 }
 .prog-table .col-acao { width: auto; }
 .prog-table .col-ger { width: 72px; text-align: center; }
-.prog-table .col-coord { width: 140px; }
+.prog-table .col-coord { width: 180px; }
+.prog-table .col-coord .coord-sigla {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+.prog-table .col-coord .coord-nome {
+  display: inline;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--gray-800);
+}
 .prog-table .col-mun { width: 110px; }
 .prog-table .col-date { width: 92px; white-space: nowrap; }
 .prog-table .col-equipe { width: 110px; }

@@ -6,6 +6,7 @@ import {
 import { proximasAcoes } from '../utils/bi-metrics.js';
 import { countByStatusGroup, filterForDashboard, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { currentWeekRangeBR, nextWeekRangeBR, programacaoNaSemana, todayPartsBR } from '../utils/datetime-br.js';
+import { showProgramacaoDetail } from '../components/programacao-detail.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -123,7 +124,7 @@ export function renderDashboard(user) {
         <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana atual (Brasília): ${semanaAtual.label}</p>
         <div class="card-body table-compact">
           ${daSemana.length ? `<div class="table-wrapper"><table class="dash-prog-table">
-            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Gerência</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Gerência</th><th>Data inicial</th><th>Data final</th><th>Status</th><th></th></tr></thead>
             <tbody>${daSemana.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
               return `
@@ -135,6 +136,7 @@ export function renderDashboard(user) {
                 <td>${formatDate(p.dataInicial)}</td>
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+                <td class="td-view"><button type="button" class="btn-icon" data-dash-view="${p.id}" title="Visualizar">👁</button></td>
               </tr>`;
             }).join('')}</tbody>
           </table></div>` : '<p class="text-muted">Nenhuma programação nesta semana.</p>'}
@@ -149,7 +151,7 @@ export function renderDashboard(user) {
         <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana seguinte (Brasília): ${semanaSeguinte.label}</p>
         <div class="card-body table-compact">
           ${proximas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
-            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th><th></th></tr></thead>
             <tbody>${proximas.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
               return `
@@ -160,6 +162,7 @@ export function renderDashboard(user) {
                 <td>${formatDate(p.dataInicial)}</td>
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+                <td class="td-view"><button type="button" class="btn-icon" data-dash-view="${p.id}" title="Visualizar">👁</button></td>
               </tr>`;
             }).join('')}</tbody>
           </table></div>` : '<p class="text-muted">Nenhuma programação na semana seguinte.</p>'}
@@ -189,13 +192,14 @@ export function renderDashboard(user) {
         <div class="card-header"><h3>🕐 Últimas atualizações</h3></div>
         <div class="card-body table-compact">
           ${ultimas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
-            <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th><th></th></tr></thead>
             <tbody>${ultimas.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
               return `<tr class="${getStatusRowClass(p.status)}">
                 <td class="td-action">${p.titulo || '—'}</td>
                 <td class="td-coord" title="${coord?.nome || ''}">${coord?.nome || coord?.sigla || '—'}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
+                <td class="td-view"><button type="button" class="btn-icon" data-dash-view="${p.id}" title="Visualizar">👁</button></td>
               </tr>`;
             }).join('')}</tbody>
           </table></div>` : '<p class="text-muted">Nenhuma programação ainda.</p>'}
@@ -207,5 +211,11 @@ export function renderDashboard(user) {
 export function bindDashboard() {
   document.getElementById('dash-nova')?.addEventListener('click', () => {
     window.location.hash = 'nova-programacao';
+  });
+  document.querySelector('.operational-dashboard')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dash-view]');
+    if (!btn) return;
+    const prog = getProgramacoes().find((p) => p.id === btn.dataset.dashView);
+    if (prog) showProgramacaoDetail(prog);
   });
 }

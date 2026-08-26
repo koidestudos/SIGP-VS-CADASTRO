@@ -28,7 +28,11 @@ function renderRows(items) {
           ${prog ? `<br><span class="text-sm text-muted">${formatDate(prog.dataInicial)} — ${formatDate(prog.dataFinal)}</span>` : ''}</td>
         <td>${prog ? `<span class="gerencia-tag gerencia-${getGerenciaByProgramacao(prog).toLowerCase()}">${getGerenciaByProgramacao(prog)}</span>` : '—'}</td>
         <td>${getMunicipiosLabel(prog) !== '—' ? getMunicipiosLabel(prog) : (getMunicipioById(l.municipioId)?.nome || '—')}</td>
-        <td>${l.transporte ? '✔ Sim' : '✖ Não'}</td>
+        <td>${(() => {
+          if (!prog) return l.transporte ? '✔ Sim' : '✖ Não';
+          if (prog.transporteTipo === 'microonibus') return '✔ Sim (microônibus)';
+          return prog.necessitaTransporte || l.transporte ? '✔ Sim' : '✖ Não';
+        })()}</td>
         <td>${l.alimentacao ? '✔ Sim' : '✖ Não'}</td>
         <td><span class="badge ${getStatusBadgeClass(l.situacao)}">${l.situacao}</span></td>
         <td>

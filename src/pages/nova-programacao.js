@@ -43,6 +43,11 @@ function normalizeWizardState(state) {
   }
   next.regionalIds = next.regionalIds.filter(Boolean);
   next.regionalId = next.regionalIds[0] || next.regionalId || '';
+
+  if (!next.transporteTipo) {
+    next.transporteTipo = next.necessitaTransporte ? 'sim' : 'nao';
+  }
+  next.necessitaTransporte = next.transporteTipo !== 'nao';
   return next;
 }
 
@@ -112,7 +117,7 @@ export function renderNovaProgramacao(user, params = []) {
         titulo: '', tipoAtividade: '', coordenacaoId: '', responsavel: '',
         objetivo: '', publicoAlvo: '', semana: '', dataInicial: '', dataFinal: '',
         duracao: '', regionalId: '', regionalIds: [], municipioId: '', municipioIds: [], localAtividade: '',
-        necessitaTransporte: false, necessitaAlimentacao: false, obsLogistica: '',
+        necessitaTransporte: false, transporteTipo: 'nao', necessitaAlimentacao: false, obsLogistica: '',
         equipe: [], codigoOrcamentario: '', fonteRecurso: '', observacoes: '', status: 'Rascunho',
         baseAtualizadoEm: '',
       });
@@ -268,8 +273,15 @@ function renderStep(step) {
       <h4 class="form-section-title mt-3">Logística</h4>
       <div class="form-row">
         <div class="form-group"><label>Transporte?</label>
-          <label class="form-check"><input type="radio" name="transporte" value="sim" ${wizardState.necessitaTransporte ? 'checked' : ''}/> Sim</label>
-          <label class="form-check"><input type="radio" name="transporte" value="nao" ${!wizardState.necessitaTransporte ? 'checked' : ''}/> Não</label></div>
+          ${(() => {
+            const t = wizardState.transporteTipo
+              || (wizardState.necessitaTransporte ? 'sim' : 'nao');
+            return `
+          <label class="form-check"><input type="radio" name="transporte" value="sim" ${t === 'sim' ? 'checked' : ''}/> Sim</label>
+          <label class="form-check"><input type="radio" name="transporte" value="microonibus" ${t === 'microonibus' ? 'checked' : ''}/> Sim (microônibus)</label>
+          <label class="form-check"><input type="radio" name="transporte" value="nao" ${t === 'nao' ? 'checked' : ''}/> Não</label>`;
+          })()}
+        </div>
         <div class="form-group"><label>Alimentação?</label>
           <label class="form-check"><input type="radio" name="alimentacao" value="sim" ${wizardState.necessitaAlimentacao ? 'checked' : ''}/> Sim</label>
           <label class="form-check"><input type="radio" name="alimentacao" value="nao" ${!wizardState.necessitaAlimentacao ? 'checked' : ''}/> Não</label></div>
@@ -327,6 +339,12 @@ function renderStep(step) {
       <div class="detail-item"><label>Regionais</label><span>${getRegionaisLabel(wizardState)}</span></div>
       <div class="detail-item"><label>Código da ação orçamentária</label><span>${esc(wizardState.codigoOrcamentario) || '—'}</span></div>
       <div class="detail-item"><label>Código da Fonte</label><span>${esc(wizardState.fonteRecurso) || '—'}</span></div>
+      <div class="detail-item"><label>Transporte</label><span>${
+        wizardState.transporteTipo === 'microonibus'
+          ? 'Sim (microônibus)'
+          : (wizardState.necessitaTransporte ? 'Sim' : 'Não')
+      }</span></div>
+      <div class="detail-item"><label>Alimentação</label><span>${wizardState.necessitaAlimentacao ? 'Sim' : 'Não'}</span></div>
       <div class="detail-item full-width"><label>Equipe</label><span>${eq || '—'}</span></div>
     </div>
   </div>`;
@@ -359,7 +377,10 @@ function collect(step) {
     if (local) wizardState.localAtividade = local.value || '';
     const transporte = document.querySelector('input[name="transporte"]:checked');
     const alimentacao = document.querySelector('input[name="alimentacao"]:checked');
-    if (transporte) wizardState.necessitaTransporte = transporte.value === 'sim';
+    if (transporte) {
+      wizardState.transporteTipo = transporte.value;
+      wizardState.necessitaTransporte = transporte.value !== 'nao';
+    }
     if (alimentacao) wizardState.necessitaAlimentacao = alimentacao.value === 'sim';
     if (obsLog) wizardState.obsLogistica = obsLog.value || '';
     wizardState.municipioId = wizardState.municipioIds?.[0] || '';

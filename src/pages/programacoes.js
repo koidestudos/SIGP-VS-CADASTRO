@@ -83,10 +83,14 @@ function renderRows(items, user) {
     const temAnexo = getAnexosByProgramacao(p.id).length > 0;
     const titulo = String(p.titulo || '—');
     const coordNome = coord?.nome || '—';
+    const coordSigla = coord?.sigla || '';
+    const coordLabel = coordSigla
+      ? `<strong class="coord-sigla">${coordSigla}</strong><span class="coord-nome">${coordNome}</span>`
+      : `<span class="coord-nome">${coordNome}</span>`;
     return `<tr class="${getStatusRowClass(p.status)}">
       <td class="col-acao"><span class="prog-acao" title="${titulo.replace(/"/g, '&quot;')}">${titulo}</span></td>
       <td class="col-ger"><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
-      <td class="col-coord"><span class="cell-clip" title="${coordNome.replace(/"/g, '&quot;')}">${coordNome}</span></td>
+      <td class="col-coord" title="${coordNome.replace(/"/g, '&quot;')}">${coordLabel}</td>
       <td class="col-mun"><span class="cell-clip" title="${String(munLabel).replace(/"/g, '&quot;')}">${munLabel}</span></td>
       <td class="col-date">${formatDate(p.dataInicial)}</td>
       <td class="col-date">${formatDate(p.dataFinal)}</td>

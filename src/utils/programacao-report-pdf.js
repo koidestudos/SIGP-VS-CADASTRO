@@ -150,7 +150,7 @@ function buildFichaDoc(prog) {
     ['Equipe / Responsável', equipe || prog.responsavel || '—'],
     ['Público-alvo', prog.publicoAlvo || '—'],
     ['Local', prog.localAtividade || '—'],
-    ['Transporte', prog.necessitaTransporte ? 'Sim' : 'Não'],
+    ['Transporte', prog.transporteTipo === 'microonibus' ? 'Sim (microônibus)' : (prog.necessitaTransporte ? 'Sim' : 'Não')],
     ['Alimentação', prog.necessitaAlimentacao ? 'Sim' : 'Não'],
     ['Código orçamentário', prog.codigoOrcamentario || '—'],
     ['Fonte do recurso', prog.fonteRecurso || '—'],

@@ -18,7 +18,10 @@ export function programacaoDetailHtml(p) {
     <div class="detail-item"><label>Município(s)</label><span>${getMunicipiosLabel(p)}</span></div>
     <div class="detail-item"><label>Regional(is)</label><span>${getRegionaisLabel(p)}</span></div>
     <div class="detail-item"><label>Local</label><span>${p.localAtividade || '—'}</span></div>
-    <div class="detail-item"><label>Transporte</label><span>${p.necessitaTransporte ? 'Sim' : 'Não'}</span></div>
+    <div class="detail-item"><label>Transporte</label><span>${
+      p.transporteTipo === 'microonibus' ? 'Sim (microônibus)'
+        : (p.necessitaTransporte ? 'Sim' : 'Não')
+    }</span></div>
     <div class="detail-item"><label>Alimentação</label><span>${p.necessitaAlimentacao ? 'Sim' : 'Não'}</span></div>
     <div class="detail-item full-width"><label>Objetivo</label><span>${p.objetivo || '—'}</span></div>
   </div>`;

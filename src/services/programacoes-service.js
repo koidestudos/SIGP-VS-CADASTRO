@@ -139,6 +139,9 @@ function sanitizeProgramacao(data, uid, isNew) {
     municipioId: (Array.isArray(data.municipioIds) && data.municipioIds[0]) || data.municipioId || '',
     localAtividade: data.localAtividade || '',
     necessitaTransporte: Boolean(data.necessitaTransporte),
+    transporteTipo: ['sim', 'microonibus', 'nao'].includes(data.transporteTipo)
+      ? data.transporteTipo
+      : (data.necessitaTransporte ? 'sim' : 'nao'),
     necessitaAlimentacao: Boolean(data.necessitaAlimentacao),
     obsLogistica: data.obsLogistica || '',
     equipe: Array.isArray(data.equipe) ? data.equipe.slice(0, 50) : [],

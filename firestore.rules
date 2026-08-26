@@ -65,7 +65,8 @@ service cloud.firestore {
         && (!('municipioIds' in data) || data.municipioIds is list)
         && (!('municipioIds' in data) || data.municipioIds.size() <= 20)
         && (!('regionalIds' in data) || data.regionalIds is list)
-        && (!('regionalIds' in data) || data.regionalIds.size() <= 20);
+        && (!('regionalIds' in data) || data.regionalIds.size() <= 20)
+        && (!('transporteTipo' in data) || data.transporteTipo in ['sim', 'nao', 'microonibus']);
     }
 
     function validUserProfile(data) {
