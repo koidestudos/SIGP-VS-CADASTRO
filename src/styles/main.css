@@ -797,7 +797,32 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .map-caption { font-size: 0.75rem; color: var(--gray-600); }
 
 .table-compact table { font-size: 0.8125rem; }
-.td-action { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-action {
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;
+  font-weight: 600;
+  color: var(--gray-900);
+  line-height: 1.35;
+  min-width: 220px;
+}
+.td-coord {
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--gray-700);
+}
+.dash-prog-table { width: 100%; }
+.dash-prog-table .td-action { min-width: 260px; }
+.dash-action-list li strong.dash-action-title {
+  display: block;
+  font-size: 0.875rem;
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+  line-height: 1.35;
+}
 
 /* Cadastro wizard v2 */
 .cadastro-wizard-page { max-width: 960px; margin: 0 auto; }

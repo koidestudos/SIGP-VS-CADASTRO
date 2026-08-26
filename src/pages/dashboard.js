@@ -33,11 +33,15 @@ function renderMiniCalendar(programacoes, year, month) {
 
 function renderAcaoList(items, emptyMsg) {
   if (!items.length) return `<p class="text-muted text-sm">${emptyMsg}</p>`;
-  return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => `
+  return `<ul class="dash-action-list">${items.slice(0, 5).map((p) => {
+    const coord = getCoordenacaoById(p.coordenacaoId);
+    const coordLabel = coord?.sigla || coord?.nome || '—';
+    return `
     <li>
-      <strong>${p.titulo}</strong>
-      <span>${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} a ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}</span>
-    </li>`).join('')}</ul>`;
+      <strong class="dash-action-title">${p.titulo || '—'}</strong>
+      <span>${coordLabel} · ${getMunicipiosLabel(p)} · ${formatDate(p.dataInicial)} a ${formatDate(p.dataFinal)} · ${normalizeStatus(p.status)}</span>
+    </li>`;
+  }).join('')}</ul>`;
 }
 
 export function renderDashboard(user) {
@@ -124,17 +128,21 @@ export function renderDashboard(user) {
         </div>
         <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana atual (Brasília): ${semanaAtual.label}</p>
         <div class="card-body table-compact">
-          ${daSemana.length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Gerência</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
-            <tbody>${daSemana.map((p) => `
-              <tr class="${normalizeStatus(p.status) ? '' : ''}">
-                <td class="td-action">${p.titulo}</td>
+          ${daSemana.length ? `<div class="table-wrapper"><table class="dash-prog-table">
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Gerência</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
+            <tbody>${daSemana.map((p) => {
+              const coord = getCoordenacaoById(p.coordenacaoId);
+              return `
+              <tr class="${getStatusRowClass(p.status)}">
+                <td class="td-action">${p.titulo || '—'}</td>
+                <td class="td-coord" title="${coord?.nome || ''}">${coord?.sigla || coord?.nome || '—'}</td>
                 <td>${getMunicipiosLabel(p)}</td>
                 <td><span class="gerencia-tag gerencia-${getGerenciaByProgramacao(p).toLowerCase()}">${getGerenciaByProgramacao(p)}</span></td>
                 <td>${formatDate(p.dataInicial)}</td>
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
-              </tr>`).join('')}</tbody>
+              </tr>`;
+            }).join('')}</tbody>
           </table></div>` : '<p class="text-muted">Nenhuma programação nesta semana.</p>'}
         </div>
       </div>
@@ -145,16 +153,20 @@ export function renderDashboard(user) {
           <a href="#programacoes" class="btn btn-ghost btn-sm">Ver todas</a>
         </div>
         <div class="card-body table-compact">
-          ${proximas.length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
-            <tbody>${proximas.map((p) => `
-              <tr>
-                <td class="td-action">${p.titulo}</td>
+          ${proximas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
+            <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
+            <tbody>${proximas.map((p) => {
+              const coord = getCoordenacaoById(p.coordenacaoId);
+              return `
+              <tr class="${getStatusRowClass(p.status)}">
+                <td class="td-action">${p.titulo || '—'}</td>
+                <td class="td-coord" title="${coord?.nome || ''}">${coord?.sigla || coord?.nome || '—'}</td>
                 <td>${getMunicipiosLabel(p)}</td>
                 <td>${formatDate(p.dataInicial)}</td>
                 <td>${formatDate(p.dataFinal)}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
-              </tr>`).join('')}</tbody>
+              </tr>`;
+            }).join('')}</tbody>
           </table></div>` : '<p class="text-muted">Nenhuma programação futura (Programada, Priorizada, Autorizada ou Em execução).</p>'}
         </div>
       </div>
@@ -181,13 +193,13 @@ export function renderDashboard(user) {
       <div class="card mb-3">
         <div class="card-header"><h3>🕐 Últimas atualizações</h3></div>
         <div class="card-body table-compact">
-          ${ultimas.length ? `<div class="table-wrapper"><table>
+          ${ultimas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
             <thead><tr><th>Ação</th><th>Coordenação</th><th>Status</th></tr></thead>
             <tbody>${ultimas.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
-              return `<tr>
-                <td class="td-action">${p.titulo}</td>
-                <td>${coord?.nome || '—'}</td>
+              return `<tr class="${getStatusRowClass(p.status)}">
+                <td class="td-action">${p.titulo || '—'}</td>
+                <td class="td-coord" title="${coord?.nome || ''}">${coord?.nome || coord?.sigla || '—'}</td>
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
               </tr>`;
             }).join('')}</tbody>
