@@ -53,6 +53,8 @@ service cloud.firestore {
         && validStatus(data.status)
         && data.criadoPor is string
         && data.criadoPor.size() <= 128
+        && (!('criadoPorNome' in data) || (data.criadoPorNome is string && data.criadoPorNome.size() <= 200))
+        && (!('criadoPorEmail' in data) || (data.criadoPorEmail is string && data.criadoPorEmail.size() <= 320))
         && (!('responsavel' in data) || (data.responsavel is string && data.responsavel.size() <= 200))
         && (!('objetivo' in data) || (data.objetivo is string && data.objetivo.size() <= 5000))
         && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 5000))

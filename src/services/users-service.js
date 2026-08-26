@@ -22,6 +22,22 @@ export function getUsers() {
   return [...usersCache];
 }
 
+export function getUserById(uid) {
+  if (!uid) return null;
+  return usersCache.find((u) => u.id === uid) || null;
+}
+
+/** Nome de quem incluiu a ação (campo gravado ou cadastro, para o admin). */
+export function getIncluidoPorLabel(programacao) {
+  const nome = String(programacao?.criadoPorNome || '').trim();
+  if (nome) return nome;
+  const user = getUserById(programacao?.criadoPor);
+  if (user?.nome) return String(user.nome).trim();
+  if (user?.email) return String(user.email).trim();
+  const email = String(programacao?.criadoPorEmail || '').trim();
+  return email;
+}
+
 export function getAcessos() {
   return [...acessosCache];
 }

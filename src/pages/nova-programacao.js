@@ -111,6 +111,9 @@ export function renderNovaProgramacao(user, params = []) {
         semana: '',
         duracao: '',
         baseAtualizadoEm: '',
+        criadoPor: undefined,
+        criadoPorNome: undefined,
+        criadoPorEmail: undefined,
       });
     } else {
       wizardState = normalizeWizardState({

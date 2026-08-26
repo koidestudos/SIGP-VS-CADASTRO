@@ -1,14 +1,14 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getProgramacoes } from '../services/programacoes-service.js';
-import { getProgramacoesForBI } from './bi-metrics.js';
+import {
+  getProgramacoesForBI, countServidores, countByGerencia, countByRegional, countByStatus, countByMonth,
+} from './bi-metrics.js';
 import { normalizeStatus } from './status.js';
 import {
   formatDate, getCoordenacaoById, getGerenciaByProgramacao, countUniqueMunicipios, getMunicipiosLabel,
 } from '../data/seed.js';
-import {
-  countServidores, countByGerencia, countByRegional, countByStatus, countByMonth,
-} from './bi-metrics.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const BRAND = { primary: [19, 81, 180], green: [22, 136, 33], gray: [100, 116, 139] };
 
@@ -123,21 +123,23 @@ export async function downloadBiReportPdf() {
     const coord = getCoordenacaoById(p.coordenacaoId);
     const mun = getMunicipiosLabel(p);
     const eq = (p.equipe || []).map((e) => e.nome).filter(Boolean).join(', ') || p.responsavel || '—';
+    const autor = getIncluidoPorLabel(p) || '—';
     return [
-      (p.titulo || '—').slice(0, 45),
+      (p.titulo || '—').slice(0, 40),
       getGerenciaByProgramacao(p),
-      (coord?.nome || '—').slice(0, 28),
-      (mun || '—').slice(0, 20),
+      (coord?.nome || '—').slice(0, 22),
+      (mun || '—').slice(0, 16),
       formatDate(p.dataInicial),
       formatDate(p.dataFinal),
       normalizeStatus(p.status),
-      eq.slice(0, 30),
+      eq.slice(0, 22),
+      String(autor).slice(0, 22),
     ];
   });
 
   autoTable(doc, {
     startY: 24,
-    head: [['Ação', 'Ger.', 'Coordenação', 'Município', 'Inicial', 'Final', 'Status', 'Equipe']],
+    head: [['Ação', 'Ger.', 'Coordenação', 'Município', 'Inicial', 'Final', 'Status', 'Equipe', 'Incluído por']],
     body: rows,
     styles: { fontSize: 7, cellPadding: 2 },
     headStyles: { fillColor: BRAND.primary, textColor: 255, fontStyle: 'bold' },

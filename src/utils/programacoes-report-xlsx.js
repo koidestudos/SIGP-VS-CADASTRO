@@ -2,6 +2,7 @@ import {
   formatDate, getCoordenacaoById, getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
 import { normalizeStatus } from './status.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const HEADERS = [
   'Ação',
@@ -12,12 +13,13 @@ const HEADERS = [
   'Data final',
   'Status',
   'Equipe',
+  'Incluído por',
   'Código orçamentário',
   'Código da Fonte',
   'Observações',
 ];
 
-const COL_WIDTHS = [52, 11, 32, 28, 12, 12, 16, 36, 22, 20, 36];
+const COL_WIDTHS = [52, 11, 32, 28, 12, 12, 16, 36, 24, 22, 20, 36];
 
 const COLORS = {
   brandDark: 'FF0C326F',
@@ -159,6 +161,7 @@ export async function downloadProgramacoesListXlsx(items, { title = 'Relatório 
       formatDate(p.dataFinal),
       status,
       equipe,
+      getIncluidoPorLabel(p) || p.criadoPorEmail || '',
       p.codigoOrcamentario || '',
       p.fonteRecurso || '',
       p.observacoes || '',
@@ -170,7 +173,7 @@ export async function downloadProgramacoesListXlsx(items, { title = 'Relatório 
     row.height = Math.min(60, Math.max(22, 14 + Math.ceil(tituloLen / 48) * 12));
 
     row.eachCell({ includeEmpty: true }, (cell, col) => {
-      const wrap = col === 1 || col === 3 || col === 4 || col === 8 || col === 11;
+      const wrap = col === 1 || col === 3 || col === 4 || col === 8 || col === 9 || col === 12;
       cell.font = { size: 10, name: 'Calibri', color: { argb: COLORS.text } };
       cell.alignment = {
         vertical: 'top',

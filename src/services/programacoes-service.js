@@ -8,6 +8,7 @@ import { isBootstrapAdminEmail } from '../config/admins.js';
 import { setUserRole } from './roles.js';
 import { getUserRole } from './roles.js';
 import { notifyProgramacaoEnviada } from './notifications-service.js';
+import { getUsers } from './users-service.js';
 import { normalizeStatus, canAttachAnexo } from '../utils/status.js';
 
 const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
@@ -51,6 +52,36 @@ function requireUser() {
   const uid = auth?.currentUser?.uid;
   if (!uid) throw new Error('Usuário não autenticado.');
   return uid;
+}
+
+function currentAuthorMeta() {
+  const u = auth?.currentUser;
+  return {
+    nome: String(u?.displayName || u?.email?.split('@')[0] || 'Usuário').slice(0, 200),
+    email: String(u?.email || '').slice(0, 320),
+  };
+}
+
+function resolveAuthorMeta(data, uid, isNew) {
+  const me = currentAuthorMeta();
+  const authorUid = isNew ? uid : (data.criadoPor || uid);
+  let nome = isNew ? me.nome : String(data.criadoPorNome || '').trim();
+  let email = isNew ? me.email : String(data.criadoPorEmail || '').trim();
+
+  if (!isNew && (!nome || !email)) {
+    if (authorUid === uid) {
+      if (!nome) nome = me.nome;
+      if (!email) email = me.email;
+    } else {
+      const other = getUsers().find((u) => u.id === authorUid);
+      if (other) {
+        if (!nome) nome = String(other.nome || other.email?.split('@')[0] || '').slice(0, 200);
+        if (!email) email = String(other.email || '').slice(0, 320);
+      }
+    }
+  }
+
+  return { uid: authorUid, nome, email };
 }
 
 function isProgramacaoVisible(p) {
@@ -118,6 +149,7 @@ export function initProgramacoesSync() {
 }
 
 function sanitizeProgramacao(data, uid, isNew) {
+  const author = resolveAuthorMeta(data, uid, isNew);
   const allowed = {
     titulo: data.titulo || '',
     tipoAtividade: data.tipoAtividade || '',
@@ -149,7 +181,9 @@ function sanitizeProgramacao(data, uid, isNew) {
     fonteRecurso: data.fonteRecurso || '',
     observacoes: data.observacoes || '',
     status: data.status || 'Rascunho',
-    criadoPor: isNew ? uid : (data.criadoPor || uid),
+    criadoPor: author.uid,
+    criadoPorNome: author.nome,
+    criadoPorEmail: author.email,
     atualizadoEm: new Date().toISOString(),
   };
   if (isNew) {
@@ -182,6 +216,8 @@ export async function saveProgramacao(data, existingId = null) {
       ...server,
       ...data,
       criadoPor: server.criadoPor,
+      criadoPorNome: data.criadoPorNome || server.criadoPorNome,
+      criadoPorEmail: data.criadoPorEmail || server.criadoPorEmail,
     }, uid, false);
     const prevStatus = normalizeStatus(server.status);
     const nextStatus = normalizeStatus(payload.status);

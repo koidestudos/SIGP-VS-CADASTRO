@@ -4,6 +4,7 @@ import {
   getAnexosByProgramacao, canDeleteAnexo, deleteAnexo, openAnexo,
 } from '../services/anexos-service.js';
 import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
+import { getIncluidoPorLabel } from '../services/users-service.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
   getGerenciaByProgramacao, getMunicipiosLabel,
@@ -27,6 +28,7 @@ import {
 export function renderProgramacoes(user) {
   const now = new Date();
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const admin = isAdmin(user);
 
   return `
     <div class="page-header">
@@ -42,7 +44,7 @@ export function renderProgramacoes(user) {
       statusOptions: STATUS_PROGRAMACAO,
     })}
     <div class="card prog-list-card"><div class="card-body"><div class="table-wrapper prog-table-wrap">
-      <table id="tabela-programacoes" class="prog-table"><thead><tr>
+      <table id="tabela-programacoes" class="prog-table${admin ? ' prog-table-admin' : ''}"><thead><tr>
         <th class="col-acao">Ação</th>
         <th class="col-ger">Gerência</th>
         <th class="col-coord">Coordenação</th>
@@ -50,6 +52,7 @@ export function renderProgramacoes(user) {
         <th class="col-date">Data inicial</th>
         <th class="col-date">Data final</th>
         <th class="col-equipe">Equipe</th>
+        ${admin ? '<th class="col-incluido">Incluído por</th>' : ''}
         <th class="col-status">Status</th>
         <th class="col-acoes">Ações</th>
       </tr></thead><tbody>${renderRows(getProgramacoes(), user)}</tbody></table>
@@ -63,7 +66,9 @@ function equipeLabel(p) {
 }
 
 function renderRows(items, user) {
-  if (!items.length) return '<tr><td colspan="9" class="text-center text-muted">Nenhuma programação.</td></tr>';
+  const admin = isAdmin(user);
+  const colCount = admin ? 10 : 9;
+  if (!items.length) return `<tr><td colspan="${colCount}" class="text-center text-muted">Nenhuma programação.</td></tr>`;
   return items.map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
     const munLabel = getMunicipiosLabel(p);
@@ -87,6 +92,8 @@ function renderRows(items, user) {
     const coordLabel = coordSigla
       ? `<strong class="coord-sigla">${coordSigla}</strong><span class="coord-nome">${coordNome}</span>`
       : `<span class="coord-nome">${coordNome}</span>`;
+    const incluidoPor = getIncluidoPorLabel(p) || '—';
+    const incluidoTitle = [incluidoPor, p.criadoPorEmail].filter(Boolean).join(' · ').replace(/"/g, '&quot;');
     return `<tr class="${getStatusRowClass(p.status)}">
       <td class="col-acao"><span class="prog-acao" title="${titulo.replace(/"/g, '&quot;')}">${titulo}</span></td>
       <td class="col-ger"><span class="gerencia-tag gerencia-${ger.toLowerCase()}">${ger}</span></td>
@@ -95,6 +102,7 @@ function renderRows(items, user) {
       <td class="col-date">${formatDate(p.dataInicial)}</td>
       <td class="col-date">${formatDate(p.dataFinal)}</td>
       <td class="col-equipe"><span class="cell-clip" title="${equipeLabel(p).replace(/"/g, '&quot;')}">${equipeLabel(p)}</span></td>
+      ${admin ? `<td class="col-incluido"><span class="cell-clip" title="${incluidoTitle}">${incluidoPor.replace(/</g, '&lt;')}</span></td>` : ''}
       <td class="col-status">${statusCell}</td>
       <td class="col-acoes">${renderActionButtons(p.id, {
         edit: canEdit,
@@ -279,9 +287,15 @@ async function showModeloAnexoDialog(user) {
 }
 
 async function showApproveDialog(id) {
+  const prog = getProgramacaoById(id);
+  const incluidoPor = getIncluidoPorLabel(prog);
+  const incluidoEmail = String(prog?.criadoPorEmail || '').trim();
+  const authorLine = incluidoPor
+    ? `<p class="text-sm">Incluída por <strong>${incluidoPor.replace(/</g, '&lt;')}</strong>${incluidoEmail && incluidoEmail !== incluidoPor ? ` <span class="text-muted">(${incluidoEmail.replace(/</g, '&lt;')})</span>` : ''}.</p>`
+    : '';
   const action = await showModal({
     title: 'Analisar programação',
-    body: '<p>Como deseja registrar esta programação enviada pela coordenação?</p>',
+    body: `<p>Como deseja registrar esta programação enviada pela coordenação?</p>${authorLine}`,
     footer: `
       <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
       <button class="btn btn-outline" data-modal-action="programada">Programada</button>
@@ -375,7 +389,7 @@ export function bindProgramacoes(user) {
     if (!btn) return;
     const { id, action } = btn.dataset;
     const prog = getProgramacaoById(id);
-    if (action === 'view') showProgramacaoDetail(prog);
+    if (action === 'view') showProgramacaoDetail(prog, { showAuthor: isAdmin(user) });
     if (action === 'pdf') {
       btn.disabled = true;
       try {
