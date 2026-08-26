@@ -5,7 +5,7 @@ import {
 } from '../data/seed.js';
 import { proximasAcoes } from '../utils/bi-metrics.js';
 import { countByStatusGroup, filterForDashboard, normalizeStatus, getStatusRowClass } from '../utils/status.js';
-import { currentWeekRangeBR, programacaoNaSemana, todayBR, todayPartsBR } from '../utils/datetime-br.js';
+import { currentWeekRangeBR, nextWeekRangeBR, programacaoNaSemana, todayPartsBR } from '../utils/datetime-br.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -53,24 +53,18 @@ export function renderDashboard(user) {
   const autorizadas = (counts.Autorizada || 0) + (counts['Em execução'] || 0);
   const realizadas = counts.Realizada || 0;
 
-  const hojeBR = todayBR();
   const { year: anoAtual, month: mesNum } = todayPartsBR();
   const mesAtual = mesNum - 1;
   const semanaAtual = currentWeekRangeBR();
+  const semanaSeguinte = nextWeekRangeBR();
 
   const daSemana = programacoes
     .filter((p) => programacaoNaSemana(p, semanaAtual.start, semanaAtual.end))
     .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial));
 
   const proximas = programacoes
-    .filter((p) => {
-      const status = normalizeStatus(p.status);
-      if (['Realizada', 'Cancelada', 'Reprovada'].includes(status)) return false;
-      const fim = p.dataFinal || p.dataInicial;
-      return fim >= hojeBR;
-    })
-    .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial))
-    .slice(0, 10);
+    .filter((p) => programacaoNaSemana(p, semanaSeguinte.start, semanaSeguinte.end))
+    .sort((a, b) => a.dataInicial.localeCompare(b.dataInicial));
 
   const ultimas = [...programacoes]
     .sort((a, b) => (b.atualizadoEm || b.criadoEm || '').localeCompare(a.atualizadoEm || a.criadoEm || ''))
@@ -150,8 +144,9 @@ export function renderDashboard(user) {
       <div class="card mb-3">
         <div class="card-header">
           <h3>⏭ Próximas programações</h3>
-          <a href="#programacoes" class="btn btn-ghost btn-sm">Ver todas</a>
+          <span class="badge badge-programada">${proximas.length}</span>
         </div>
+        <p class="text-sm text-muted" style="padding:0 16px;margin:0">Semana seguinte (Brasília): ${semanaSeguinte.label}</p>
         <div class="card-body table-compact">
           ${proximas.length ? `<div class="table-wrapper"><table class="dash-prog-table">
             <thead><tr><th>Ação</th><th>Coordenação</th><th>Município</th><th>Data inicial</th><th>Data final</th><th>Status</th></tr></thead>
@@ -167,7 +162,7 @@ export function renderDashboard(user) {
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td>
               </tr>`;
             }).join('')}</tbody>
-          </table></div>` : '<p class="text-muted">Nenhuma programação futura (Programada, Priorizada, Autorizada ou Em execução).</p>'}
+          </table></div>` : '<p class="text-muted">Nenhuma programação na semana seguinte.</p>'}
         </div>
       </div>
 

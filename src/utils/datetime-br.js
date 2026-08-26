@@ -19,10 +19,11 @@ export function todayPartsBR() {
 }
 
 /**
- * Semana corrente em Brasília (segunda a domingo).
+ * Semana em Brasília (segunda a domingo) com deslocamento.
+ * @param {number} [weekOffset=0] 0 = atual, 1 = próxima, -1 = anterior
  * @returns {{ start: string, end: string, label: string }}
  */
-export function currentWeekRangeBR() {
+export function weekRangeBR(weekOffset = 0) {
   const today = todayBR();
   const [y, m, d] = today.split('-').map(Number);
   // Meio-dia UTC evita virada de dia ao calcular weekday
@@ -30,7 +31,7 @@ export function currentWeekRangeBR() {
   // getUTCDay: 0=domingo … 6=sábado → deslocar para segunda=0
   const weekday = (noon.getUTCDay() + 6) % 7;
   const monday = new Date(noon);
-  monday.setUTCDate(noon.getUTCDate() - weekday);
+  monday.setUTCDate(noon.getUTCDate() - weekday + (Number(weekOffset) || 0) * 7);
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
 
@@ -46,6 +47,19 @@ export function currentWeekRangeBR() {
   const labelStart = start.split('-').reverse().join('/');
   const labelEnd = end.split('-').reverse().join('/');
   return { start, end, label: `${labelStart} – ${labelEnd}` };
+}
+
+/**
+ * Semana corrente em Brasília (segunda a domingo).
+ * @returns {{ start: string, end: string, label: string }}
+ */
+export function currentWeekRangeBR() {
+  return weekRangeBR(0);
+}
+
+/** Próxima semana em Brasília (segunda a domingo). */
+export function nextWeekRangeBR() {
+  return weekRangeBR(1);
 }
 
 /** Programação ocorre na semana se o intervalo de datas cruza [weekStart, weekEnd] */
