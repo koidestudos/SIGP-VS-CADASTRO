@@ -1,15 +1,15 @@
-import { getProgramacoes, removeProgramacao, approveProgramacao, rejectProgramacao, getProgramacaoById, updateProgramacaoStatus } from '../services/programacoes-service.js';
+import { getProgramacoes, removeProgramacao, getProgramacaoById, updateProgramacaoStatus, approveProgramacaoByGerencia, devolverProgramacaoParaCorrecao } from '../services/programacoes-service.js';
 import {
   canUploadAnexo, uploadProgramacaoAnexo, formatUploadError,
   getAnexosByProgramacao, canDeleteAnexo, deleteAnexo, openAnexo,
 } from '../services/anexos-service.js';
-import { canApprove, canDeleteProgramacao, canEditProgramacao, isAdmin } from '../services/roles.js';
+import { canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin, canSeeAuthor, isGerencia, isDiretoria } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
   getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
-import { normalizeStatus, getStatusOptionsForUser, needsApproval, STATUS_PROGRAMACAO, canAttachAnexo, getStatusRowClass } from '../utils/status.js';
+import { normalizeStatus, getStatusOptionsForUser, needsGerenciaApproval, STATUS_PROGRAMACAO, canAttachAnexo, getStatusRowClass } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
@@ -28,14 +28,14 @@ import {
 export function renderProgramacoes(user) {
   const now = new Date();
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const admin = isAdmin(user);
+  const showAuthor = canSeeAuthor(user);
 
   return `
     <div class="page-header">
       <h2>Programações</h2>
       <div class="page-header-actions">
         <button type="button" class="btn btn-outline" id="btn-modelo-anexo">Fazer modelo de anexo</button>
-        <button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>
+        ${isGerencia(user) && !isDiretoria(user) ? '' : '<button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>'}
       </div>
     </div>
     ${renderProgramacoesFilterBar({
@@ -44,7 +44,7 @@ export function renderProgramacoes(user) {
       statusOptions: STATUS_PROGRAMACAO,
     })}
     <div class="card prog-list-card"><div class="card-body"><div class="table-wrapper prog-table-wrap">
-      <table id="tabela-programacoes" class="prog-table${admin ? ' prog-table-admin' : ''}"><thead><tr>
+      <table id="tabela-programacoes" class="prog-table${showAuthor ? ' prog-table-admin' : ''}"><thead><tr>
         <th class="col-acao">Ação</th>
         <th class="col-ger">Gerência</th>
         <th class="col-coord">Coordenação</th>
@@ -52,7 +52,7 @@ export function renderProgramacoes(user) {
         <th class="col-date">Data inicial</th>
         <th class="col-date">Data final</th>
         <th class="col-equipe">Equipe</th>
-        ${admin ? '<th class="col-incluido">Incluído por</th>' : ''}
+        ${showAuthor ? '<th class="col-incluido">Incluído por</th>' : ''}
         <th class="col-status">Status</th>
         <th class="col-acoes">Ações</th>
       </tr></thead><tbody>${renderRows(getProgramacoes(), user)}</tbody></table>
@@ -66,16 +66,16 @@ function equipeLabel(p) {
 }
 
 function renderRows(items, user) {
-  const admin = isAdmin(user);
-  const colCount = admin ? 10 : 9;
+  const showAuthor = canSeeAuthor(user);
+  const colCount = showAuthor ? 10 : 9;
   if (!items.length) return `<tr><td colspan="${colCount}" class="text-center text-muted">Nenhuma programação.</td></tr>`;
   return items.map((p) => {
     const coord = getCoordenacaoById(p.coordenacaoId);
     const munLabel = getMunicipiosLabel(p);
     const ger = getGerenciaByProgramacao(p);
     const canEdit = canEditProgramacao(user, p);
-    const approve = canApprove(user) && needsApproval(p.status)
-      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Analisar programação">✔</button>`
+    const approve = canApproveGerencia(user, p) && needsGerenciaApproval(p.status)
+      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Analisar na Gerência">✔</button>`
       : '';
     const statusOptions = getStatusOptionsForUser(user, p);
     const canChangeStatus = isAdmin(user) || (canEdit && statusOptions.length > 1);
@@ -102,7 +102,7 @@ function renderRows(items, user) {
       <td class="col-date">${formatDate(p.dataInicial)}</td>
       <td class="col-date">${formatDate(p.dataFinal)}</td>
       <td class="col-equipe"><span class="cell-clip" title="${equipeLabel(p).replace(/"/g, '&quot;')}">${equipeLabel(p)}</span></td>
-      ${admin ? `<td class="col-incluido"><span class="cell-clip" title="${incluidoTitle}">${incluidoPor.replace(/</g, '&lt;')}</span></td>` : ''}
+      ${showAuthor ? `<td class="col-incluido"><span class="cell-clip" title="${incluidoTitle}">${incluidoPor.replace(/</g, '&lt;')}</span></td>` : ''}
       <td class="col-status">${statusCell}</td>
       <td class="col-acoes">${renderActionButtons(p.id, {
         edit: canEdit,
@@ -286,35 +286,54 @@ async function showModeloAnexoDialog(user) {
   });
 }
 
-async function showApproveDialog(id) {
+async function showApproveDialog(id, user) {
   const prog = getProgramacaoById(id);
-  const incluidoPor = getIncluidoPorLabel(prog);
-  const incluidoEmail = String(prog?.criadoPorEmail || '').trim();
-  const authorLine = incluidoPor
-    ? `<p class="text-sm">Incluída por <strong>${incluidoPor.replace(/</g, '&lt;')}</strong>${incluidoEmail && incluidoEmail !== incluidoPor ? ` <span class="text-muted">(${incluidoEmail.replace(/</g, '&lt;')})</span>` : ''}.</p>`
-    : '';
-  const action = await showModal({
-    title: 'Analisar programação',
-    body: `<p>Como deseja registrar esta programação enviada pela coordenação?</p>${authorLine}`,
-    footer: `
-      <button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
-      <button class="btn btn-outline" data-modal-action="programada">Programada</button>
-      <button class="btn btn-outline" data-modal-action="priorizada">Priorizada</button>
-      <button class="btn btn-outline" data-modal-action="reprovar">Reprovar</button>
-      <button class="btn btn-primary" data-modal-action="autorizar">Autorizar</button>`,
+  if (!prog) { toast('Programação não encontrada.', 'error'); return; }
+  const canAct = canApproveGerencia(user, prog) && needsGerenciaApproval(prog.status);
+  const action = await showProgramacaoDetail(prog, {
+    showAuthor: canSeeAuthor(user),
+    showHistory: true,
+    footer: canAct
+      ? `<button class="btn btn-ghost" data-modal-action="cancel">Fechar</button>
+         <button class="btn btn-outline" data-modal-action="devolver">Devolver para correção</button>
+         <button class="btn btn-primary" data-modal-action="aprovar">Aprovar</button>`
+      : `<button class="btn btn-primary" data-modal-action="close">Fechar</button>`,
   });
-  if (action === 'programada') {
-    await updateProgramacaoStatus(id, 'Programada');
-    toast('Programação marcada como Programada.', 'success');
-  } else if (action === 'priorizada') {
-    await updateProgramacaoStatus(id, 'Priorizada');
-    toast('Programação marcada como Priorizada.', 'success');
-  } else if (action === 'reprovar') {
-    await rejectProgramacao(id);
-    toast('Programação reprovada.', 'success');
-  } else if (action === 'autorizar') {
-    await approveProgramacao(id);
-    toast('Programação autorizada! Aparecerá no Dashboard e no BI.', 'success');
+  if (action === 'aprovar') {
+    if ((await confirmDialog('Aprovar esta programação pela Gerência?')) !== 'confirm') return;
+    try {
+      await approveProgramacaoByGerencia(id);
+      toast('Programação aprovada pela Gerência.', 'success');
+    } catch (err) {
+      toast(err.message || 'Erro ao aprovar.', 'error');
+    }
+    return;
+  }
+  if (action === 'devolver') {
+    let justificativa = '';
+    const result = await showModal({
+      title: 'Devolver para correção',
+      body: `<p class="text-sm mb-2">Informe a justificativa. A Coordenação verá esta observação e poderá corrigir e reenviar.</p>
+        <div class="form-group"><label>Justificativa *</label>
+        <textarea class="form-control" id="ger-justificativa" rows="4" maxlength="2000"></textarea></div>`,
+      footer: `<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+        <button class="btn btn-primary" data-modal-action="confirm">Devolver</button>`,
+      onAction: (act, overlay) => {
+        if (act !== 'confirm') return;
+        justificativa = overlay.querySelector('#ger-justificativa')?.value.trim() || '';
+        if (!justificativa) {
+          toast('Informe a justificativa da devolução.', 'error');
+          return false;
+        }
+      },
+    });
+    if (result !== 'confirm' || !justificativa) return;
+    try {
+      await devolverProgramacaoParaCorrecao(id, justificativa);
+      toast('Programação devolvida para a Coordenação.', 'success');
+    } catch (err) {
+      toast(err.message || 'Erro ao devolver.', 'error');
+    }
   }
 }
 
@@ -389,7 +408,7 @@ export function bindProgramacoes(user) {
     if (!btn) return;
     const { id, action } = btn.dataset;
     const prog = getProgramacaoById(id);
-    if (action === 'view') showProgramacaoDetail(prog, { showAuthor: isAdmin(user) });
+    if (action === 'view') showProgramacaoDetail(prog, { showAuthor: canSeeAuthor(user), showHistory: canSeeAuthor(user) });
     if (action === 'pdf') {
       btn.disabled = true;
       try {
@@ -409,7 +428,7 @@ export function bindProgramacoes(user) {
     if (action === 'delete' && (await confirmDialog('Excluir programação?')) === 'confirm') {
       await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
     }
-    if (action === 'approve') { await showApproveDialog(id); refresh(); }
+    if (action === 'approve') { await showApproveDialog(id, user); refresh(); }
     if (action === 'anexo' && prog) { await showAnexoDialog(prog, user); refresh(); }
   });
   refresh();

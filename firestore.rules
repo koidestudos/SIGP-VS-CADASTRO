@@ -31,12 +31,54 @@ service cloud.firestore {
       );
     }
 
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isDiretoria() {
+      return isAdmin() || (hasUserDoc() && userData().role == 'diretoria');
+    }
+
+    function isGerenciaRole() {
+      return hasUserDoc() && userData().role == 'gerencia';
+    }
+
+    function userGerencia() {
+      return hasUserDoc() && ('gerencia' in userData()) ? userData().gerencia : '';
+    }
+
+    function catalogGerencia(coordId) {
+      return exists(/databases/$(database)/documents/coordenacoes/$(coordId))
+        ? get(/databases/$(database)/documents/coordenacoes/$(coordId)).data.gerencia
+        : '';
+    }
+
+    function resourceGerencia() {
+      return ('gerencia' in resource.data && resource.data.gerencia in ['GAS', 'GVS', 'GAP'])
+        ? resource.data.gerencia
+        : catalogGerencia(resource.data.coordenacaoId);
+    }
+
+    function gerenciaMatchesCoordenacao(data) {
+      return !('gerencia' in data)
+        || data.gerencia == ''
+        || data.gerencia == catalogGerencia(data.coordenacaoId);
+    }
+
     function validStatus(status) {
       return status in [
         'Rascunho', 'Enviado para Diretoria', 'Programada', 'Priorizada', 'Autorizada',
         'Em execução', 'Realizada', 'Cancelada', 'Reprovada',
         'Em análise', 'Pendente', 'Autorizado', 'Aprovado',
-        'Enviada para Gerência'
+        'Enviada para Gerência',
+        'Aguardando aprovação da Gerência',
+        'Devolvida para correção',
+        'Reenviada para análise',
+        'Aprovada pela Gerência'
       ];
     }
 
@@ -68,7 +110,12 @@ service cloud.firestore {
         && (!('municipioIds' in data) || data.municipioIds.size() <= 20)
         && (!('regionalIds' in data) || data.regionalIds is list)
         && (!('regionalIds' in data) || data.regionalIds.size() <= 20)
-        && (!('transporteTipo' in data) || data.transporteTipo in ['sim', 'nao', 'microonibus']);
+        && (!('transporteTipo' in data) || data.transporteTipo in ['sim', 'nao', 'microonibus'])
+        && (!('gerencia' in data) || data.gerencia in ['GAS', 'GVS', 'GAP', ''])
+        && (!('historico' in data) || (data.historico is list && data.historico.size() <= 50))
+        && (!('justificativaDevolucao' in data) || (data.justificativaDevolucao is string && data.justificativaDevolucao.size() <= 2000))
+        && (!('enviadoPorNome' in data) || (data.enviadoPorNome is string && data.enviadoPorNome.size() <= 200))
+        && (!('aprovadoPorNome' in data) || (data.aprovadoPorNome is string && data.aprovadoPorNome.size() <= 200));
     }
 
     function validUserProfile(data) {
@@ -76,14 +123,55 @@ service cloud.firestore {
         && data.nome.size() <= 200
         && data.email is string
         && data.email.size() <= 320
-        && (!('role' in data) || data.role in ['admin', 'usuario'])
-        && (!('ativo' in data) || data.ativo is bool);
+        && (!('role' in data) || data.role in ['admin', 'usuario', 'diretoria', 'gerencia'])
+        && (!('ativo' in data) || data.ativo is bool)
+        && (!('gerencia' in data) || data.gerencia in ['GAS', 'GVS', 'GAP', ''])
+        && (!('coordenacaoId' in data) || (data.coordenacaoId is string && data.coordenacaoId.size() <= 80));
     }
 
     function canSetAdminRole(data) {
       return isBootstrapAdminEmail() && data.role == 'admin';
     }
 
+    function isGerenciaDecisionUpdate() {
+      return (isAdmin() || isGerenciaRole())
+        && (
+          isAdmin()
+          || resourceGerencia() == userGerencia()
+        )
+        && request.resource.data.criadoPor == resource.data.criadoPor
+        && validProgramacaoFields(request.resource.data)
+        && resource.data.status in [
+          'Aguardando aprovação da Gerência', 'Reenviada para análise', 'Enviado para Diretoria', 'Enviada para Gerência'
+        ]
+        && request.resource.data.status in ['Aprovada pela Gerência', 'Devolvida para correção']
+        && (
+          request.resource.data.status != 'Devolvida para correção'
+          || (
+            'justificativaDevolucao' in request.resource.data
+            && request.resource.data.justificativaDevolucao is string
+            && request.resource.data.justificativaDevolucao.size() > 0
+          )
+        );
+    }
+
+    function isOwnerFlowUpdate() {
+      return isSignedIn()
+        && resource.data.criadoPor == request.auth.uid
+        && request.resource.data.criadoPor == resource.data.criadoPor
+        && validProgramacaoFields(request.resource.data)
+        && gerenciaMatchesCoordenacao(request.resource.data)
+        && (
+          (
+            resource.data.status in ['Rascunho']
+            && request.resource.data.status in ['Rascunho', 'Aguardando aprovação da Gerência']
+          )
+          || (
+            resource.data.status in ['Devolvida para correção']
+            && request.resource.data.status in ['Devolvida para correção', 'Reenviada para análise', 'Aguardando aprovação da Gerência']
+          )
+        );
+    }
     function isRealizadaPorAnexoUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'atualizadoEm'])
         && request.resource.data.status == 'Realizada'
@@ -96,13 +184,14 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && validProgramacaoFields(request.resource.data)
+        && gerenciaMatchesCoordenacao(request.resource.data)
         && request.resource.data.criadoPor == request.auth.uid;
 
       allow update: if isSignedIn() && isRealizadaPorAnexoUpdate();
 
-      allow update: if isSignedIn()
-        && validProgramacaoFields(request.resource.data)
-        && request.resource.data.criadoPor == resource.data.criadoPor;
+      allow update: if isOwnerFlowUpdate();
+
+      allow update: if isGerenciaDecisionUpdate();
 
       allow update: if isAdmin()
         && validProgramacaoFields(request.resource.data)
@@ -128,7 +217,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isDiretoria();
 
       allow create: if isOwner(userId)
         && validUserProfile(request.resource.data)
@@ -149,11 +238,11 @@ service cloud.firestore {
 
       allow update: if isAdmin()
         && validUserProfile(request.resource.data)
-        && request.resource.data.role in ['admin', 'usuario'];
+        && request.resource.data.role in ['admin', 'usuario', 'diretoria', 'gerencia'];
     }
 
     match /acessos/{acessoId} {
-      allow read: if isAdmin();
+      allow read: if isDiretoria();
       allow create: if isSignedIn()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email is string
@@ -165,16 +254,20 @@ service cloud.firestore {
     }
 
     match /notificacoes/{notifId} {
-      allow read: if isAdmin();
+      allow read: if isDiretoria() || isGerenciaRole()
+        || (isSignedIn() && resource.data.criadoPor == request.auth.uid);
       allow create: if isSignedIn()
         && request.resource.data.keys().hasAll(['tipo', 'titulo', 'lido', 'criadoEm'])
         && request.resource.data.tipo is string
-        && request.resource.data.tipo in ['programacao_enviada', 'programacao_anexo']
+        && request.resource.data.tipo in [
+          'programacao_enviada', 'programacao_anexo', 'programacao_devolvida', 'programacao_aprovada'
+        ]
         && request.resource.data.titulo is string
         && request.resource.data.titulo.size() <= 500
         && request.resource.data.lido is bool;
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isDiretoria() || isGerenciaRole()
+        || (isSignedIn() && resource.data.criadoPor == request.auth.uid);
+      allow delete: if isDiretoria();
     }
 
     match /programacao_anexos/{anexoId} {

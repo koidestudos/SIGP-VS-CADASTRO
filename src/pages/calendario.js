@@ -5,7 +5,7 @@ import {
 } from '../data/seed.js';
 import { showModal } from '../components/ui.js';
 import { normalizeStatus, isAutorizada, isRealizada } from '../utils/status.js';
-import { isAdmin } from '../services/roles.js';
+import { canSeeAuthor } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -235,7 +235,7 @@ function showEvent(id, user) {
   if (!p) return;
   const coord = getCoordenacaoById(p.coordenacaoId);
   const munLabel = getMunicipiosLabel(p);
-  const incluidoPor = isAdmin(user) ? getIncluidoPorLabel(p) : '';
+  const incluidoPor = canSeeAuthor(user) ? getIncluidoPorLabel(p) : '';
   showModal({
     title: p.titulo,
     body: `<div class="detail-grid">

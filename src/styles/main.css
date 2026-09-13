@@ -217,7 +217,11 @@ tbody tr:hover { background: var(--gray-50); }
 
 /* Linha inteira colorida por status (Programações / Municípios) */
 tbody tr.row-status-rascunho { background: #F3F4F6; }
-tbody tr.row-status-enviada { background: #FEF9C3; }
+tbody tr.row-status-devolvida { background: #FEE2E2; }
+tbody tr.row-status-reenviada { background: #FFEDD5; }
+tbody tr.row-pendente-gerencia td:first-child { box-shadow: inset 4px 0 0 #ca8a04; }
+tbody tr.row-status-devolvida:hover { background: #FECACA; }
+tbody tr.row-status-reenviada:hover { background: #FED7AA; }
 tbody tr.row-status-programada { background: #DBEAFE; }
 tbody tr.row-status-priorizada { background: #FFEDD5; }
 tbody tr.row-status-autorizada { background: #BBF7D0; }
@@ -239,6 +243,9 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 .badge-rascunho { background: var(--gray-200); color: var(--gray-700); }
 .badge-enviada { background: #FEF9C3; color: #854d0e; border: 1px solid #FACC15; }
+.badge-devolvida { background: #FEE2E2; color: #b91c1c; border: 1px solid #F87171; }
+.badge-reenviada { background: #FFEDD5; color: #c2410c; border: 1px solid #FB923C; }
+.badge-aprovada-gerencia { background: #BBF7D0; color: #166534; border: 1px solid #4ADE80; }
 .badge-programada { background: #E3F2FD; color: #1351B4; }
 .badge-priorizada { background: #FFEDD5; color: #C2410C; border: 1px solid #FB923C; }
 .badge-autorizada { background: #1B5E20; color: #fff; }
@@ -1197,6 +1204,31 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .suporte-actions { display: flex; gap: 8px; margin-top: 8px; }
 .detail-item.full-width { grid-column: 1 / -1; }
 .modal.modal-lg { max-width: min(840px, calc(100vw - 32px)); }
+
+.gerencia-tabs .tab { display: inline-flex; align-items: center; gap: 8px; }
+.ger-pend-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #FEE2E2; color: #991b1b; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; padding: 2px 8px;
+}
+.ger-pend-ok { font-size: 0.75rem; color: var(--gray-500); font-weight: 600; }
+.nav-pend-badge {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: #dc2626; color: #fff;
+  font-size: 0.6875rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.historico-block h4 { font-size: 0.9375rem; margin: 0 0 8px; color: var(--primary-dark); }
+.historico-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.historico-list li {
+  border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 12px; background: var(--gray-50);
+}
+.historico-list li strong { display: block; font-size: 0.8125rem; }
+.historico-list li span { display: block; font-size: 0.75rem; color: var(--gray-600); }
+.historico-list li small { display: block; font-size: 0.75rem; color: var(--gray-500); margin-top: 2px; }
+.historico-list li p { margin: 6px 0 0; font-size: 0.8125rem; }
+.admin-role-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.admin-role-row .form-control { min-width: 140px; width: auto; }
 
 @media (max-width: 1024px) {
   .operational-dashboard .dash-quick-grid, .dash-kpi-row, .bi-kpi-hero, .bi-exec-summary, .kpi-grid-6, .charts-row-3, .charts-row-2 { grid-template-columns: 1fr; }

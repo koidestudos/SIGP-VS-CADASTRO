@@ -9,6 +9,11 @@ import {
   CODIGOS_ORCAMENTARIOS, CODIGOS_FONTE_RECURSO,
 } from '../data/seed.js';
 import { toast } from '../components/ui.js';
+import { STATUS_AGUARDANDO_GERENCIA, isDevolvidaGerencia } from '../utils/status.js';
+
+function submitLabel() {
+  return isDevolvidaGerencia(wizardState.status) ? 'Reenviar para a Gerência' : 'Enviar para a Gerência';
+}
 
 const STEPS = ['Dados Gerais', 'Local e Logística', 'Equipe', 'Recursos', 'Revisão'];
 let wizardState = {};
@@ -131,6 +136,11 @@ export function renderNovaProgramacao(user, params = []) {
 
   return `
     <div class="cadastro-wizard-page">
+      ${isDevolvidaGerencia(wizardState.status) && wizardState.justificativaDevolucao ? `
+        <div class="alert alert-error mb-3">
+          <strong>Devolvida para correção</strong>
+          <p class="mb-0 mt-1">${esc(wizardState.justificativaDevolucao)}</p>
+        </div>` : ''}
       <div class="card wizard-card">
         <div class="card-body">
           ${renderSteps()}
@@ -140,7 +150,7 @@ export function renderNovaProgramacao(user, params = []) {
             <div class="wizard-actions-right">
               ${currentStep > 0 ? '<button class="btn btn-ghost" id="wizard-prev">← Anterior</button>' : ''}
               <button class="btn btn-outline" id="wizard-save">Salvar rascunho</button>
-              <button class="btn btn-primary" id="wizard-next">${currentStep === 4 ? 'Enviar para Aprovação' : 'Próximo →'}</button>
+              <button class="btn btn-primary" id="wizard-next">${currentStep === 4 ? submitLabel() : 'Próximo →'}</button>
             </div>
           </div>
         </div>
@@ -223,7 +233,12 @@ function renderStep(step) {
       <div class="form-row">
         <div class="form-group"><label>Coordenação responsável *</label>
           <select class="form-control" id="f-coord"><option value="">Selecione...</option>
-          ${getCoordenacoes().map((c) => `<option value="${c.id}" ${wizardState.coordenacaoId === c.id ? 'selected' : ''}>${c.sigla ? `${c.sigla} — ` : ''}${c.nome || c.id}</option>`).join('')}</select></div>
+          ${getCoordenacoes().map((c) => `<option value="${c.id}" ${wizardState.coordenacaoId === c.id ? 'selected' : ''}>${c.sigla ? `${c.sigla} — ` : ''}${c.nome || c.id}</option>`).join('')}</select>
+          <p class="text-sm text-muted mt-1" id="coord-gerencia-hint">${
+            getCoordenacaoById(wizardState.coordenacaoId)?.gerencia
+              ? `Encaminhamento automático para a Gerência <strong>${getCoordenacaoById(wizardState.coordenacaoId).gerencia}</strong>.`
+              : 'A Gerência de destino é definida automaticamente pela coordenação (GAS, GVS ou GAP).'
+          }</p></div>
         <div class="form-group"><label>Tipo de ação/atividade *</label>
           <select class="form-control" id="f-tipo"><option value="">Selecione...</option>
           ${TIPOS_ATIVIDADE.map((t) => `<option ${wizardState.tipoAtividade === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
@@ -453,7 +468,7 @@ function goTo(step) {
     right.innerHTML = `
       ${currentStep > 0 ? '<button type="button" class="btn btn-ghost" id="wizard-prev">← Anterior</button>' : ''}
       <button type="button" class="btn btn-outline" id="wizard-save">Salvar rascunho</button>
-      <button type="button" class="btn btn-primary" id="wizard-next">${currentStep === 4 ? 'Enviar para Aprovação' : 'Próximo →'}</button>`;
+      <button type="button" class="btn btn-primary" id="wizard-next">${currentStep === 4 ? submitLabel() : 'Próximo →'}</button>`;
   }
   bindStep();
 }
@@ -461,6 +476,16 @@ function goTo(step) {
 function bindStep() {
   document.getElementById('f-data-ini')?.addEventListener('change', updateCronogramaFromDates);
   document.getElementById('f-data-fim')?.addEventListener('change', updateCronogramaFromDates);
+  document.getElementById('f-coord')?.addEventListener('change', (e) => {
+    wizardState.coordenacaoId = e.target.value;
+    const hint = document.getElementById('coord-gerencia-hint');
+    const c = getCoordenacaoById(e.target.value);
+    if (hint) {
+      hint.innerHTML = c?.gerencia
+        ? `Encaminhamento automático para a Gerência <strong>${c.gerencia}</strong>.`
+        : 'A Gerência de destino é definida automaticamente pela coordenação (GAS, GVS ou GAP).';
+    }
+  });
 
   document.getElementById('f-municipio-add')?.addEventListener('change', (e) => {
     const wrap = document.getElementById('outros-nome-wrap');
@@ -600,8 +625,10 @@ function bindMain() {
       wizardSubmitting = true;
       btn.disabled = true;
       try {
-        await persist('Enviado para Diretoria');
-        toast('Enviado para a Diretoria!', 'success');
+        await persist(STATUS_AGUARDANDO_GERENCIA);
+        toast(isDevolvidaGerencia(wizardState.status)
+          ? 'Reenviada para análise da Gerência.'
+          : 'Enviada para aprovação da Gerência.', 'success');
         resetWizardSession();
         window.location.hash = 'programacoes';
       } catch (err) {

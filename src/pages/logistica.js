@@ -5,7 +5,7 @@ import { STATUS_PROGRAMACAO } from '../utils/status.js';
 import { toast } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
-import { isAdmin } from '../services/roles.js';
+import { canSeeAuthor } from '../services/roles.js';
 import {
   filterProgramacoes, readFilterState, getFilterDescription,
   renderProgramacoesFilterBar, bindProgramacoesFilterBar,
@@ -82,7 +82,7 @@ function bindRowActions(user) {
   document.querySelectorAll('[data-view-prog]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const prog = getProgramacaoRawById(btn.dataset.viewProg);
-      showProgramacaoDetail(prog, { showAuthor: isAdmin(user) });
+      showProgramacaoDetail(prog, { showAuthor: canSeeAuthor(user), showHistory: canSeeAuthor(user) });
     });
   });
   document.querySelectorAll('[data-pdf-prog]').forEach((btn) => {

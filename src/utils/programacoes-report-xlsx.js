@@ -39,6 +39,10 @@ const COLORS = {
   status: {
     Rascunho: { bg: 'FFF1F3F5', fg: 'FF495057' },
     Enviada: { bg: 'FFFEF9C3', fg: 'FF854D0E' },
+    'Aguardando aprovação da Gerência': { bg: 'FFFEF9C3', fg: 'FF854D0E' },
+    'Reenviada para análise': { bg: 'FFFFEDD5', fg: 'FFC2410C' },
+    'Devolvida para correção': { bg: 'FFFECACA', fg: 'FFB91C1C' },
+    'Aprovada pela Gerência': { bg: 'FFBBF7D0', fg: 'FF166534' },
     Programada: { bg: 'FFDBEAFE', fg: 'FF1351B4' },
     Priorizada: { bg: 'FFFFEDD5', fg: 'FFC2410C' },
     Autorizada: { bg: 'FFBBF7D0', fg: 'FF166534' },

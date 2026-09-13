@@ -149,6 +149,7 @@ function buildFichaDoc(prog) {
     ['Duração', prog.duracao || '—'],
     ['Tipo de ação', prog.tipoAtividade || '—'],
     ['Incluído por', [getIncluidoPorLabel(prog), prog.criadoPorEmail].filter((v, i, arr) => v && arr.indexOf(v) === i).join(' — ') || '—'],
+    ['Aprovado por', prog.aprovadoPorNome ? `${prog.aprovadoPorNome}${prog.aprovadoEm ? ` — ${new Date(prog.aprovadoEm).toLocaleString('pt-BR')}` : ''}` : '—'],
     ['Equipe / Responsável', equipe || prog.responsavel || '—'],
     ['Público-alvo', prog.publicoAlvo || '—'],
     ['Local', prog.localAtividade || '—'],

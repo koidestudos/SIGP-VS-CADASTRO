@@ -86,9 +86,11 @@ export async function fetchUserAccountStatus(uid) {
   const data = snap.data();
   return {
     ativo: data.ativo !== false,
-    role: data.role === 'admin' ? 'admin' : 'usuario',
+    role: data.role || 'usuario',
     nome: data.nome || '',
     email: data.email || '',
+    gerencia: data.gerencia || '',
+    coordenacaoId: data.coordenacaoId || '',
   };
 }
 
@@ -117,6 +119,22 @@ export async function setUserAtivo(uid, ativo) {
   if (!db || !uid) throw new Error('Usuário inválido.');
   await updateDoc(doc(db, 'users', uid), {
     ativo: Boolean(ativo),
+    atualizadoEm: new Date().toISOString(),
+  });
+}
+
+export async function setUserAccess(uid, { role, gerencia = '', coordenacaoId = '' }) {
+  if (!db || !uid) throw new Error('Usuário inválido.');
+  const allowed = ['admin', 'diretoria', 'gerencia', 'usuario'];
+  const nextRole = allowed.includes(role) ? role : 'usuario';
+  const nextGerencia = nextRole === 'gerencia' ? String(gerencia || '').toUpperCase() : '';
+  if (nextRole === 'gerencia' && !['GAS', 'GVS', 'GAP'].includes(nextGerencia)) {
+    throw new Error('Selecione a Gerência (GAS, GVS ou GAP).');
+  }
+  await updateDoc(doc(db, 'users', uid), {
+    role: nextRole,
+    gerencia: nextGerencia,
+    coordenacaoId: nextRole === 'usuario' ? (coordenacaoId || '') : '',
     atualizadoEm: new Date().toISOString(),
   });
 }

@@ -9,8 +9,9 @@ import { renderMunicipios, bindMunicipios } from './pages/municipios.js';
 import { renderLogistica, bindLogistica } from './pages/logistica.js';
 import { renderEquipes, bindEquipes } from './pages/equipes.js';
 import { renderBiGerencial, bindBiGerencial } from './pages/bi-gerencial.js';
+import { renderGerencias, bindGerencias } from './pages/gerencias.js';
 import { renderAdministracao, bindAdministracao } from './pages/administracao.js';
-import { canViewBI } from './services/roles.js';
+import { canAccessAdmin, canViewGerencias } from './services/roles.js';
 
 const PAGE_META = {
   dashboard: { title: 'Dashboard', render: renderDashboard, bind: bindDashboard },
@@ -40,13 +41,17 @@ const PAGE_META = {
   municipios: { title: 'Municípios', render: renderMunicipios, bind: bindMunicipios },
   logistica: { title: 'Logística', render: renderLogistica, bind: bindLogistica },
   equipes: { title: 'Equipes', render: renderEquipes, bind: bindEquipes },
+  gerencias: { title: 'Gerências', render: renderGerencias, bind: bindGerencias },
   administracao: { title: 'Administração', render: renderAdministracao, bind: bindAdministracao },
 };
 
 let bindGeneration = 0;
 
 export function renderApp(user, route, params) {
-  if ((route === 'bi-gerencial' || route === 'administracao') && !canViewBI(user)) {
+  if ((route === 'bi-gerencial' || route === 'administracao') && !canAccessAdmin(user)) {
+    route = 'dashboard';
+  }
+  if (route === 'gerencias' && !canViewGerencias(user)) {
     route = 'dashboard';
   }
   if (route !== 'nova-programacao') {

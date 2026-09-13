@@ -5,9 +5,9 @@ import {
 } from '../services/catalog-service.js';
 import { promoteUserToAdmin } from '../services/suporte-service.js';
 import {
-  getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync,
+  getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync, setUserAccess,
 } from '../services/users-service.js';
-import { isAdmin } from '../services/roles.js';
+import { isAdmin, canManageUsers, roleLabel } from '../services/roles.js';
 import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
 
@@ -19,11 +19,12 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function renderAnexosRows() {
+function renderAnexosRows(user) {
   const anexos = getAnexos();
   if (!anexos.length) {
     return '<tr><td colspan="6" class="text-center text-muted">Nenhum anexo enviado ainda.</td></tr>';
   }
+  const canDelete = isAdmin(user);
   return anexos.map((a) => {
     const coord = getCoordenacaoById(a.coordenacaoId);
     const quando = a.enviadoEm ? new Date(a.enviadoEm).toLocaleString('pt-BR') : '—';
@@ -35,7 +36,7 @@ function renderAnexosRows() {
       <td>${esc(a.enviadoPorNome) || '—'}</td>
       <td class="table-actions">
         <button type="button" class="btn btn-outline btn-sm" data-open-anexo="${a.id}">Abrir</button>
-        <button type="button" class="btn btn-outline-danger btn-sm" data-del-anexo="${a.id}">Excluir</button>
+        ${canDelete ? `<button type="button" class="btn btn-outline-danger btn-sm" data-del-anexo="${a.id}">Excluir</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -65,17 +66,32 @@ function deviceLabel(ua) {
   return 'Navegador';
 }
 
-function renderContasRows(currentUid) {
+function renderContasRows(viewer) {
   const users = getUsers();
+  const currentUid = viewer?.uid;
+  const canManage = canManageUsers(viewer);
   if (!users.length) {
     return '<div class="admin-empty">Nenhuma conta cadastrada ainda.</div>';
   }
   return `<div class="admin-account-list">${users.map((u) => {
     const ativo = u.ativo !== false;
-    const role = u.role === 'admin' ? 'Admin' : 'Usuário';
+    const role = roleLabel(u);
     const isSelf = u.id === currentUid;
     const initials = String(u.nome || u.email || '?')
       .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '?';
+    const roleEditor = canManage && !isSelf ? `
+      <div class="admin-role-row">
+        <select class="form-control btn-sm" data-set-role="${u.id}">
+          <option value="usuario" ${!u.role || u.role === 'usuario' ? 'selected' : ''}>Coordenação</option>
+          <option value="gerencia" ${u.role === 'gerencia' ? 'selected' : ''}>Gerência</option>
+          <option value="diretoria" ${u.role === 'diretoria' ? 'selected' : ''}>Diretoria</option>
+          <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+        </select>
+        <select class="form-control btn-sm ${u.role === 'gerencia' ? '' : 'hidden'}" data-set-gerencia="${u.id}">
+          <option value="">Gerência...</option>
+          ${GERENCIAS.map((g) => `<option value="${g}" ${u.gerencia === g ? 'selected' : ''}>${g}</option>`).join('')}
+        </select>
+      </div>` : '';
     return `
       <article class="admin-account-card ${ativo ? '' : 'is-disabled'}">
         <div class="admin-account-avatar" aria-hidden="true">${esc(initials)}</div>
@@ -83,18 +99,19 @@ function renderContasRows(currentUid) {
           <div class="admin-account-title">
             <strong class="admin-account-name" title="${esc(u.nome) || '—'}">${esc(u.nome) || '—'}</strong>
             <div class="admin-account-pills">
-              <span class="admin-pill ${u.role === 'admin' ? 'admin-pill-admin' : 'admin-pill-user'}">${role}</span>
+              <span class="admin-pill ${u.role === 'admin' || u.role === 'diretoria' ? 'admin-pill-admin' : 'admin-pill-user'}">${esc(role)}</span>
               <span class="admin-pill ${ativo ? 'admin-pill-ok' : 'admin-pill-off'}">${ativo ? 'Ativa' : 'Desativada'}</span>
             </div>
           </div>
           <div class="admin-account-meta" title="${esc(u.email) || ''}">${esc(u.email) || '—'}</div>
           <div class="admin-account-date">Atualizado: ${formatQuando(u.atualizadoEm)}</div>
+          ${roleEditor}
         </div>
         <div class="admin-account-actions">
-          ${isSelf ? '<span class="admin-self-tag">Sua conta</span>' : `
+          ${isSelf ? '<span class="admin-self-tag">Sua conta</span>' : (canManage ? `
             <button type="button" class="btn btn-sm ${ativo ? 'btn-outline-danger' : 'btn-outline'}" data-toggle-ativo="${u.id}" data-ativo="${ativo ? '1' : '0'}">
               ${ativo ? 'Desativar' : 'Reativar'}
-            </button>`}
+            </button>` : '')}
         </div>
       </article>`;
   }).join('')}</div>`;
@@ -136,7 +153,7 @@ export function renderAdministracao(user, params = []) {
 
   return `
     <div class="page-header"><h2>Administração</h2></div>
-    <p class="text-muted mb-3">Gerencie coordenações, municípios, regionais, anexos, contas e acessos.</p>
+    <p class="text-muted mb-3">Gerencie coordenações (e o vínculo com GAS, GVS ou GAP), municípios, regionais, anexos, contas e acessos.</p>
     <div class="tabs" id="admin-tabs">
       <button class="tab ${activeTab === 'coords' ? 'active' : ''}" data-tab="coords">Coordenações</button>
       <button class="tab ${activeTab === 'muns' ? 'active' : ''}" data-tab="muns">Municípios (${municipios.length})</button>
@@ -147,43 +164,43 @@ export function renderAdministracao(user, params = []) {
     </div>
     <div class="tab-content ${activeTab === 'coords' ? 'active' : ''}" data-tab-content="coords">
       <div class="page-header" style="margin-top:12px">
-        <span></span>
-        <button class="btn btn-primary btn-sm" id="btn-add-coord">+ Nova coordenação</button>
+        <p class="text-sm text-muted" style="margin:0">Cada coordenação deve estar vinculada a GAS, GVS ou GAP — isso define para qual Gerência a programação é enviada.</p>
+        ${isAdmin(user) ? '<button class="btn btn-primary btn-sm" id="btn-add-coord">+ Nova coordenação</button>' : ''}
       </div>
       <div class="table-wrapper"><table>
         <thead><tr><th>Nome</th><th>Sigla</th><th>Gerência</th><th>Ações</th></tr></thead>
         <tbody>${coordenacoes.map((c) => `
           <tr><td>${esc(c.nome)}</td><td>${esc(c.sigla)}</td>
           <td><span class="gerencia-tag gerencia-${String(c.gerencia || '').toLowerCase()}">${esc(c.gerencia)}</span></td>
-          <td><button class="btn-icon" data-edit-coord="${c.id}">✏</button>
-          <button class="btn-icon danger" data-del-coord="${c.id}">🗑</button></td></tr>`).join('')}
+          <td>${isAdmin(user) ? `<button class="btn-icon" data-edit-coord="${c.id}">✏</button>
+          <button class="btn-icon danger" data-del-coord="${c.id}">🗑</button>` : '—'}</td></tr>`).join('')}
         </tbody></table></div>
     </div>
     <div class="tab-content ${activeTab === 'muns' ? 'active' : ''}" data-tab-content="muns">
       <div class="page-header" style="margin-top:12px">
         <span></span>
-        <button class="btn btn-primary btn-sm" id="btn-add-mun">+ Novo município</button>
+        ${isAdmin(user) ? '<button class="btn btn-primary btn-sm" id="btn-add-mun">+ Novo município</button>' : ''}
       </div>
       <div class="table-wrapper" style="max-height:400px;overflow:auto"><table>
         <thead><tr><th>Município</th><th>Regional</th><th>Ações</th></tr></thead>
         <tbody>${municipios.map((m) => {
           const reg = regionais.find((r) => r.id === m.regionalId);
           return `<tr><td>${esc(m.nome)}</td><td>${esc(reg?.nome) || '—'}</td>
-            <td><button class="btn-icon" data-edit-mun="${m.id}">✏</button>
-            <button class="btn-icon danger" data-del-mun="${m.id}">🗑</button></td></tr>`;
+            <td>${isAdmin(user) ? `<button class="btn-icon" data-edit-mun="${m.id}">✏</button>
+            <button class="btn-icon danger" data-del-mun="${m.id}">🗑</button>` : '—'}</td></tr>`;
         }).join('')}</tbody></table></div>
     </div>
     <div class="tab-content ${activeTab === 'regs' ? 'active' : ''}" data-tab-content="regs">
       <div class="page-header" style="margin-top:12px">
         <span></span>
-        <button class="btn btn-primary btn-sm" id="btn-add-reg">+ Nova regional</button>
+        ${isAdmin(user) ? '<button class="btn btn-primary btn-sm" id="btn-add-reg">+ Nova regional</button>' : ''}
       </div>
       <div class="table-wrapper"><table>
         <thead><tr><th>Regional de Saúde</th><th>Municípios</th><th>Ações</th></tr></thead>
         <tbody>${regionais.map((r) => `
           <tr><td>${esc(r.nome)}</td><td>${municipios.filter((m) => m.regionalId === r.id).length}</td>
-          <td><button class="btn-icon" data-edit-reg="${r.id}">✏</button>
-          <button class="btn-icon danger" data-del-reg="${r.id}">🗑</button></td></tr>`).join('')}
+          <td>${isAdmin(user) ? `<button class="btn-icon" data-edit-reg="${r.id}">✏</button>
+          <button class="btn-icon danger" data-del-reg="${r.id}">🗑</button>` : '—'}</td></tr>`).join('')}
         </tbody></table></div>
     </div>
     <div class="tab-content ${activeTab === 'anexos' ? 'active' : ''}" data-tab-content="anexos">
@@ -195,7 +212,7 @@ export function renderAdministracao(user, params = []) {
             <thead><tr>
               <th>Enviado em</th><th>Programação</th><th>Coordenação</th><th>Arquivo</th><th>Enviado por</th><th></th>
             </tr></thead>
-            <tbody>${renderAnexosRows()}</tbody>
+            <tbody>${renderAnexosRows(user)}</tbody>
           </table>
         </div>
       </div></div>
@@ -205,11 +222,11 @@ export function renderAdministracao(user, params = []) {
         <div class="admin-panel-head">
           <div>
             <h3>Contas cadastradas</h3>
-            <p>Quem pode entrar no sistema. Contas desativadas ficam bloqueadas.</p>
+            <p>Quem pode entrar no sistema. O administrador define o perfil: Coordenação, Gerência (GAS/GVS/GAP), Diretoria ou Administrador.</p>
           </div>
           <span class="admin-count">${usersCount}</span>
         </div>
-        <div id="lista-contas">${renderContasRows(user?.uid)}</div>
+        <div id="lista-contas">${renderContasRows(user)}</div>
       </div>
 
       <div class="admin-panel mt-3">
@@ -238,6 +255,7 @@ export function renderAdministracao(user, params = []) {
     <div class="tab-content ${activeTab === 'admins' ? 'active' : ''}" data-tab-content="admins">
       <div class="card" style="margin-top:12px"><div class="card-body">
         <h3>Adicionar administrador</h3>
+        ${isAdmin(user) ? `
         <p class="text-sm text-muted mb-2">Informe o e-mail de um usuário que já tenha criado conta no sistema.</p>
         <div class="form-row" style="align-items:flex-end">
           <div class="form-group flex-2">
@@ -245,7 +263,7 @@ export function renderAdministracao(user, params = []) {
             <input type="email" class="form-control" id="promote-admin-email" placeholder="usuario@email.com" />
           </div>
           <button class="btn btn-primary" id="btn-promote-admin">Promover a administrador</button>
-        </div>
+        </div>` : '<p class="text-sm text-muted mb-0">Somente o Administrador pode promover contas.</p>'}
       </div></div>
     </div>
     <div class="card mt-3"><div class="card-body">
@@ -352,14 +370,14 @@ export function bindAdministracao(user, params = []) {
 
   const refreshAnexosTable = () => {
     const tbody = document.querySelector('#tabela-anexos tbody');
-    if (tbody) tbody.innerHTML = renderAnexosRows();
+    if (tbody) tbody.innerHTML = renderAnexosRows(user);
     const tab = document.querySelector('#admin-tabs [data-tab="anexos"]');
     if (tab) tab.textContent = `Anexos (${getAnexos().length})`;
   };
 
   const refreshContasTables = () => {
     const lista = document.getElementById('lista-contas');
-    if (lista) lista.innerHTML = renderContasRows(user?.uid);
+    if (lista) lista.innerHTML = renderContasRows(user);
     const acessosBody = document.querySelector('#tabela-acessos tbody');
     if (acessosBody) acessosBody.innerHTML = renderAcessosRows();
     const tab = document.querySelector('#admin-tabs [data-tab="contas"]');
@@ -430,6 +448,27 @@ export function bindAdministracao(user, params = []) {
     if ((await confirmDialog('Excluir regional?')) === 'confirm') { await removeRegional(b.dataset.delReg); toast('Excluída.', 'success'); window.location.hash = 'administracao'; }
   }));
 
+  document.querySelector('[data-tab-content="contas"]')?.addEventListener('change', async (e) => {
+    const roleSel = e.target.closest('[data-set-role]');
+    const gerSel = e.target.closest('[data-set-gerencia]');
+    if (!roleSel && !gerSel) return;
+    if (!canManageUsers(user)) return;
+    const uid = (roleSel || gerSel).dataset.setRole || (roleSel || gerSel).dataset.setGerencia;
+    const card = e.target.closest('.admin-account-card');
+    const role = card?.querySelector('[data-set-role]')?.value || 'usuario';
+    const gerencia = card?.querySelector('[data-set-gerencia]')?.value || '';
+    const gerSelect = card?.querySelector('[data-set-gerencia]');
+    if (gerSelect) gerSelect.classList.toggle('hidden', role !== 'gerencia');
+    if (role === 'gerencia' && !gerencia) return;
+    try {
+      await setUserAccess(uid, { role, gerencia });
+      toast('Perfil atualizado.', 'success');
+      refreshContasTables();
+    } catch (err) {
+      toast(err.message || 'Erro ao atualizar perfil.', 'error');
+    }
+  });
+
   document.querySelector('[data-tab-content="contas"]')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-toggle-ativo]');
     if (!btn) return;
@@ -479,6 +518,7 @@ export function bindAdministracao(user, params = []) {
 
     const delBtn = e.target.closest('[data-del-anexo]');
     if (!delBtn) return;
+    if (!isAdmin(user)) { toast('Somente o administrador pode excluir anexos.', 'error'); return; }
     const anexo = getAnexos().find((a) => a.id === delBtn.dataset.delAnexo);
     if (!anexo) { toast('Anexo não encontrado.', 'error'); return; }
     if ((await confirmDialog(`Excluir o anexo "${anexo.nomeArquivo || 'arquivo'}"?`)) !== 'confirm') return;

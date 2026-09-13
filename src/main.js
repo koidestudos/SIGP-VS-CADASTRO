@@ -141,11 +141,21 @@ watchAuth(async (user) => {
           setTimeout(() => toast('Esta conta foi desativada. Fale com o administrador.', 'error'), 50);
           return;
         }
-        currentUser = { ...user, role };
-        initSuporteSync(role === 'admin');
+        currentUser = {
+          ...user,
+          role,
+          gerencia: meta.gerencia || '',
+          coordenacaoId: meta.coordenacaoId || '',
+        };
+        initSuporteSync(role === 'admin' || role === 'diretoria');
         if (role === 'admin') {
           registerSuporteAdmin(user);
+        }
+        if (role === 'admin' || role === 'diretoria') {
           initUsersAdminSync();
+        }
+        if (role === 'admin' || role === 'diretoria' || role === 'gerencia') {
+          initNotificationsSync();
         }
         if (!appInitialized) {
           appInitialized = true;

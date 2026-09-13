@@ -124,6 +124,7 @@ export function renderProgramacoesFilterBar({
   resumoId = 'filtro-resumo',
   statusOptions = [],
   resumoText = 'Exibindo todas as programações',
+  hideGerenciaFilter = false,
 } = {}) {
   const now = new Date();
   const mes = mesAtual || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -169,8 +170,8 @@ export function renderProgramacoesFilterBar({
       </div>
       <div class="form-group flex-2"><label>Buscar</label>
         <input type="search" class="form-control" id="filtro-busca" placeholder="Título, município, equipe, usuário..." /></div>
-      <div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
-        ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>
+      ${hideGerenciaFilter ? '' : `<div class="form-group"><label>Gerência</label><select class="form-control" id="filtro-gerencia"><option value="">Todas</option>
+        ${GERENCIAS.map((g) => `<option value="${g}">${g}</option>`).join('')}</select></div>`}
       <div class="form-group"><label>Coordenação</label><select class="form-control" id="filtro-coord"><option value="">Todas</option>
         ${getCoordenacoes().map((c) => `<option value="${c.id}">${c.sigla ? `${c.sigla} — ` : ''}${c.nome || c.id}</option>`).join('')}</select></div>
       ${statusOptions.length ? `<div class="form-group"><label>Status</label><select class="form-control" id="filtro-status"><option value="">Todos</option>

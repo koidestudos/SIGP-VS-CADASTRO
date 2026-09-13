@@ -2,7 +2,7 @@ import { getCollection } from '../services/storage.js';
 import { getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass, GERENCIAS, programacaoHasMunicipio, getMunicipiosLabel } from '../data/seed.js';
 import { bindTabs } from '../components/ui.js';
 import { normalizeStatus, isInBI, needsApproval } from '../utils/status.js';
-import { isAdmin } from '../services/roles.js';
+import { canSeeAuthor } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 
 export function renderCoordenacoes(user, params = []) {
@@ -42,7 +42,7 @@ function renderCoordDetail(coordId, user) {
   const programacoes = getCollection('programacoes').filter((p) => p.coordenacaoId === coordId);
   const equipes = getCollection('equipes').filter((e) => e.coordenacaoId === coordId);
   const municipios = getCollection('municipios').filter((m) => m.coordenacaoId === coordId);
-  const admin = isAdmin(user);
+  const showAuthor = canSeeAuthor(user);
 
   return `
     <div class="page-header">
@@ -65,16 +65,16 @@ function renderCoordDetail(coordId, user) {
       <div class="card"><div class="card-body">
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Ação</th><th>Município</th><th>Data inicial</th><th>Data final</th>${admin ? '<th>Incluído por</th>' : ''}<th>Status</th></tr></thead>
+            <thead><tr><th>Ação</th><th>Município</th><th>Data inicial</th><th>Data final</th>${showAuthor ? '<th>Incluído por</th>' : ''}<th>Status</th></tr></thead>
             <tbody>
               ${programacoes.length ? programacoes.map((p) => {
                 const munLabel = getMunicipiosLabel(p);
                 const autor = getIncluidoPorLabel(p) || '—';
                 return `<tr><td>${p.titulo}</td><td>${munLabel}</td>
                   <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
-                  ${admin ? `<td>${autor.replace(/</g, '&lt;')}</td>` : ''}
+                  ${showAuthor ? `<td>${autor.replace(/</g, '&lt;')}</td>` : ''}
                   <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
-              }).join('') : `<tr><td colspan="${admin ? 6 : 5}" class="text-center text-muted">Nenhuma programação.</td></tr>`}
+              }).join('') : `<tr><td colspan="${showAuthor ? 6 : 5}" class="text-center text-muted">Nenhuma programação.</td></tr>`}
             </tbody>
           </table>
         </div>

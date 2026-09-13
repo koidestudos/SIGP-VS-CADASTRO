@@ -2,7 +2,7 @@ import { getCollection } from '../services/storage.js';
 import { getCoordenacaoById, getRegionalById, formatDate, getStatusBadgeClass, programacaoHasMunicipio } from '../data/seed.js';
 import { isAutorizada, isRealizada, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { bindTabs } from '../components/ui.js';
-import { isAdmin } from '../services/roles.js';
+import { canSeeAuthor } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 
 function renderMunicipioCards(municipios, programacoes) {
@@ -155,21 +155,21 @@ function renderMunicipioCanceladasReprovadas(munId, user) {
 }
 
 function renderProgTable(items, user) {
-  const admin = isAdmin(user);
+  const showAuthor = canSeeAuthor(user);
   return `
     <div class="card"><div class="card-body">
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Ação</th><th>Coordenação</th><th>Data inicial</th><th>Data final</th>${admin ? '<th>Incluído por</th>' : ''}<th>Status</th></tr></thead>
+          <thead><tr><th>Ação</th><th>Coordenação</th><th>Data inicial</th><th>Data final</th>${showAuthor ? '<th>Incluído por</th>' : ''}<th>Status</th></tr></thead>
           <tbody>
             ${items.length ? items.map((p) => {
               const coord = getCoordenacaoById(p.coordenacaoId);
               const autor = getIncluidoPorLabel(p) || '—';
               return `<tr class="${getStatusRowClass(p.status)}"><td>${p.titulo}</td><td>${coord?.nome || '—'}</td>
                 <td>${formatDate(p.dataInicial)}</td><td>${formatDate(p.dataFinal)}</td>
-                ${admin ? `<td>${autor.replace(/</g, '&lt;')}</td>` : ''}
+                ${showAuthor ? `<td>${autor.replace(/</g, '&lt;')}</td>` : ''}
                 <td><span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span></td></tr>`;
-            }).join('') : `<tr><td colspan="${admin ? 6 : 5}" class="text-center text-muted">Nenhuma programação.</td></tr>`}
+            }).join('') : `<tr><td colspan="${showAuthor ? 6 : 5}" class="text-center text-muted">Nenhuma programação.</td></tr>`}
           </tbody>
         </table>
       </div>

@@ -5,11 +5,16 @@ import {
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
-import { setUserRole } from './roles.js';
-import { getUserRole } from './roles.js';
-import { notifyProgramacaoEnviada } from './notifications-service.js';
+import { setUserRole, getUserRole, getUserGerencia, normalizeRole, normalizeGerencia } from './roles.js';
+import { notifyProgramacaoEnviada, notifyProgramacaoDevolvida, notifyProgramacaoAprovada } from './notifications-service.js';
 import { getUsers } from './users-service.js';
-import { normalizeStatus, canAttachAnexo } from '../utils/status.js';
+import {
+  normalizeStatus, canAttachAnexo,
+  STATUS_AGUARDANDO_GERENCIA, STATUS_DEVOLVIDA, STATUS_REENVIADA, STATUS_APROVADA_GERENCIA,
+  isPendenteGerencia,
+} from '../utils/status.js';
+import { getCoordenacaoById } from '../data/seed.js';
+import { appendHistorico, makeHistoricoEntry, currentActorMeta } from '../utils/programacao-historico.js';
 
 const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
 const MIN_PROGRAMACAO_DATE = '2026-07-01';
@@ -82,6 +87,11 @@ function resolveAuthorMeta(data, uid, isNew) {
   }
 
   return { uid: authorUid, nome, email };
+}
+
+function resolveGerenciaFromData(data) {
+  const fromCoord = getCoordenacaoById(data?.coordenacaoId)?.gerencia;
+  return normalizeGerencia(fromCoord) || normalizeGerencia(data?.gerencia);
 }
 
 function isProgramacaoVisible(p) {
@@ -181,15 +191,64 @@ function sanitizeProgramacao(data, uid, isNew) {
     fonteRecurso: data.fonteRecurso || '',
     observacoes: data.observacoes || '',
     status: data.status || 'Rascunho',
+    gerencia: resolveGerenciaFromData(data),
     criadoPor: author.uid,
     criadoPorNome: author.nome,
     criadoPorEmail: author.email,
+    historico: Array.isArray(data.historico) ? data.historico.slice(-50) : [],
+    enviadoEm: data.enviadoEm || '',
+    enviadoPor: data.enviadoPor || '',
+    enviadoPorNome: data.enviadoPorNome || '',
+    aprovadoPor: data.aprovadoPor || '',
+    aprovadoPorNome: data.aprovadoPorNome || '',
+    aprovadoEm: data.aprovadoEm || '',
+    devolvidoPor: data.devolvidoPor || '',
+    devolvidoPorNome: data.devolvidoPorNome || '',
+    devolvidoEm: data.devolvidoEm || '',
+    justificativaDevolucao: data.justificativaDevolucao || '',
     atualizadoEm: new Date().toISOString(),
   };
   if (isNew) {
     allowed.criadoEm = new Date().toISOString();
   }
   return allowed;
+}
+
+function applyEnvioMetadata(payload, prevStatus, isNew) {
+  const actor = currentActorMeta();
+  const gerencia = payload.gerencia;
+  let next = normalizeStatus(payload.status);
+  const prev = normalizeStatus(prevStatus);
+  let historico = Array.isArray(payload.historico) ? [...payload.historico] : [];
+
+  if (isNew) {
+    historico = appendHistorico(historico, makeHistoricoEntry({
+      tipo: 'cadastro',
+      statusNovo: next || 'Rascunho',
+      gerencia,
+    }));
+  }
+
+  const sending = next === STATUS_AGUARDANDO_GERENCIA || next === STATUS_REENVIADA;
+  if (sending && gerencia && prev !== STATUS_AGUARDANDO_GERENCIA && prev !== STATUS_REENVIADA) {
+    const isResend = prev === STATUS_DEVOLVIDA;
+    next = isResend ? STATUS_REENVIADA : STATUS_AGUARDANDO_GERENCIA;
+    payload.status = next;
+    payload.enviadoEm = new Date().toISOString();
+    payload.enviadoPor = actor.uid;
+    payload.enviadoPorNome = actor.nome;
+    if (isResend) payload.justificativaDevolucao = payload.justificativaDevolucao || '';
+    historico = appendHistorico(historico, makeHistoricoEntry({
+      tipo: isResend ? 'reenvio' : 'envio',
+      statusAnterior: prev,
+      statusNovo: next,
+      gerencia,
+    }));
+  }
+
+  payload.historico = historico;
+  payload.status = next;
+  return { notifiedEnvio: sending && prev !== next };
 }
 
 export async function saveProgramacao(data, existingId = null) {
@@ -204,8 +263,8 @@ export async function saveProgramacao(data, existingId = null) {
     }
     const server = snap.data();
     const isOwner = server.criadoPor === uid;
-    const isAdmin = getUserRole() === 'admin';
-    if (!isOwner && !isAdmin) {
+    const isAdminUser = getUserRole() === 'admin';
+    if (!isOwner && !isAdminUser) {
       throw new Error('Você só pode editar suas próprias programações.');
     }
     if (data.baseAtualizadoEm && server.atualizadoEm && data.baseAtualizadoEm !== server.atualizadoEm) {
@@ -218,12 +277,27 @@ export async function saveProgramacao(data, existingId = null) {
       criadoPor: server.criadoPor,
       criadoPorNome: data.criadoPorNome || server.criadoPorNome,
       criadoPorEmail: data.criadoPorEmail || server.criadoPorEmail,
+      historico: server.historico,
+      enviadoEm: server.enviadoEm,
+      enviadoPor: server.enviadoPor,
+      enviadoPorNome: server.enviadoPorNome,
+      aprovadoPor: server.aprovadoPor,
+      aprovadoPorNome: server.aprovadoPorNome,
+      aprovadoEm: server.aprovadoEm,
+      devolvidoPor: server.devolvidoPor,
+      devolvidoPorNome: server.devolvidoPorNome,
+      devolvidoEm: server.devolvidoEm,
+      justificativaDevolucao: server.justificativaDevolucao,
     }, uid, false);
     const prevStatus = normalizeStatus(server.status);
+    const { notifiedEnvio } = applyEnvioMetadata(payload, prevStatus, false);
     const nextStatus = normalizeStatus(payload.status);
 
     if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
       throw new Error('Informe pelo menos um participante na equipe.');
+    }
+    if ((nextStatus === STATUS_AGUARDANDO_GERENCIA || nextStatus === STATUS_REENVIADA) && !payload.gerencia) {
+      throw new Error('A coordenação precisa estar vinculada a uma Gerência (GAS, GVS ou GAP).');
     }
 
     await updateDoc(ref, payload);
@@ -233,7 +307,7 @@ export async function saveProgramacao(data, existingId = null) {
     } catch (err) {
       console.error('Falha ao sincronizar logística (programação já salva):', err);
     }
-    if (nextStatus === 'Enviado para Diretoria' && prevStatus !== 'Enviado para Diretoria') {
+    if (notifiedEnvio) {
       try {
         await notifyProgramacaoEnviada(saved);
       } catch (err) {
@@ -244,10 +318,14 @@ export async function saveProgramacao(data, existingId = null) {
   }
 
   const payload = sanitizeProgramacao(data, uid, true);
+  const { notifiedEnvio } = applyEnvioMetadata(payload, '', true);
   const nextStatus = normalizeStatus(payload.status);
 
   if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
     throw new Error('Informe pelo menos um participante na equipe.');
+  }
+  if ((nextStatus === STATUS_AGUARDANDO_GERENCIA || nextStatus === STATUS_REENVIADA) && !payload.gerencia) {
+    throw new Error('A coordenação precisa estar vinculada a uma Gerência (GAS, GVS ou GAP).');
   }
 
   const { criadoEm, ...createPayload } = payload;
@@ -256,13 +334,12 @@ export async function saveProgramacao(data, existingId = null) {
     criadoEm: serverTimestamp(),
   });
   const saved = { id: ref.id, ...payload };
-  // Logística/notificação não podem invalidar o salvamento da programação
   try {
     await syncLogisticaToFirestore(saved);
   } catch (err) {
     console.error('Falha ao sincronizar logística (programação já salva):', err);
   }
-  if (nextStatus === 'Enviado para Diretoria') {
+  if (notifiedEnvio) {
     try {
       await notifyProgramacaoEnviada(saved);
     } catch (err) {
@@ -295,10 +372,20 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
     }
   }
 
+  const prevStatus = normalizeStatus(prog.status);
+  const historico = appendHistorico(prog.historico, makeHistoricoEntry({
+    tipo: extra.historicoTipo || 'status',
+    statusAnterior: prevStatus,
+    statusNovo: nextStatus,
+    observacao: extra.observacao || extra.justificativaDevolucao || '',
+    gerencia: prog.gerencia || resolveGerenciaFromData(prog),
+  }));
+  const { historicoTipo, observacao, ...restExtra } = extra;
   const patch = {
     status: nextStatus,
     atualizadoEm: new Date().toISOString(),
-    ...extra,
+    historico,
+    ...restExtra,
   };
   await updateDoc(doc(database, 'programacoes', id), patch);
   return { ...prog, ...patch };
@@ -307,15 +394,88 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
 export async function approveProgramacao(id) {
   return patchProgramacaoStatus(id, 'Autorizada', {
     autorizadoEm: new Date().toISOString(),
+    historicoTipo: 'status',
   });
 }
 
 export async function rejectProgramacao(id) {
-  return patchProgramacaoStatus(id, 'Reprovada');
+  return patchProgramacaoStatus(id, 'Reprovada', { historicoTipo: 'status' });
 }
 
 export async function updateProgramacaoStatus(id, status) {
   return patchProgramacaoStatus(id, status);
+}
+
+export async function approveProgramacaoByGerencia(id) {
+  const uid = requireUser();
+  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
+  if (!prog) throw new Error('Programação não encontrada.');
+  if (!isPendenteGerencia(prog.status)) {
+    throw new Error('Esta programação não está aguardando análise da Gerência.');
+  }
+  const gerencia = resolveGerenciaFromData(prog) || normalizeGerencia(prog.gerencia);
+  const role = getUserRole();
+  if (role !== 'admin') {
+    if (role !== 'gerencia') {
+      throw new Error('Apenas a Gerência responsável pode aprovar.');
+    }
+    const minha = getUserGerencia();
+    if (!gerencia || minha !== gerencia) {
+      throw new Error('Você só pode aprovar programações da sua Gerência.');
+    }
+  }
+  const actor = currentActorMeta();
+  const saved = await patchProgramacaoStatus(id, STATUS_APROVADA_GERENCIA, {
+    gerencia,
+    aprovadoPor: uid,
+    aprovadoPorNome: actor.nome,
+    aprovadoEm: new Date().toISOString(),
+    historicoTipo: 'aprovacao',
+  });
+  try {
+    await notifyProgramacaoAprovada({ ...saved, gerencia });
+  } catch (err) {
+    console.error('Falha ao notificar aprovação:', err);
+  }
+  return saved;
+}
+
+export async function devolverProgramacaoParaCorrecao(id, justificativa) {
+  const obs = String(justificativa || '').trim();
+  if (!obs) throw new Error('Informe a justificativa da devolução.');
+  requireUser();
+  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
+  if (!prog) throw new Error('Programação não encontrada.');
+  if (!isPendenteGerencia(prog.status)) {
+    throw new Error('Esta programação não está aguardando análise da Gerência.');
+  }
+  const role = getUserRole();
+  const gerencia = resolveGerenciaFromData(prog) || normalizeGerencia(prog.gerencia);
+  if (role !== 'admin') {
+    if (role !== 'gerencia') {
+      throw new Error('Apenas a Gerência responsável pode devolver.');
+    }
+    const minha = getUserGerencia();
+    if (!gerencia || minha !== gerencia) {
+      throw new Error('Você só pode devolver programações da sua Gerência.');
+    }
+  }
+  const actor = currentActorMeta();
+  const saved = await patchProgramacaoStatus(id, STATUS_DEVOLVIDA, {
+    gerencia,
+    justificativaDevolucao: obs.slice(0, 2000),
+    devolvidoPor: actor.uid,
+    devolvidoPorNome: actor.nome,
+    devolvidoEm: new Date().toISOString(),
+    historicoTipo: 'devolucao',
+    observacao: obs,
+  });
+  try {
+    await notifyProgramacaoDevolvida({ ...saved, gerencia });
+  } catch (err) {
+    console.error('Falha ao notificar devolução:', err);
+  }
+  return saved;
 }
 
 /** Atualiza só o status para Realizada após anexo (sem exigir equipe). */
@@ -388,35 +548,41 @@ export async function upsertUserProfile(user) {
   }
   await setDoc(ref, payload, { merge: true });
   const data = existing.exists() ? { ...existing.data(), ...payload } : payload;
+  const role = normalizeRole(data.role);
   return {
     ativo: data.ativo !== false,
-    role: data.role === 'admin' ? 'admin' : 'usuario',
+    role,
+    gerencia: normalizeGerencia(data.gerencia),
+    coordenacaoId: data.coordenacaoId || '',
   };
 }
 
 /** Carrega papel do usuário e mantém sincronizado */
 export function subscribeUserRole(uid, callback) {
   if (!db || !uid) {
-    callback('usuario', { ativo: true });
+    callback('usuario', { ativo: true, gerencia: '', coordenacaoId: '' });
     return () => {};
   }
   return onSnapshot(doc(db, 'users', uid), (snap) => {
     const data = snap.exists() ? snap.data() : {};
-    const role = data.role === 'admin' ? 'admin' : 'usuario';
+    const role = normalizeRole(data.role);
     const ativo = data.ativo !== false;
-    setUserRole(role);
-    callback(role, { ativo });
+    const gerencia = normalizeGerencia(data.gerencia);
+    const coordenacaoId = data.coordenacaoId || '';
+    setUserRole(role, { gerencia });
+    callback(role, { ativo, gerencia, coordenacaoId });
   }, () => {
     setUserRole('usuario');
-    callback('usuario', { ativo: true });
+    callback('usuario', { ativo: true, gerencia: '', coordenacaoId: '' });
   });
 }
 
 export async function fetchUserRole(uid) {
   if (!db || !uid) return 'usuario';
   const snap = await getDoc(doc(db, 'users', uid));
-  const role = snap.exists() && snap.data().role === 'admin' ? 'admin' : 'usuario';
-  setUserRole(role);
+  const data = snap.exists() ? snap.data() : {};
+  const role = normalizeRole(data.role);
+  setUserRole(role, { gerencia: data.gerencia });
   return role;
 }
 

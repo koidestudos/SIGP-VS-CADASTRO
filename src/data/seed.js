@@ -65,6 +65,8 @@ export function getCoordenacaoById(id) {
 }
 
 export function getGerenciaByProgramacao(p) {
+  const stored = String(p?.gerencia || '').trim().toUpperCase();
+  if (stored === 'GAS' || stored === 'GVS' || stored === 'GAP') return stored;
   return getCoordenacaoById(p?.coordenacaoId)?.gerencia || '—';
 }
 

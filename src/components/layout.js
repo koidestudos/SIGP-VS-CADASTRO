@@ -1,5 +1,5 @@
-import { canViewBI } from '../services/roles.js';
-import { getUnreadCount, getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteAllNotifications } from '../services/notifications-service.js';
+import { canViewBI, canViewGerencias, canAccessAdmin, isGerencia, isDiretoria, roleLabel } from '../services/roles.js';
+import { getUnreadCountForUser, getNotificationsForUser, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteAllNotifications } from '../services/notifications-service.js';
 import {
   getOpenChats, fetchSuporteAdmins, getOrCreateUserChat, watchSuporteMessages,
   sendSuporteMessage, finalizarSuporteChat, subscribeSuporteMessages, subscribeSuporteChats,
@@ -7,8 +7,11 @@ import {
 } from '../services/suporte-service.js';
 import { getCoordenacaoById } from '../data/seed.js';
 import { assetImgHtml, CUSTOM_ASSET_PATHS } from '../config/custom-assets.js';
+import { getProgramacoes } from '../services/programacoes-service.js';
+import { needsGerenciaApproval } from '../utils/status.js';
 
 let suporteUser = null;
+let notifUser = null;
 let activeSuporteChatId = null;
 let suporteMessages = [];
 let chatEndedByOther = null;
@@ -26,16 +29,30 @@ const NAV_OPERACIONAL = [
 ];
 
 const NAV_GERENCIAL = [
+  { route: 'gerencias', icon: '✅', label: 'Gerências' },
   { route: 'bi-gerencial', icon: '📊', label: 'BI Gerencial' },
   { route: 'administracao', icon: '⚙', label: 'Administração' },
 ];
 
 export function renderSidebar(user, currentRoute) {
   const initials = user.nome.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-  const roleLabel = user.role === 'admin' ? 'Administrador' : 'Usuário';
-  const navOperacional = NAV_OPERACIONAL;
+  const label = roleLabel(user);
+  const pendGerencia = canViewGerencias(user)
+    ? getProgramacoes().filter((p) => {
+      if (!needsGerenciaApproval(p.status)) return false;
+      if (isGerencia(user) && !isDiretoria(user)) {
+        return String(p.gerencia || getCoordenacaoById(p.coordenacaoId)?.gerencia || '').toUpperCase() === String(user.gerencia || '').toUpperCase();
+      }
+      return true;
+    }).length
+    : 0;
+  const navOperacional = NAV_OPERACIONAL.filter((item) => {
+    if (item.route === 'nova-programacao' && isGerencia(user) && !isDiretoria(user)) return false;
+    return true;
+  });
   const navGerencial = NAV_GERENCIAL.filter((item) => {
-    if (item.route === 'bi-gerencial' || item.route === 'administracao') return canViewBI(user);
+    if (item.route === 'gerencias') return canViewGerencias(user);
+    if (item.route === 'bi-gerencial' || item.route === 'administracao') return canAccessAdmin(user);
     return true;
   });
 
@@ -64,11 +81,15 @@ export function renderSidebar(user, currentRoute) {
         `).join('')}
         ${navGerencial.length ? `
           <div class="nav-section-label mt-2">Portal Gerencial</div>
-          ${navGerencial.map((item) => `
+          ${navGerencial.map((item) => {
+            const extra = item.route === 'gerencias' && pendGerencia
+              ? `<span class="nav-pend-badge">${pendGerencia > 9 ? '9+' : pendGerencia}</span>`
+              : '';
+            return `
             <button class="nav-item ${currentRoute === item.route ? 'active' : ''}" data-route="${item.route}">
-              <span class="nav-icon">${item.icon}</span>${item.label}
-            </button>
-          `).join('')}
+              <span class="nav-icon">${item.icon}</span>${item.label}${extra}
+            </button>`;
+          }).join('')}
         ` : ''}
       </nav>
       <div class="sidebar-footer">
@@ -76,7 +97,7 @@ export function renderSidebar(user, currentRoute) {
           <div class="user-avatar user-avatar-photo">${initials}</div>
           <div class="user-details">
             <strong>${user.nome}</strong>
-            <span class="user-role-badge ${user.role === 'admin' ? 'role-admin' : ''}">${roleLabel}</span>
+            <span class="user-role-badge ${user.role === 'admin' || user.role === 'diretoria' ? 'role-admin' : ''}">${label}</span>
             <span>${user.email || ''}</span>
           </div>
         </div>
@@ -86,8 +107,8 @@ export function renderSidebar(user, currentRoute) {
 }
 
 export function renderTopbar(title, breadcrumb = '', { showNotifications = false, user = null } = {}) {
-  const unread = showNotifications ? getUnreadCount() : 0;
-  const suporteUnread = user ? getUnreadSuporteCount(user.role === 'admin') : 0;
+  const unread = showNotifications ? getUnreadCountForUser(user) : 0;
+  const suporteUnread = user ? getUnreadSuporteCount(user.role === 'admin' || user.role === 'diretoria') : 0;
   const crumbs = breadcrumb || (title ? `<h1 class="page-title">${title}</h1>` : '');
   return `
     <header class="topbar topbar-v2">
@@ -128,21 +149,30 @@ export function renderTopbar(title, breadcrumb = '', { showNotifications = false
 }
 
 function renderNotifList() {
-  const items = getNotifications();
+  const items = getNotificationsForUser(notifUser);
   if (!items.length) return '<p class="notif-empty">Nenhuma notificação.</p>';
   return items.slice(0, 20).map((n) => {
     const coord = getCoordenacaoById(n.coordenacaoId);
     const time = n.criadoEm ? new Date(n.criadoEm).toLocaleString('pt-BR') : '';
     const isAnexo = n.tipo === 'programacao_anexo';
+    const isDevolvida = n.tipo === 'programacao_devolvida';
+    const isAprovada = n.tipo === 'programacao_aprovada';
     const incluidoPor = n.criadoPorNome || '';
-    const subtitle = isAnexo
-      ? `Novo anexo: ${n.nomeArquivo || 'documento'}${n.enviadoPorNome ? ` — ${n.enviadoPorNome}` : ''}${coord ? ` · ${coord.nome}` : ''}`
-      : `Nova programação aguardando aprovação${incluidoPor ? ` — incluída por ${incluidoPor}` : ''}${coord ? ` · ${coord.nome}` : ''}`;
-    const navTarget = isAnexo ? 'administracao/anexos' : 'programacoes';
+    let subtitle = `Nova programação aguardando a Gerência${incluidoPor ? ` — ${incluidoPor}` : ''}`;
+    if (isAnexo) {
+      subtitle = `Novo anexo: ${n.nomeArquivo || 'documento'}${n.enviadoPorNome ? ` — ${n.enviadoPorNome}` : ''}`;
+    } else if (isDevolvida) {
+      subtitle = `Devolvida para correção${n.observacao ? ` — ${n.observacao}` : ''}`;
+    } else if (isAprovada) {
+      subtitle = `Aprovada pela Gerência${n.aprovadoPorNome ? ` — ${n.aprovadoPorNome}` : ''}`;
+    }
+    if (coord) subtitle += ` · ${coord.nome}`;
+    const navTarget = isAnexo ? 'administracao/anexos' : (isDevolvida ? 'programacoes' : 'gerencias');
+    const icon = isAnexo ? '📎 ' : isDevolvida ? '↩ ' : isAprovada ? '✔ ' : '';
     return `
       <div class="notif-item-wrap ${n.lido ? '' : 'unread'}">
         <button type="button" class="notif-item" data-notif-id="${n.id}" data-nav-target="${navTarget}" data-prog-id="${n.programacaoId || ''}">
-          <strong>${n.lido ? '' : '● '}${isAnexo ? '📎 ' : ''}${n.titulo}</strong>
+          <strong>${n.lido ? '' : '● '}${icon}${n.titulo}</strong>
           <span>${subtitle}</span>
           <small>${time}</small>
         </button>
@@ -207,7 +237,7 @@ export function bindNotifications() {
 export function refreshNotificationBadge() {
   const btn = document.getElementById('btn-notifications');
   if (!btn) return;
-  const unread = getUnreadCount();
+  const unread = getUnreadCountForUser(notifUser);
   const existing = btn.querySelector('.notif-badge');
   if (unread && !existing) {
     btn.insertAdjacentHTML('beforeend', `<span class="notif-badge">${unread > 9 ? '9+' : unread}</span>`);
@@ -464,7 +494,8 @@ export function bindLayoutEvents(onNavigate, onLogout, user) {
 
 export function renderAppShell(user, route, title, content, breadcrumb) {
   const bc = breadcrumb || '';
-  const showNotifications = canViewBI(user);
+  notifUser = user;
+  const showNotifications = canViewGerencias(user) || canViewBI(user);
   return `
     <div class="app-layout layout-admin">
       ${renderSidebar(user, route)}

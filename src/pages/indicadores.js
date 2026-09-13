@@ -5,7 +5,7 @@ import {
 } from '../data/seed.js';
 import { renderDonutChart, renderBarChart } from '../components/charts.js';
 import { getProgramacoesForBI } from '../utils/bi-metrics.js';
-import { countByStatusGroup, needsApproval } from '../utils/status.js';
+import { countByStatusGroup, isInBI, STATUS_AGUARDANDO_GERENCIA, STATUS_REENVIADA } from '../utils/status.js';
 
 export function renderIndicadores() {
   const todas = getProgramacoes();
@@ -26,7 +26,8 @@ export function renderIndicadores() {
     value: doMes.filter((p) => p.coordenacaoId === c.id).length,
   })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
 
-  const aguardando = counts.Programada + counts.Priorizada + counts['Enviado para Diretoria'];
+  const aguardando = (counts.Programada || 0) + (counts.Priorizada || 0)
+    + (counts[STATUS_AGUARDANDO_GERENCIA] || 0) + (counts[STATUS_REENVIADA] || 0);
   const autorizadas = counts.Autorizada + counts['Em execução'];
   const taxaRealizacao = autorizadas + counts.Realizada
     ? Math.round((counts.Realizada / (autorizadas + counts.Realizada)) * 100)
@@ -37,7 +38,7 @@ export function renderIndicadores() {
 
     <div class="kpi-grid-3 mb-3">
       <div class="kpi-card kpi-simple"><strong>${doMes.length}</strong><span>Ações no mês (BI)</span></div>
-      <div class="kpi-card kpi-simple"><strong>${aguardando}</strong><span>Programadas / aguardando diretoria</span></div>
+      <div class="kpi-card kpi-simple"><strong>${aguardando}</strong><span>Programadas / aguardando Gerência</span></div>
       <div class="kpi-card kpi-simple"><strong>${taxaRealizacao}%</strong><span>Taxa de realização</span></div>
     </div>
 
@@ -61,7 +62,7 @@ export function renderIndicadores() {
             <tbody>
               ${Object.entries(counts).map(([s, q]) => {
                 const pct = todas.length ? Math.round((q / todas.length) * 100) : 0;
-                const inBi = ['Autorizada', 'Em execução', 'Realizada'].includes(s);
+                const inBi = isInBI(s);
                 return `<tr><td>${s}</td><td>${q}</td><td>${pct}%</td><td>${inBi ? '✅ Sim' : '❌ Não'}</td></tr>`;
               }).join('')}
             </tbody>

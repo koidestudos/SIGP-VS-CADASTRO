@@ -1,0 +1,66 @@
+import {
+  normalizeStatus,
+  isPendenteGerencia,
+  isDevolvidaGerencia,
+  isAprovadaGerencia,
+  needsGerenciaApproval,
+  getStatusOptionsForUser,
+  STATUS_AGUARDANDO_GERENCIA,
+  STATUS_DEVOLVIDA,
+  STATUS_REENVIADA,
+  STATUS_APROVADA_GERENCIA,
+} from '../src/utils/status.js';
+import {
+  canApproveGerencia,
+  canViewGerenciaTab,
+  canEditProgramacao,
+  canViewGerencias,
+  canAccessAdmin,
+  canManageUsers,
+  isDiretoria,
+  isGerencia,
+  isCoordenacao,
+} from '../src/services/roles.js';
+
+function assert(cond, msg) {
+  if (!cond) throw new Error(msg);
+}
+
+assert(normalizeStatus('Enviado para Diretoria') === STATUS_AGUARDANDO_GERENCIA, 'legado deve virar aguardando gerência');
+assert(isPendenteGerencia('Enviado para Diretoria'), 'legado pendente');
+assert(isPendenteGerencia(STATUS_REENVIADA), 'reenvio é pendente');
+assert(isDevolvidaGerencia(STATUS_DEVOLVIDA), 'devolvida');
+assert(isAprovadaGerencia(STATUS_APROVADA_GERENCIA), 'aprovada');
+assert(needsGerenciaApproval(STATUS_AGUARDANDO_GERENCIA), 'needs approval');
+
+const coord = { uid: 'c1', role: 'usuario' };
+const gas = { uid: 'g1', role: 'gerencia', gerencia: 'GAS' };
+const gvs = { uid: 'g2', role: 'gerencia', gerencia: 'GVS' };
+const dir = { uid: 'd1', role: 'diretoria' };
+const adm = { uid: 'a1', role: 'admin' };
+const progGas = { id: 'p1', gerencia: 'GAS', criadoPor: 'c1', status: STATUS_AGUARDANDO_GERENCIA };
+const rascunho = { id: 'p2', gerencia: 'GAS', criadoPor: 'c1', status: 'Rascunho' };
+const devolvida = { id: 'p3', gerencia: 'GAS', criadoPor: 'c1', status: STATUS_DEVOLVIDA };
+
+assert(isCoordenacao(coord), 'coordenação');
+assert(isGerencia(gas) && !isDiretoria(gas), 'gerência não é diretoria');
+assert(isDiretoria(dir) && isDiretoria(adm), 'diretoria e admin acompanham');
+assert(canViewGerencias(gas) && canViewGerencias(dir) && canViewGerencias(adm), 'acesso gerências');
+assert(!canViewGerencias(coord), 'coordenação não acessa fila');
+assert(canViewGerenciaTab(gas, 'GAS') && !canViewGerenciaTab(gas, 'GVS'), 'GAS só vê GAS');
+assert(canViewGerenciaTab(dir, 'GAP') && canViewGerenciaTab(adm, 'GVS'), 'diretoria vê todas');
+assert(canApproveGerencia(gas, progGas) && !canApproveGerencia(gvs, progGas), 'aprovação só da gerência dona');
+assert(!canApproveGerencia(dir, progGas), 'diretoria não aprova');
+assert(canApproveGerencia(adm, progGas), 'admin pode aprovar');
+assert(canEditProgramacao(coord, rascunho) && canEditProgramacao(coord, devolvida), 'coord edita rascunho/devolvida');
+assert(!canEditProgramacao(coord, progGas), 'coord não edita pendente');
+assert(canAccessAdmin(dir) && canAccessAdmin(adm) && !canAccessAdmin(gas), 'admin page');
+assert(canManageUsers(adm) && !canManageUsers(dir), 'só admin gerencia contas');
+
+const sendOpts = getStatusOptionsForUser(coord, rascunho);
+assert(sendOpts.includes(STATUS_AGUARDANDO_GERENCIA), 'coord envia para gerência');
+assert(!sendOpts.includes('Enviado para Diretoria'), 'não envia mais à diretoria');
+const resendOpts = getStatusOptionsForUser(coord, devolvida);
+assert(resendOpts.includes(STATUS_REENVIADA), 'coord reenvia');
+
+console.log('OK — fluxo Coordenação → Gerência → Diretoria acompanha');

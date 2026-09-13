@@ -25,6 +25,11 @@ export function getUnreadCount() {
   return notifCache.filter((n) => !n.lido).length;
 }
 
+/** @deprecated use notifyProgramacaoEnviada */
+export async function notifyProgramacaoPendente(programacao) {
+  return notifyProgramacaoEnviada(programacao);
+}
+
 export function initNotificationsSync() {
   if (!isFirebaseConfigured || !db) return;
   if (unsub) unsub();
@@ -54,6 +59,7 @@ export async function notifyProgramacaoEnviada(programacao) {
     criadoPor: programacao.criadoPor || '',
     criadoPorNome: programacao.criadoPorNome || '',
     criadoPorEmail: programacao.criadoPorEmail || '',
+    gerencia: programacao.gerencia || '',
     lido: false,
     criadoEm: new Date().toISOString(),
   });
@@ -70,14 +76,58 @@ export async function notifyProgramacaoAnexo(programacao, anexo) {
     coordenacaoId: programacao.coordenacaoId || '',
     enviadoPor: anexo.enviadoPor || '',
     enviadoPorNome: anexo.enviadoPorNome || '',
+    gerencia: programacao.gerencia || '',
     lido: false,
     criadoEm: new Date().toISOString(),
   });
 }
 
-/** @deprecated use notifyProgramacaoEnviada */
-export async function notifyProgramacaoPendente(programacao) {
-  return notifyProgramacaoEnviada(programacao);
+export async function notifyProgramacaoDevolvida(programacao) {
+  if (!db || !programacao?.id) return;
+  await addDoc(collection(db, 'notificacoes'), {
+    tipo: 'programacao_devolvida',
+    programacaoId: programacao.id,
+    titulo: programacao.titulo || 'Programação devolvida',
+    coordenacaoId: programacao.coordenacaoId || '',
+    criadoPor: programacao.criadoPor || '',
+    criadoPorNome: programacao.criadoPorNome || '',
+    gerencia: programacao.gerencia || '',
+    observacao: String(programacao.justificativaDevolucao || '').slice(0, 500),
+    lido: false,
+    criadoEm: new Date().toISOString(),
+  });
+}
+
+export async function notifyProgramacaoAprovada(programacao) {
+  if (!db || !programacao?.id) return;
+  await addDoc(collection(db, 'notificacoes'), {
+    tipo: 'programacao_aprovada',
+    programacaoId: programacao.id,
+    titulo: programacao.titulo || 'Programação aprovada',
+    coordenacaoId: programacao.coordenacaoId || '',
+    criadoPor: programacao.criadoPor || '',
+    criadoPorNome: programacao.criadoPorNome || '',
+    gerencia: programacao.gerencia || '',
+    aprovadoPorNome: programacao.aprovadoPorNome || '',
+    lido: false,
+    criadoEm: new Date().toISOString(),
+  });
+}
+
+export function getNotificationsForUser(user) {
+  const all = getNotifications();
+  const role = user?.role;
+  if (role === 'admin' || role === 'diretoria') return all;
+  if (role === 'gerencia') {
+    const g = String(user.gerencia || '').toUpperCase();
+    return all.filter((n) => !n.gerencia || String(n.gerencia).toUpperCase() === g);
+  }
+  if (!user?.uid) return [];
+  return all.filter((n) => n.criadoPor === user.uid || n.tipo === 'programacao_devolvida' && n.criadoPor === user.uid);
+}
+
+export function getUnreadCountForUser(user) {
+  return getNotificationsForUser(user).filter((n) => !n.lido).length;
 }
 
 export async function markNotificationRead(id) {
