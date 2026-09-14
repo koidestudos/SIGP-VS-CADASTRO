@@ -492,6 +492,41 @@ export function bindLayoutEvents(onNavigate, onLogout, user) {
   if (user) bindSuporte(user);
 }
 
+/** Atualiza item ativo e badge da Gerência sem recriar a sidebar (preserva hover/transições). */
+export function syncSidebarChrome(user, currentRoute) {
+  document.querySelectorAll('.nav-item[data-route]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.route === currentRoute);
+  });
+  const gerenciaBtn = document.querySelector('.nav-item[data-route="gerencias"]');
+  if (!gerenciaBtn) return;
+  const pendGerencia = canViewGerencias(user)
+    ? getProgramacoes().filter((p) => {
+      if (!needsGerenciaApproval(p.status)) return false;
+      if (isGerencia(user) && !isDiretoria(user)) {
+        return String(p.gerencia || getCoordenacaoById(p.coordenacaoId)?.gerencia || '').toUpperCase()
+          === String(user.gerencia || '').toUpperCase();
+      }
+      return true;
+    }).length
+    : 0;
+  let badge = gerenciaBtn.querySelector('.nav-pend-badge');
+  if (pendGerencia) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'nav-pend-badge';
+      gerenciaBtn.appendChild(badge);
+    }
+    badge.textContent = pendGerencia > 9 ? '9+' : String(pendGerencia);
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
+export function syncTopbarTitle(title) {
+  const el = document.querySelector('.topbar .page-title');
+  if (el && title) el.textContent = title;
+}
+
 export function renderAppShell(user, route, title, content, breadcrumb) {
   const bc = breadcrumb || '';
   notifUser = user;

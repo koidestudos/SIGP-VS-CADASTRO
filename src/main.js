@@ -3,7 +3,7 @@ import {
   initProgramacoesSync, subscribeProgramacoes, subscribeLogistica,
   upsertUserProfile, subscribeUserRole, importProgramacoesSeed, seedImportInProgress,
 } from './services/programacoes-service.js';
-import { refreshNotificationBadge, refreshSuporteBadge } from './components/layout.js';
+import { refreshNotificationBadge, refreshSuporteBadge, syncSidebarChrome } from './components/layout.js';
 import { initCatalogSync, seedCatalogIfEmpty, subscribeCatalog } from './services/catalog-service.js';
 import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
 import { initAnexosSync, subscribeAnexos } from './services/anexos-service.js';
@@ -11,7 +11,7 @@ import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './
 import { initUsersAdminSync, logUserAccess, subscribeUsers } from './services/users-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
-import { renderApp } from './app.js';
+import { mountApp, resetAppShell } from './app.js';
 import { isFirebaseConfigured } from './firebase/config.js';
 import { toast } from './components/ui.js';
 
@@ -25,12 +25,13 @@ let renderTimer = null;
 
 function render() {
   if (!currentUser) {
+    resetAppShell();
     document.title = 'SIGP-VS — Login';
     app.innerHTML = renderLogin(!isFirebaseConfigured);
     bindLogin();
     return;
   }
-  app.innerHTML = renderApp(currentUser, currentRoute, routeParams);
+  mountApp(app, currentUser, currentRoute, routeParams);
 }
 
 function scheduleRender() {
@@ -176,12 +177,32 @@ watchAuth(async (user) => {
   }
 });
 
-subscribeProgramacoes(() => { if (currentUser) scheduleRender(); });
-subscribeLogistica(() => { if (currentUser) scheduleRender(); });
+subscribeProgramacoes(() => {
+  if (!currentUser) return;
+  if (currentRoute === 'administracao') {
+    syncSidebarChrome(currentUser, currentRoute);
+    return;
+  }
+  scheduleRender();
+});
+subscribeLogistica(() => {
+  if (!currentUser) return;
+  if (currentRoute === 'administracao') return;
+  scheduleRender();
+});
 subscribeNotifications(() => { if (currentUser) refreshNotificationBadge(); });
-subscribeAnexos(() => { if (currentUser) scheduleRender(); });
+subscribeAnexos(() => {
+  if (!currentUser) return;
+  // Administração atualiza anexos localmente — recriar o layout mata hover da sidebar.
+  if (currentRoute === 'administracao') return;
+  scheduleRender();
+});
 subscribeCatalog(() => { if (currentUser) scheduleRender(); });
-subscribeUsers(() => { if (currentUser) scheduleRender(); });
+subscribeUsers(() => {
+  if (!currentUser) return;
+  if (currentRoute === 'administracao') return;
+  scheduleRender();
+});
 subscribeSuporteChats(() => { if (currentUser) refreshSuporteBadge(); });
 
 window.addEventListener('hashchange', handleHash);

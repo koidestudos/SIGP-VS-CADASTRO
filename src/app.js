@@ -1,4 +1,4 @@
-import { renderAppShell, bindLayoutEvents, breadcrumbHtml, refreshNotificationBadge } from './components/layout.js';
+import { renderAppShell, bindLayoutEvents, breadcrumbHtml, syncSidebarChrome, syncTopbarTitle } from './components/layout.js';
 import { logoutUser } from './services/auth.js';
 import { renderDashboard, bindDashboard } from './pages/dashboard.js';
 import { renderProgramacoes, bindProgramacoes } from './pages/programacoes.js';
@@ -10,7 +10,7 @@ import { renderLogistica, bindLogistica } from './pages/logistica.js';
 import { renderEquipes, bindEquipes } from './pages/equipes.js';
 import { renderBiGerencial, bindBiGerencial } from './pages/bi-gerencial.js';
 import { renderGerencias, bindGerencias } from './pages/gerencias.js';
-import { renderAdministracao, bindAdministracao } from './pages/administracao.js';
+import { renderAdministracao, bindAdministracao, unbindAdministracao } from './pages/administracao.js';
 import { canAccessAdmin, canViewGerencias } from './services/roles.js';
 
 const PAGE_META = {
@@ -46,6 +46,26 @@ const PAGE_META = {
 };
 
 let bindGeneration = 0;
+let lastShellKey = '';
+let lastBoundRoute = '';
+
+function shellKey(user, route) {
+  return `${user?.uid || ''}|${user?.role || ''}|${user?.gerencia || ''}|${route}`;
+}
+
+function bindSoon(fn) {
+  const generation = ++bindGeneration;
+  setTimeout(() => {
+    if (generation !== bindGeneration) return;
+    fn();
+  }, 0);
+}
+
+export function resetAppShell() {
+  lastShellKey = '';
+  lastBoundRoute = '';
+  unbindAdministracao();
+}
 
 export function renderApp(user, route, params) {
   if ((route === 'bi-gerencial' || route === 'administracao') && !canAccessAdmin(user)) {
@@ -59,21 +79,63 @@ export function renderApp(user, route, params) {
   }
   const page = PAGE_META[route] || PAGE_META.dashboard;
   const content = page.render(user, params);
-  const breadcrumb = page.breadcrumb ? page.breadcrumb() : (params.length ? params.join(' / ') : '');
+  // Hash da Administração (#administracao/contas) não deve virar título da topbar.
+  const breadcrumb = page.breadcrumb
+    ? page.breadcrumb()
+    : (route === 'administracao' ? '' : (params.length ? params.join(' / ') : ''));
   const html = renderAppShell(user, route, page.title, content, breadcrumb);
   document.title = `SIGP-VS — ${page.title}`;
 
-  // Evita bind duplicado quando vários re-renders enfileiram setTimeout(0)
-  const generation = ++bindGeneration;
-  setTimeout(() => {
-    if (generation !== bindGeneration) return;
-    bindLayoutEvents(
-      (r) => { window.location.hash = r; },
-      async () => { await logoutUser(); window.location.hash = 'login'; },
-      user,
-    );
-    page.bind?.(user, params);
-  }, 0);
+  return {
+    html,
+    route,
+    title: page.title,
+    bindLayout() {
+      bindLayoutEvents(
+        (r) => { window.location.hash = r; },
+        async () => { await logoutUser(); window.location.hash = 'login'; },
+        user,
+      );
+    },
+    bindPage() {
+      page.bind?.(user, params);
+    },
+  };
+}
 
-  return html;
+export function mountApp(container, user, route, params) {
+  const next = renderApp(user, route, params);
+  const nextKey = shellKey(user, next.route);
+  const layout = container.querySelector('.app-layout');
+  const contentEl = container.querySelector('.page-content');
+  const canReuse = Boolean(
+    layout
+    && contentEl
+    && lastShellKey === nextKey
+    && next.route !== 'nova-programacao',
+  );
+
+  if (lastBoundRoute === 'administracao' && next.route !== 'administracao') {
+    unbindAdministracao();
+  }
+
+  if (canReuse) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = next.html;
+    const newContent = tmp.querySelector('.page-content');
+    if (newContent) contentEl.innerHTML = newContent.innerHTML;
+    syncTopbarTitle(next.title);
+    syncSidebarChrome(user, next.route);
+    lastBoundRoute = next.route;
+    bindSoon(() => next.bindPage());
+    return;
+  }
+
+  lastShellKey = nextKey;
+  lastBoundRoute = next.route;
+  container.innerHTML = next.html;
+  bindSoon(() => {
+    next.bindLayout();
+    next.bindPage();
+  });
 }

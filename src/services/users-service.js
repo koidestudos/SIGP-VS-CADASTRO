@@ -61,8 +61,7 @@ export function subscribeAcessos(callback) {
 
 export function initUsersAdminSync() {
   if (!isFirebaseConfigured || !db) return;
-  if (unsubUsers) unsubUsers();
-  if (unsubAcessos) unsubAcessos();
+  if (unsubUsers && unsubAcessos) return;
 
   unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
     usersSyncError = '';

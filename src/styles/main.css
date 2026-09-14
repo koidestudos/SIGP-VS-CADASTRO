@@ -301,7 +301,7 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .calendar-event { font-size: 0.6875rem; padding: 2px 6px; border-radius: 4px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; background: var(--primary); }
 
 .tabs { display: flex; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; overflow-x: auto; }
-.tab { padding: 10px 20px; border: none; background: none; cursor: pointer; font-family: var(--font); font-size: 0.875rem; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+.tab { padding: 10px 20px; border: none; background: none; cursor: pointer; font-family: var(--font); font-size: 0.875rem; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: color 0.15s, border-color 0.15s, background 0.15s; }
 .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }

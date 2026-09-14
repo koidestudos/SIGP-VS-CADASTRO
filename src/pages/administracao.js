@@ -14,6 +14,19 @@ import { confirmDialog, toast, showModal } from '../components/ui.js';
 const ADMIN_TABS = ['coords', 'muns', 'regs', 'anexos', 'admins', 'contas'];
 const ADMIN_TAB_KEY = 'sigp-vs-admin-tab';
 
+let unsubAdminAnexos = null;
+let unsubAdminUsers = null;
+let unsubAdminAcessos = null;
+
+export function unbindAdministracao() {
+  unsubAdminAnexos?.();
+  unsubAdminUsers?.();
+  unsubAdminAcessos?.();
+  unsubAdminAnexos = null;
+  unsubAdminUsers = null;
+  unsubAdminAcessos = null;
+}
+
 function persistAdminTab(tab) {
   if (!ADMIN_TABS.includes(tab)) return;
   try { sessionStorage.setItem(ADMIN_TAB_KEY, tab); } catch { /* ignore */ }
@@ -398,6 +411,7 @@ async function formReg(id = null) {
 }
 
 export function bindAdministracao(user, params = []) {
+  unbindAdministracao();
   initUsersAdminSync();
 
   const refreshAnexosTable = () => {
@@ -514,13 +528,13 @@ export function bindAdministracao(user, params = []) {
     }
   });
 
-  subscribeAnexos(() => {
+  unsubAdminAnexos = subscribeAnexos(() => {
     if (document.querySelector('#tabela-anexos')) refreshAnexosTable();
   });
-  subscribeUsers(() => {
+  unsubAdminUsers = subscribeUsers(() => {
     if (document.getElementById('lista-contas')) refreshContasTables();
   });
-  subscribeAcessos(() => {
+  unsubAdminAcessos = subscribeAcessos(() => {
     if (document.querySelector('#tabela-acessos')) refreshContasTables();
   });
 
