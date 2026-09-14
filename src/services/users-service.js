@@ -5,6 +5,7 @@ import { db, isFirebaseConfigured } from '../firebase/config.js';
 
 let usersCache = [];
 let acessosCache = [];
+let usersSyncError = '';
 const userListeners = new Set();
 const acessoListeners = new Set();
 let unsubUsers = null;
@@ -20,6 +21,10 @@ function notifyAcessos() {
 
 export function getUsers() {
   return [...usersCache];
+}
+
+export function getUsersSyncError() {
+  return usersSyncError;
 }
 
 export function getUserById(uid) {
@@ -60,13 +65,20 @@ export function initUsersAdminSync() {
   if (unsubAcessos) unsubAcessos();
 
   unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+    usersSyncError = '';
     usersCache = snap.docs.map((d) => ({
       id: d.id,
       ...d.data(),
       ativo: d.data().ativo !== false,
     })).sort((a, b) => String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || ''), 'pt-BR'));
     notifyUsers();
-  }, (err) => console.error('Erro ao sincronizar usuários:', err));
+  }, (err) => {
+    console.error('Erro ao sincronizar usuários:', err);
+    usersSyncError = err?.code === 'permission-denied'
+      ? 'Sem permissão para listar as contas. Elas não foram apagadas — entre com um perfil Administrador ou Diretoria e atualize a página.'
+      : (err?.message || 'Erro ao carregar as contas.');
+    notifyUsers();
+  });
 
   unsubAcessos = onSnapshot(
     query(collection(db, 'acessos'), orderBy('criadoEm', 'desc'), limit(100)),

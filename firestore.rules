@@ -217,7 +217,10 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isDiretoria();
+      // get: a própria conta ou Diretoria/Admin. list separado para a consulta da aba Contas
+      // não falhar (regra com isOwner no list bloqueia a coleção inteira).
+      allow get: if isOwner(userId) || isDiretoria();
+      allow list: if isDiretoria();
 
       allow create: if isOwner(userId)
         && validUserProfile(request.resource.data)

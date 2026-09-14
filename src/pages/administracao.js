@@ -5,7 +5,7 @@ import {
 } from '../services/catalog-service.js';
 import { promoteUserToAdmin } from '../services/suporte-service.js';
 import {
-  getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync, setUserAccess,
+  getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync, setUserAccess, getUsersSyncError,
 } from '../services/users-service.js';
 import { isAdmin, canManageUsers, roleLabel, normalizeRole } from '../services/roles.js';
 import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
@@ -101,7 +101,11 @@ function renderContasRows(viewer) {
   const currentUid = viewer?.uid;
   const canManage = canManageUsers(viewer);
   if (!users.length) {
-    return '<div class="admin-empty">Nenhuma conta cadastrada ainda.</div>';
+    const syncError = getUsersSyncError();
+    if (syncError) {
+      return `<div class="alert alert-error">${esc(syncError)}</div>`;
+    }
+    return `<div class="admin-empty">Nenhuma conta carregada no momento. Se as pessoas ainda entram no sistema, as contas continuam no Firebase — atualize a página (Ctrl+F5).</div>`;
   }
   return `<div class="admin-account-list">${users.map((u) => {
     const ativo = u.ativo !== false;
