@@ -137,31 +137,8 @@ export function getStatusRowClass(status) {
 /** Opções de status que o usuário pode selecionar no dropdown */
 export function getStatusOptionsForUser(user, programacao) {
   const current = normalizeStatus(programacao?.status);
-  const role = user?.role;
-  const isOwner = programacao?.criadoPor === user?.uid;
-
-  if (role === 'admin') return [...STATUS_PROGRAMACAO];
-  if (role === 'diretoria') return [current];
-
-  if (role === 'gerencia') return [current];
-
-  if (!isOwner) return [current];
-
-  const coordOptions = {
-    Rascunho: ['Rascunho', STATUS_AGUARDANDO_GERENCIA],
-    [STATUS_AGUARDANDO_GERENCIA]: [STATUS_AGUARDANDO_GERENCIA],
-    [STATUS_DEVOLVIDA]: [STATUS_DEVOLVIDA, STATUS_REENVIADA],
-    [STATUS_REENVIADA]: [STATUS_REENVIADA],
-    [STATUS_APROVADA_GERENCIA]: [STATUS_APROVADA_GERENCIA],
-    Programada: ['Programada'],
-    Priorizada: ['Priorizada'],
-    Autorizada: ['Autorizada', 'Em execução', 'Realizada'],
-    'Em execução': ['Em execução', 'Realizada'],
-    Realizada: ['Realizada'],
-    Cancelada: ['Cancelada'],
-    Reprovada: ['Reprovada'],
-  };
-  return coordOptions[current] || [current];
+  if (user?.role === 'admin') return [...STATUS_PROGRAMACAO];
+  return [current];
 }
 
 export function filterForBI(programacoes) {

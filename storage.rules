@@ -6,9 +6,16 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email.lower() == 'sandgyferreira@gmail.com'
+        || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
     match /programacoes/{programacaoId}/{fileName} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn()
+      allow write: if isAdmin()
         && request.resource.size > 0
         && request.resource.size < 15 * 1024 * 1024;
     }

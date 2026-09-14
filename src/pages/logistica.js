@@ -5,7 +5,7 @@ import { STATUS_PROGRAMACAO } from '../utils/status.js';
 import { toast } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
-import { canSeeAuthor } from '../services/roles.js';
+import { canSeeAuthor, canUpdateLogistica } from '../services/roles.js';
 import {
   filterProgramacoes, readFilterState, getFilterDescription,
   renderProgramacoesFilterBar, bindProgramacoesFilterBar,
@@ -19,10 +19,11 @@ function getFilteredLogistica() {
   return logistica.filter((l) => filteredIds.has(l.programacaoId));
 }
 
-function renderRows(items) {
+function renderRows(items, user) {
   if (!items.length) {
     return '<tr><td colspan="7" class="text-center text-muted">Nenhuma solicitação para o filtro selecionado.</td></tr>';
   }
+  const canUpdate = canUpdateLogistica(user);
   return items.map((l) => {
     const prog = getProgramacaoRawById(l.programacaoId);
     return `
@@ -42,17 +43,17 @@ function renderRows(items) {
           <div class="table-actions">
             ${prog ? `<button class="btn-icon" title="Visualizar programação" data-view-prog="${l.programacaoId}">👁</button>` : ''}
             ${prog ? `<button class="btn-icon" title="Baixar PDF" data-pdf-prog="${l.programacaoId}">📄</button>` : ''}
-            <select class="form-control btn-sm" data-update-situacao="${l.id}" style="width:auto;padding:4px 8px">
+            ${canUpdate ? `<select class="form-control btn-sm" data-update-situacao="${l.id}" style="width:auto;padding:4px 8px">
               <option ${l.situacao === 'Solicitado' ? 'selected' : ''}>Solicitado</option>
               <option ${l.situacao === 'Confirmado' ? 'selected' : ''}>Confirmado</option>
-            </select>
+            </select>` : ''}
           </div>
         </td>
       </tr>`;
   }).join('');
 }
 
-export function renderLogistica() {
+export function renderLogistica(user) {
   const now = new Date();
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const items = getFilteredLogistica();
@@ -74,7 +75,7 @@ export function renderLogistica() {
             <thead>
               <tr><th>Programação</th><th>Gerência</th><th>Município</th><th>Transporte</th><th>Alimentação</th><th>Situação</th><th>Ações</th></tr>
             </thead>
-            <tbody>${renderRows(items)}</tbody>
+            <tbody>${renderRows(items, user)}</tbody>
           </table>
         </div>
       </div>
@@ -118,7 +119,7 @@ export function bindLogistica(user) {
   const refresh = () => {
     const items = getFilteredLogistica();
     const tbody = document.querySelector('#tabela-logistica tbody');
-    if (tbody) tbody.innerHTML = renderRows(items);
+    if (tbody) tbody.innerHTML = renderRows(items, user);
     const resumo = document.getElementById('filtro-log-resumo');
     if (resumo) {
       resumo.textContent = `${getFilterDescription(readFilterState(FILTER_KEY))} — ${items.length} solicitação(ões)`;

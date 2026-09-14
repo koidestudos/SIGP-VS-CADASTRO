@@ -3,7 +3,7 @@ import {
   canUploadAnexo, uploadProgramacaoAnexo, formatUploadError,
   getAnexosByProgramacao, canDeleteAnexo, deleteAnexo, openAnexo,
 } from '../services/anexos-service.js';
-import { canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin, canSeeAuthor, isGerencia, isDiretoria } from '../services/roles.js';
+import { canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin, canSeeAuthor, canCreateProgramacao } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
@@ -39,7 +39,7 @@ export function renderProgramacoes(user) {
       <h2>Programações</h2>
       <div class="page-header-actions">
         <button type="button" class="btn btn-outline" id="btn-modelo-anexo">Fazer modelo de anexo</button>
-        ${isGerencia(user) && !isDiretoria(user) ? '' : '<button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>'}
+        ${canCreateProgramacao(user) ? '<button class="btn btn-primary" id="btn-nova">+ Nova Programação</button>' : ''}
       </div>
     </div>
     ${renderProgramacoesFilterBar({
@@ -156,8 +156,8 @@ async function showAnexoDialog(prog, user) {
   while (reopen) {
     reopen = false;
     const existentes = getAnexosByProgramacao(prog.id);
-    const canUpload = canUploadAnexo(prog);
-    if (!canUpload && !existentes.length) {
+    const canUpload = canUploadAnexo(prog, user);
+    if (!canUpload && !existentes.length && isAdmin(user)) {
       toast('Não é possível anexar documentos em programações reprovadas ou canceladas.', 'error');
       return;
     }
@@ -169,7 +169,7 @@ async function showAnexoDialog(prog, user) {
       </div>
       <p class="text-sm text-muted mb-0 mt-2">Ao enviar, a programação será marcada como <strong>Realizada</strong>.</p>
       <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`
-      : '<p class="text-sm text-muted">Envio bloqueado para programações reprovadas ou canceladas. Você ainda pode excluir o seu anexo, se houver.</p>';
+      : `<p class="text-sm text-muted">${isAdmin(user) ? 'Envio bloqueado para programações reprovadas ou canceladas.' : 'Consulta apenas — somente a administradora envia ou exclui anexos.'}</p>`;
 
     const result = await showModal({
       title: 'Anexos da programação',
@@ -199,7 +199,7 @@ async function showAnexoDialog(prog, user) {
           const found = getAnexosByProgramacao(prog.id).find((a) => a.id === btn?.dataset?.anexoId);
           if (!found) { toast('Anexo não encontrado.', 'error'); return false; }
           if (!canDeleteAnexo(found, user)) {
-            toast('Você só pode excluir anexos que você enviou.', 'error');
+            toast('Somente a administradora pode excluir anexos.', 'error');
             return false;
           }
           if ((await confirmDialog(`Excluir o anexo "${found.nomeArquivo || 'arquivo'}"?`)) !== 'confirm') return false;

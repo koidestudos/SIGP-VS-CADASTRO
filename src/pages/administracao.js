@@ -129,7 +129,7 @@ function renderContasRows(viewer) {
     const roleEditor = canManage && !isSelf ? `
       <div class="admin-role-row">
         <select class="form-control btn-sm" data-set-role="${u.id}">
-          <option value="usuario" ${!u.role || u.role === 'usuario' ? 'selected' : ''}>Coordenação</option>
+          <option value="usuario" ${!u.role || u.role === 'usuario' ? 'selected' : ''}>Membro</option>
           <option value="gerencia" ${u.role === 'gerencia' ? 'selected' : ''}>Gerência</option>
           <option value="diretoria" ${u.role === 'diretoria' ? 'selected' : ''}>Diretoria</option>
           <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
@@ -267,7 +267,7 @@ export function renderAdministracao(user, params = []) {
         <div class="admin-panel-head">
           <div>
             <h3>Contas cadastradas</h3>
-            <p>Quem pode entrar no sistema. O administrador define o perfil: Coordenação, Gerência (GAS/GVS/GAP), Diretoria ou Administrador.</p>
+            <p>Quem pode entrar no sistema. O administrador define o perfil: Membro (só consulta), Gerência (GAS/GVS/GAP), Diretoria ou Administrador.</p>
           </div>
           <span class="admin-count">${usersCount}</span>
         </div>

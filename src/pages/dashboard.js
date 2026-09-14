@@ -7,7 +7,7 @@ import { proximasAcoes } from '../utils/bi-metrics.js';
 import { countByStatusGroup, filterForDashboard, normalizeStatus, getStatusRowClass } from '../utils/status.js';
 import { currentWeekRangeBR, nextWeekRangeBR, programacaoNaSemana, todayPartsBR } from '../utils/datetime-br.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
-import { canSeeAuthor, isGerencia, isDiretoria } from '../services/roles.js';
+import { canSeeAuthor, canCreateProgramacao } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -58,7 +58,7 @@ export function renderDashboard(user) {
     + (counts['Aprovada pela Gerência'] || 0);
   const realizadas = counts.Realizada || 0;
   const showAuthor = canSeeAuthor(user);
-  const hideNova = isGerencia(user) && !isDiretoria(user);
+  const hideNova = !canCreateProgramacao(user);
 
   const { year: anoAtual, month: mesNum } = todayPartsBR();
   const mesAtual = mesNum - 1;

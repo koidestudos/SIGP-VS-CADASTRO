@@ -8,8 +8,8 @@ import { initCatalogSync, seedCatalogIfEmpty, subscribeCatalog } from './service
 import { initNotificationsSync, subscribeNotifications } from './services/notifications-service.js';
 import { initAnexosSync, subscribeAnexos } from './services/anexos-service.js';
 import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './services/suporte-service.js';
-import { initUsersAdminSync, logUserAccess, subscribeUsers } from './services/users-service.js';
-import { setUserRole } from './services/roles.js';
+import { initUsersAdminSync, logUserAccess, subscribeUsers, applyAccessRoster } from './services/users-service.js';
+import { setUserRole, canManageUsers } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { mountApp, resetAppShell } from './app.js';
 import { isFirebaseConfigured } from './firebase/config.js';
@@ -199,6 +199,11 @@ subscribeAnexos(() => {
 });
 subscribeCatalog(() => { if (currentUser) scheduleRender(); });
 subscribeUsers(() => {
+  if (currentUser && canManageUsers(currentUser)) {
+    applyAccessRoster().then((changed) => {
+      if (changed > 0) toast(`${changed} conta(s) ajustada(s): gerentes e membros de consulta.`, 'success');
+    }).catch((err) => console.error('Falha ao aplicar papéis das contas:', err));
+  }
   if (!currentUser) return;
   if (currentRoute === 'administracao') return;
   scheduleRender();

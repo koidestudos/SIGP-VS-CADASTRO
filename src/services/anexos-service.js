@@ -7,7 +7,7 @@ import { auth } from '../firebase/config.js';
 import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorAnexo } from './programacoes-service.js';
 import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, isRealizada } from '../utils/status.js';
-import { isAdmin } from './roles.js';
+import { isAdmin, getUserRole } from './roles.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** Seguro abaixo do limite de 1 MB do documento Firestore */
@@ -111,8 +111,10 @@ export function formatUploadError(err) {
   return err?.message || 'Erro ao enviar anexo.';
 }
 
-export function canUploadAnexo(programacao) {
+export function canUploadAnexo(programacao, user) {
   if (!programacao?.id) return false;
+  const allowed = user ? isAdmin(user) : getUserRole() === 'admin';
+  if (!allowed) return false;
   return canAttachAnexo(programacao.status);
 }
 
@@ -361,11 +363,10 @@ export async function openAnexo(anexo) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-/** Admin ou quem enviou o anexo pode excluir. */
+/** Somente a administradora pode excluir anexos. */
 export function canDeleteAnexo(anexo, user) {
   if (!anexo || !user) return false;
-  if (isAdmin(user)) return true;
-  return Boolean(anexo.enviadoPor && anexo.enviadoPor === user.uid);
+  return isAdmin(user);
 }
 
 /**

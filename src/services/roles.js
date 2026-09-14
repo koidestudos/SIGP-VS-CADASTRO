@@ -1,6 +1,4 @@
-import { normalizeStatus, STATUS_DEVOLVIDA } from '../utils/status.js';
-
-/** Papéis: usuario (coordenação), gerencia, diretoria, admin */
+/** Papéis: usuario (membro, só leitura), gerencia, diretoria, admin */
 
 export const ROLE_USUARIO = 'usuario';
 export const ROLE_GERENCIA = 'gerencia';
@@ -59,6 +57,10 @@ export function isCoordenacao(user) {
   return roleOf(user) === ROLE_USUARIO;
 }
 
+export function isMembro(user) {
+  return isCoordenacao(user);
+}
+
 export function roleLabel(user) {
   const role = roleOf(user);
   if (role === ROLE_ADMIN) return 'Administrador';
@@ -69,11 +71,20 @@ export function roleLabel(user) {
       : currentGerencia;
     return g ? `Gerência ${g}` : 'Gerência';
   }
-  return 'Coordenação';
+  return 'Membro';
+}
+
+/** Cadastro/edição de programações, equipes e catálogo. */
+export function canCreateProgramacao(user) {
+  return isAdmin(user);
+}
+
+export function canUpdateLogistica(user) {
+  return isAdmin(user) || isGerencia(user);
 }
 
 export function canEdit(user) {
-  return Boolean(user);
+  return isAdmin(user);
 }
 
 export function programacaoGerencia(programacao) {
@@ -82,10 +93,7 @@ export function programacaoGerencia(programacao) {
 
 export function canEditProgramacao(user, programacao) {
   if (!user || !programacao) return false;
-  if (isAdmin(user)) return true;
-  if (programacao.criadoPor !== user.uid) return false;
-  const s = normalizeStatus(programacao.status);
-  return s === 'Rascunho' || s === STATUS_DEVOLVIDA;
+  return isAdmin(user);
 }
 
 export function canViewBI(user) {
@@ -125,10 +133,8 @@ export function canApprove(user, programacao) {
   return canApproveGerencia(user, programacao);
 }
 
-export function canDeleteProgramacao(user, programacao) {
-  if (!user) return false;
-  if (isAdmin(user)) return true;
-  return programacao?.criadoPor === user.uid;
+export function canDeleteProgramacao(user) {
+  return isAdmin(user);
 }
 
 export function canSeeAuthor(user) {

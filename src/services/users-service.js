@@ -2,6 +2,8 @@ import {
   collection, doc, getDoc, getDocs, onSnapshot, addDoc, updateDoc, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../firebase/config.js';
+import { resolveAccessRole } from '../config/access-roster.js';
+import { normalizeGerencia, normalizeRole } from './roles.js';
 
 let usersCache = [];
 let acessosCache = [];
@@ -148,6 +150,34 @@ export async function setUserAccess(uid, { role, gerencia = '', coordenacaoId = 
     coordenacaoId: nextRole === 'usuario' ? (coordenacaoId || '') : '',
     atualizadoEm: new Date().toISOString(),
   });
+}
+
+let rosterApplyPromise = null;
+
+/** Aplica Sandgy=admin, Bhassia/Joselma/Marylane=gerência e o restante=membro. */
+export async function applyAccessRoster(users = getUsers()) {
+  if (!db || !Array.isArray(users) || !users.length) return 0;
+  if (rosterApplyPromise) return rosterApplyPromise;
+  rosterApplyPromise = (async () => {
+    let changed = 0;
+    for (const u of users) {
+      if (!u?.id) continue;
+      const desired = resolveAccessRole(u);
+      const currentRole = normalizeRole(u.role);
+      const currentGer = normalizeGerencia(u.gerencia);
+      const nextRole = desired.role;
+      const nextGer = nextRole === 'gerencia' && currentRole === 'gerencia' && currentGer
+        ? currentGer
+        : desired.gerencia;
+      if (nextRole === currentRole && nextGer === currentGer) continue;
+      await setUserAccess(u.id, { role: nextRole, gerencia: nextGer });
+      changed += 1;
+    }
+    return changed;
+  })().finally(() => {
+    rosterApplyPromise = null;
+  });
+  return rosterApplyPromise;
 }
 
 /** E-mails que já acessaram antes (exceto o acesso mais recente do mesmo login) */

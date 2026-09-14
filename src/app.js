@@ -11,7 +11,7 @@ import { renderEquipes, bindEquipes } from './pages/equipes.js';
 import { renderBiGerencial, bindBiGerencial } from './pages/bi-gerencial.js';
 import { renderGerencias, bindGerencias } from './pages/gerencias.js';
 import { renderAdministracao, bindAdministracao, unbindAdministracao } from './pages/administracao.js';
-import { canAccessAdmin, canViewGerencias } from './services/roles.js';
+import { canAccessAdmin, canViewGerencias, canCreateProgramacao } from './services/roles.js';
 
 const PAGE_META = {
   dashboard: { title: 'Dashboard', render: renderDashboard, bind: bindDashboard },
@@ -73,6 +73,9 @@ export function renderApp(user, route, params) {
   }
   if (route === 'gerencias' && !canViewGerencias(user)) {
     route = 'dashboard';
+  }
+  if (route === 'nova-programacao' && !canCreateProgramacao(user)) {
+    route = 'programacoes';
   }
   if (route !== 'nova-programacao') {
     resetWizardSession();

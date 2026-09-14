@@ -5,6 +5,7 @@ import {
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
+import { resolveAccessRole } from '../config/access-roster.js';
 import { setUserRole, getUserRole, getUserGerencia, normalizeRole, normalizeGerencia } from './roles.js';
 import { notifyProgramacaoEnviada, notifyProgramacaoDevolvida, notifyProgramacaoAprovada } from './notifications-service.js';
 import { getUsers } from './users-service.js';
@@ -254,6 +255,9 @@ function applyEnvioMetadata(payload, prevStatus, isNew) {
 export async function saveProgramacao(data, existingId = null) {
   const database = requireDb();
   const uid = requireUser();
+  if (getUserRole() !== 'admin') {
+    throw new Error('Somente a administradora pode cadastrar ou editar programações.');
+  }
 
   if (existingId) {
     const ref = doc(database, 'programacoes', existingId);
@@ -352,6 +356,9 @@ export async function saveProgramacao(data, existingId = null) {
 export async function removeProgramacao(id) {
   const database = requireDb();
   requireUser();
+  if (getUserRole() !== 'admin') {
+    throw new Error('Somente a administradora pode excluir programações.');
+  }
   await deleteDoc(doc(database, 'programacoes', id));
   const logItem = logisticaCache.find((l) => l.programacaoId === id);
   if (logItem) await deleteDoc(doc(database, 'logistica', logItem.id));
@@ -518,6 +525,10 @@ async function syncLogisticaToFirestore(programacao) {
 export async function updateLogisticaSituacao(id, situacao) {
   const database = requireDb();
   requireUser();
+  const role = getUserRole();
+  if (role !== 'admin' && role !== 'gerencia') {
+    throw new Error('Membros não podem alterar a logística.');
+  }
   await updateDoc(doc(database, 'logistica', id), {
     situacao,
     atualizadoEm: new Date().toISOString(),
@@ -542,9 +553,18 @@ export async function upsertUserProfile(user) {
     payload.ativo = true;
     payload.criadoEm = new Date().toISOString();
   }
-  if (isBootstrapAdminEmail(user.email)) {
+  const desired = resolveAccessRole({ nome: payload.nome, email: payload.email });
+  if (desired.role === 'admin' || isBootstrapAdminEmail(user.email)) {
     payload.role = 'admin';
+    payload.gerencia = '';
     payload.ativo = true;
+  } else if (desired.role === 'gerencia') {
+    payload.role = 'gerencia';
+    const existingGer = existing.exists() ? normalizeGerencia(existing.data().gerencia) : '';
+    payload.gerencia = existingGer || desired.gerencia;
+  } else if (!existing.exists()) {
+    payload.role = 'usuario';
+    payload.gerencia = '';
   }
   await setDoc(ref, payload, { merge: true });
   const data = existing.exists() ? { ...existing.data(), ...payload } : payload;

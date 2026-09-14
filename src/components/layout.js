@@ -1,4 +1,4 @@
-import { canViewBI, canViewGerencias, canAccessAdmin, isGerencia, isDiretoria, roleLabel } from '../services/roles.js';
+import { canViewBI, canViewGerencias, canAccessAdmin, isGerencia, isDiretoria, roleLabel, canCreateProgramacao } from '../services/roles.js';
 import { getUnreadCountForUser, getNotificationsForUser, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteAllNotifications } from '../services/notifications-service.js';
 import {
   getOpenChats, fetchSuporteAdmins, getOrCreateUserChat, watchSuporteMessages,
@@ -47,7 +47,7 @@ export function renderSidebar(user, currentRoute) {
     }).length
     : 0;
   const navOperacional = NAV_OPERACIONAL.filter((item) => {
-    if (item.route === 'nova-programacao' && isGerencia(user) && !isDiretoria(user)) return false;
+    if (item.route === 'nova-programacao') return canCreateProgramacao(user);
     return true;
   });
   const navGerencial = NAV_GERENCIAL.filter((item) => {

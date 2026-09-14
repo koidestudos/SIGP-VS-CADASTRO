@@ -5,7 +5,7 @@ import {
 } from '../data/seed.js';
 import { showModal } from '../components/ui.js';
 import { normalizeStatus, isAutorizada, isRealizada } from '../utils/status.js';
-import { canSeeAuthor } from '../services/roles.js';
+import { canSeeAuthor, canCreateProgramacao } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -24,7 +24,7 @@ function currentDateStr() {
   return dateStr(calState.year, calState.month, calState.day);
 }
 
-export function renderCalendario() {
+export function renderCalendario(user) {
   return `
     <div class="cal-page">
       <div class="cal-page-header">
@@ -37,7 +37,7 @@ export function renderCalendario() {
             <button data-view="ano">Ano</button>
           </div>
         </div>
-        <button class="btn btn-primary" onclick="window.location.hash='nova-programacao'">+ Nova Programação</button>
+        ${canCreateProgramacao(user) ? '<button class="btn btn-primary" onclick="window.location.hash=\'nova-programacao\'">+ Nova Programação</button>' : ''}
       </div>
 
       <div class="calendar-toolbar">

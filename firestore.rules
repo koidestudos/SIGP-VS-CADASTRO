@@ -155,23 +155,6 @@ service cloud.firestore {
         );
     }
 
-    function isOwnerFlowUpdate() {
-      return isSignedIn()
-        && resource.data.criadoPor == request.auth.uid
-        && request.resource.data.criadoPor == resource.data.criadoPor
-        && validProgramacaoFields(request.resource.data)
-        && gerenciaMatchesCoordenacao(request.resource.data)
-        && (
-          (
-            resource.data.status in ['Rascunho']
-            && request.resource.data.status in ['Rascunho', 'Aguardando aprovação da Gerência']
-          )
-          || (
-            resource.data.status in ['Devolvida para correção']
-            && request.resource.data.status in ['Devolvida para correção', 'Reenviada para análise', 'Aguardando aprovação da Gerência']
-          )
-        );
-    }
     function isRealizadaPorAnexoUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'atualizadoEm'])
         && request.resource.data.status == 'Realizada'
@@ -182,14 +165,12 @@ service cloud.firestore {
     match /programacoes/{programacaoId} {
       allow read: if isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isAdmin()
         && validProgramacaoFields(request.resource.data)
         && gerenciaMatchesCoordenacao(request.resource.data)
         && request.resource.data.criadoPor == request.auth.uid;
 
-      allow update: if isSignedIn() && isRealizadaPorAnexoUpdate();
-
-      allow update: if isOwnerFlowUpdate();
+      allow update: if isAdmin() && isRealizadaPorAnexoUpdate();
 
       allow update: if isGerenciaDecisionUpdate();
 
@@ -197,14 +178,13 @@ service cloud.firestore {
         && validProgramacaoFields(request.resource.data)
         && request.resource.data.criadoPor == resource.data.criadoPor;
 
-      allow delete: if isSignedIn() && resource.data.criadoPor == request.auth.uid;
       allow delete: if isAdmin();
     }
 
     match /logistica/{logisticaId} {
       allow read: if isSignedIn();
 
-      allow create, update: if isSignedIn()
+      allow create: if isAdmin()
         && request.resource.data.keys().hasAll(['programacaoId', 'municipioId', 'situacao'])
         && request.resource.data.programacaoId is string
         && request.resource.data.municipioId is string
@@ -212,7 +192,14 @@ service cloud.firestore {
         && request.resource.data.transporte is bool
         && request.resource.data.alimentacao is bool;
 
-      allow delete: if isSignedIn();
+      allow update: if (isAdmin() || isGerenciaRole())
+        && request.resource.data.keys().hasAll(['programacaoId', 'municipioId', 'situacao'])
+        && request.resource.data.programacaoId is string
+        && request.resource.data.municipioId is string
+        && request.resource.data.situacao in ['Solicitado', 'Confirmado']
+        && request.resource.data.transporte is bool
+        && request.resource.data.alimentacao is bool;
+
       allow delete: if isAdmin();
     }
 
@@ -276,7 +263,7 @@ service cloud.firestore {
     match /programacao_anexos/{anexoId} {
       allow read: if isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isAdmin()
         && request.resource.data.keys().hasAll([
           'programacaoId', 'programacaoTitulo', 'nomeArquivo', 'storagePath',
           'downloadUrl', 'enviadoPor', 'enviadoPorNome', 'enviadoEm'
@@ -311,12 +298,11 @@ service cloud.firestore {
         ]);
 
       allow update: if isAdmin();
-      allow delete: if isAdmin()
-        || (isSignedIn() && resource.data.enviadoPor == request.auth.uid);
+      allow delete: if isAdmin();
 
       match /chunks/{chunkId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn()
+        allow create: if isAdmin()
           && request.resource.data.keys().hasAll(['index', 'data'])
           && request.resource.data.index is number
           && (
@@ -324,10 +310,7 @@ service cloud.firestore {
             || (request.resource.data.data is string && request.resource.data.data.size() <= 450000)
           );
         allow update: if isAdmin();
-        allow delete: if isAdmin()
-          || (isSignedIn()
-            && get(/databases/$(database)/documents/programacao_anexos/$(anexoId)).data.enviadoPor
-              == request.auth.uid);
+        allow delete: if isAdmin();
       }
     }
 
