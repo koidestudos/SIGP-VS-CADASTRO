@@ -11,9 +11,11 @@ import {
   renderProgramacoesFilterBar, bindProgramacoesFilterBar,
 } from '../utils/programacoes-filters.js';
 
+const FILTER_KEY = 'logistica';
+
 function getFilteredLogistica() {
   const logistica = getCollection('logistica');
-  const filteredIds = new Set(filterProgramacoes(getProgramacoes(), readFilterState()).map((p) => p.id));
+  const filteredIds = new Set(filterProgramacoes(getProgramacoes(), readFilterState(FILTER_KEY)).map((p) => p.id));
   return logistica.filter((l) => filteredIds.has(l.programacaoId));
 }
 
@@ -63,6 +65,7 @@ export function renderLogistica() {
       statusOptions: STATUS_PROGRAMACAO,
       resumoId: 'filtro-log-resumo',
       resumoText: `Exibindo ${items.length} solicitação(ões)`,
+      storageKey: FILTER_KEY,
     })}
     <div class="card">
       <div class="card-body">
@@ -118,12 +121,12 @@ export function bindLogistica(user) {
     if (tbody) tbody.innerHTML = renderRows(items);
     const resumo = document.getElementById('filtro-log-resumo');
     if (resumo) {
-      resumo.textContent = `${getFilterDescription()} — ${items.length} solicitação(ões)`;
+      resumo.textContent = `${getFilterDescription(readFilterState(FILTER_KEY))} — ${items.length} solicitação(ões)`;
     }
     bindRowActions(user);
   };
 
-  bindProgramacoesFilterBar(refresh);
+  bindProgramacoesFilterBar(refresh, FILTER_KEY);
   bindRowActions(user);
   refresh();
 }

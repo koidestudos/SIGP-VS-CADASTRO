@@ -40,7 +40,7 @@ function progGerencia(p) {
 }
 
 function extraFiltered(items) {
-  const state = readFilterState();
+  const state = readFilterState('gerencias');
   return filterProgramacoes(items, { ...state, gerencia: '' });
 }
 
@@ -104,6 +104,7 @@ export function renderGerencias(user, params = []) {
       statusOptions: STATUS_PROGRAMACAO,
       hideGerenciaFilter: true,
       resumoId: 'filtro-ger-resumo',
+      storageKey: 'gerencias',
       resumoText: `${isDiretoria(user) && !isGerencia(user) ? 'Filtros da Diretoria (Coordenação + Status + Período) — ' : ''}Exibindo ${items.length} programação(ões)`,
     })}
     <div class="card gerencia-queue-card">
@@ -225,9 +226,9 @@ export function bindGerencias(user, params = []) {
     const tbody = document.querySelector('.gerencia-table tbody');
     if (tbody) tbody.innerHTML = renderGerenciaRows(items, user, sub);
     const resumo = document.getElementById('filtro-ger-resumo');
-    if (resumo) resumo.textContent = `${getFilterDescription()} — ${items.length} programação(ões)`;
+    if (resumo) resumo.textContent = `${getFilterDescription(readFilterState('gerencias'))} — ${items.length} programação(ões)`;
   };
-  bindProgramacoesFilterBar(refresh);
+  bindProgramacoesFilterBar(refresh, 'gerencias');
 
   document.getElementById('gerencia-tabs')?.querySelectorAll('[data-ger-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {

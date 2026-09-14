@@ -20,6 +20,9 @@ import {
   isDiretoria,
   isGerencia,
   isCoordenacao,
+  isAdmin,
+  roleLabel,
+  setUserRole,
 } from '../src/services/roles.js';
 
 function assert(cond, msg) {
@@ -56,6 +59,15 @@ assert(canEditProgramacao(coord, rascunho) && canEditProgramacao(coord, devolvid
 assert(!canEditProgramacao(coord, progGas), 'coord não edita pendente');
 assert(canAccessAdmin(dir) && canAccessAdmin(adm) && !canAccessAdmin(gas), 'admin page');
 assert(canManageUsers(adm) && !canManageUsers(dir), 'só admin gerencia contas');
+
+setUserRole('admin', { gerencia: 'GAS' });
+assert(!isAdmin(coord), 'admin logado não transforma outra conta em admin');
+assert(!isGerencia(coord), 'gerência atual não vaza para outra conta');
+assert(roleLabel(coord) === 'Coordenação', 'rótulo usa o papel da conta, não o de quem está logado');
+assert(roleLabel({ email: 'a@b.com' }) === 'Coordenação', 'conta sem role é coordenação');
+assert(isAdmin(adm), 'admin continua admin');
+assert(roleLabel(gas) === 'Gerência GAS', 'gerência mantém o próprio rótulo');
+setUserRole('usuario');
 
 const sendOpts = getStatusOptionsForUser(coord, rascunho);
 assert(sendOpts.includes(STATUS_AGUARDANDO_GERENCIA), 'coord envia para gerência');

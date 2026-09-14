@@ -22,13 +22,17 @@ import {
 } from '../utils/modelo-anexo-pdf.js';
 import {
   filterProgramacoes, readFilterState, getFilterDescription,
-  renderProgramacoesFilterBar, bindProgramacoesFilterBar,
+  renderProgramacoesFilterBar, bindProgramacoesFilterBar, persistCurrentFilters,
 } from '../utils/programacoes-filters.js';
+
+const FILTER_KEY = 'programacoes';
 
 export function renderProgramacoes(user) {
   const now = new Date();
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const showAuthor = canSeeAuthor(user);
+  const filterState = readFilterState(FILTER_KEY);
+  const items = filterProgramacoes(getProgramacoes(), filterState);
 
   return `
     <div class="page-header">
@@ -42,6 +46,8 @@ export function renderProgramacoes(user) {
       mesAtual,
       showPdfButton: true,
       statusOptions: STATUS_PROGRAMACAO,
+      storageKey: FILTER_KEY,
+      resumoText: `${getFilterDescription(filterState)} — ${items.length} programação(ões)`,
     })}
     <div class="card prog-list-card"><div class="card-body"><div class="table-wrapper prog-table-wrap">
       <table id="tabela-programacoes" class="prog-table${showAuthor ? ' prog-table-admin' : ''}"><thead><tr>
@@ -55,7 +61,7 @@ export function renderProgramacoes(user) {
         ${showAuthor ? '<th class="col-incluido">Incluído por</th>' : ''}
         <th class="col-status">Status</th>
         <th class="col-acoes">Ações</th>
-      </tr></thead><tbody>${renderRows(getProgramacoes(), user)}</tbody></table>
+      </tr></thead><tbody>${renderRows(items, user)}</tbody></table>
     </div></div></div>`;
 }
 
@@ -343,20 +349,20 @@ export function bindProgramacoes(user) {
   if (table) table.dataset.bound = '1';
 
   const refresh = () => {
-    const items = filterProgramacoes(getProgramacoes());
+    const state = readFilterState(FILTER_KEY);
+    const items = filterProgramacoes(getProgramacoes(), state);
     const tbody = document.querySelector('#tabela-programacoes tbody');
     if (tbody) tbody.innerHTML = renderRows(items, user);
     const resumo = document.getElementById('filtro-resumo');
     if (resumo) {
-      const desc = getFilterDescription();
-      resumo.textContent = `${desc} — ${items.length} programação(ões)`;
+      resumo.textContent = `${getFilterDescription(state)} — ${items.length} programação(ões)`;
     }
   };
 
-  bindProgramacoesFilterBar(refresh);
+  bindProgramacoesFilterBar(refresh, FILTER_KEY);
 
   document.getElementById('btn-download-filtro')?.addEventListener('click', async () => {
-    const state = readFilterState();
+    const state = readFilterState(FILTER_KEY);
     const items = filterProgramacoes(getProgramacoes(), state);
     if (state.tipo === 'intervalo' && (!state.dataIni || !state.dataFim)) {
       toast('Informe as datas De e Até.', 'error');
@@ -391,7 +397,10 @@ export function bindProgramacoes(user) {
     }
   });
 
-  document.getElementById('btn-nova')?.addEventListener('click', () => { window.location.hash = 'nova-programacao'; });
+  document.getElementById('btn-nova')?.addEventListener('click', () => {
+    persistCurrentFilters(FILTER_KEY);
+    window.location.hash = 'nova-programacao';
+  });
   document.getElementById('btn-modelo-anexo')?.addEventListener('click', () => { showModeloAnexoDialog(user); });
   document.getElementById('tabela-programacoes')?.addEventListener('change', async (e) => {
     const sel = e.target.closest('[data-status-id]');
@@ -422,9 +431,13 @@ export function bindProgramacoes(user) {
     }
     if (action === 'edit') {
       if (!canEditProgramacao(user, prog)) { toast('Você só pode editar suas próprias programações.', 'error'); return; }
+      persistCurrentFilters(FILTER_KEY);
       window.location.hash = `nova-programacao/edit/${id}`;
     }
-    if (action === 'duplicate') window.location.hash = `nova-programacao/duplicate/${id}`;
+    if (action === 'duplicate') {
+      persistCurrentFilters(FILTER_KEY);
+      window.location.hash = `nova-programacao/duplicate/${id}`;
+    }
     if (action === 'delete' && (await confirmDialog('Excluir programação?')) === 'confirm') {
       await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
     }

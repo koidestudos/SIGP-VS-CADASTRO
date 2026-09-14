@@ -37,28 +37,36 @@ export function getUserGerencia() {
   return currentGerencia;
 }
 
+function roleOf(user) {
+  if (user && typeof user === 'object') return normalizeRole(user.role);
+  return currentRole;
+}
+
 export function isAdmin(user) {
-  return user?.role === ROLE_ADMIN || currentRole === ROLE_ADMIN;
+  return roleOf(user) === ROLE_ADMIN;
 }
 
 export function isDiretoria(user) {
-  return isAdmin(user) || user?.role === ROLE_DIRETORIA || currentRole === ROLE_DIRETORIA;
+  const role = roleOf(user);
+  return role === ROLE_ADMIN || role === ROLE_DIRETORIA;
 }
 
 export function isGerencia(user) {
-  return user?.role === ROLE_GERENCIA || currentRole === ROLE_GERENCIA;
+  return roleOf(user) === ROLE_GERENCIA;
 }
 
 export function isCoordenacao(user) {
-  return !isAdmin(user) && !isDiretoria(user) && !isGerencia(user);
+  return roleOf(user) === ROLE_USUARIO;
 }
 
 export function roleLabel(user) {
-  const role = user?.role || currentRole;
+  const role = roleOf(user);
   if (role === ROLE_ADMIN) return 'Administrador';
   if (role === ROLE_DIRETORIA) return 'Diretoria';
   if (role === ROLE_GERENCIA) {
-    const g = user?.gerencia || currentGerencia;
+    const g = user && typeof user === 'object'
+      ? normalizeGerencia(user.gerencia)
+      : currentGerencia;
     return g ? `Gerência ${g}` : 'Gerência';
   }
   return 'Coordenação';

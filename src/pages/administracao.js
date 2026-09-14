@@ -7,9 +7,39 @@ import { promoteUserToAdmin } from '../services/suporte-service.js';
 import {
   getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync, setUserAccess,
 } from '../services/users-service.js';
-import { isAdmin, canManageUsers, roleLabel } from '../services/roles.js';
+import { isAdmin, canManageUsers, roleLabel, normalizeRole } from '../services/roles.js';
 import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
+
+const ADMIN_TABS = ['coords', 'muns', 'regs', 'anexos', 'admins', 'contas'];
+const ADMIN_TAB_KEY = 'sigp-vs-admin-tab';
+
+function persistAdminTab(tab) {
+  if (!ADMIN_TABS.includes(tab)) return;
+  try { sessionStorage.setItem(ADMIN_TAB_KEY, tab); } catch { /* ignore */ }
+}
+
+function resolveAdminTab(params = []) {
+  const fromHash = params[0];
+  if (ADMIN_TABS.includes(fromHash)) {
+    persistAdminTab(fromHash);
+    return fromHash;
+  }
+  try {
+    const saved = sessionStorage.getItem(ADMIN_TAB_KEY);
+    if (ADMIN_TABS.includes(saved)) return saved;
+  } catch { /* ignore */ }
+  return 'coords';
+}
+
+function goAdminTab(tab) {
+  const next = ADMIN_TABS.includes(tab) ? tab : 'coords';
+  persistAdminTab(next);
+  const hash = `administracao/${next}`;
+  if (window.location.hash.slice(1) !== hash) {
+    window.location.hash = hash;
+  }
+}
 
 function esc(s) {
   return String(s ?? '')
@@ -75,7 +105,7 @@ function renderContasRows(viewer) {
   }
   return `<div class="admin-account-list">${users.map((u) => {
     const ativo = u.ativo !== false;
-    const role = roleLabel(u);
+    const role = roleLabel({ role: normalizeRole(u.role), gerencia: u.gerencia });
     const isSelf = u.id === currentUid;
     const initials = String(u.nome || u.email || '?')
       .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '?';
@@ -141,9 +171,7 @@ function renderAcessosRows() {
 }
 
 export function renderAdministracao(user, params = []) {
-  const tabParam = params[0];
-  const known = ['coords', 'muns', 'regs', 'anexos', 'admins', 'contas'];
-  const activeTab = known.includes(tabParam) ? tabParam : 'coords';
+  const activeTab = resolveAdminTab(params);
   const coordenacoes = getCollection('coordenacoes');
   const municipios = getCollection('municipios');
   const regionais = getCollection('regionais');
@@ -311,7 +339,7 @@ async function formCoord(id = null) {
   if (action !== 'save' || !payload) return;
   await saveCoordenacao(payload, id);
   toast('Coordenação salva.', 'success');
-  window.location.hash = 'administracao';
+  goAdminTab('coords');
 }
 
 async function formMun(id = null) {
@@ -338,7 +366,7 @@ async function formMun(id = null) {
   if (action !== 'save' || !payload) return;
   await saveMunicipio(payload, id);
   toast('Município salvo.', 'success');
-  window.location.hash = 'administracao';
+  goAdminTab('muns');
 }
 
 async function formReg(id = null) {
@@ -362,7 +390,7 @@ async function formReg(id = null) {
   if (action !== 'save' || !payload) return;
   await saveRegional(payload, id);
   toast('Regional salva.', 'success');
-  window.location.hash = 'administracao';
+  goAdminTab('regs');
 }
 
 export function bindAdministracao(user, params = []) {
@@ -387,8 +415,8 @@ export function bindAdministracao(user, params = []) {
     });
   };
 
-  if (params[0] === 'anexos') refreshAnexosTable();
-  if (params[0] === 'contas') refreshContasTables();
+  if (resolveAdminTab(params) === 'anexos') refreshAnexosTable();
+  if (resolveAdminTab(params) === 'contas') refreshContasTables();
 
   document.getElementById('btn-reimport-seed')?.addEventListener('click', async () => {
     if ((await confirmDialog('Reimportar todas as viagens da planilha Excel? Itens existentes serão atualizados.')) !== 'confirm') return;
@@ -411,13 +439,7 @@ export function bindAdministracao(user, params = []) {
   });
   document.getElementById('admin-tabs')?.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
-      const tabs = document.getElementById('admin-tabs');
-      tabs.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      tabs.parentElement.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
-      tab.classList.add('active');
-      tabs.parentElement.querySelector(`[data-tab-content="${tab.dataset.tab}"]`)?.classList.add('active');
-      if (tab.dataset.tab === 'anexos') refreshAnexosTable();
-      if (tab.dataset.tab === 'contas') refreshContasTables();
+      goAdminTab(tab.dataset.tab);
     });
   });
   document.getElementById('btn-promote-admin')?.addEventListener('click', async () => {
@@ -439,13 +461,13 @@ export function bindAdministracao(user, params = []) {
   document.querySelectorAll('[data-edit-mun]').forEach((b) => b.addEventListener('click', () => formMun(b.dataset.editMun)));
   document.querySelectorAll('[data-edit-reg]').forEach((b) => b.addEventListener('click', () => formReg(b.dataset.editReg)));
   document.querySelectorAll('[data-del-coord]').forEach((b) => b.addEventListener('click', async () => {
-    if ((await confirmDialog('Excluir coordenação?')) === 'confirm') { await removeCoordenacao(b.dataset.delCoord); toast('Excluída.', 'success'); window.location.hash = 'administracao'; }
+    if ((await confirmDialog('Excluir coordenação?')) === 'confirm') { await removeCoordenacao(b.dataset.delCoord); toast('Excluída.', 'success'); goAdminTab('coords'); }
   }));
   document.querySelectorAll('[data-del-mun]').forEach((b) => b.addEventListener('click', async () => {
-    if ((await confirmDialog('Excluir município?')) === 'confirm') { await removeMunicipio(b.dataset.delMun); toast('Excluído.', 'success'); window.location.hash = 'administracao'; }
+    if ((await confirmDialog('Excluir município?')) === 'confirm') { await removeMunicipio(b.dataset.delMun); toast('Excluído.', 'success'); goAdminTab('muns'); }
   }));
   document.querySelectorAll('[data-del-reg]').forEach((b) => b.addEventListener('click', async () => {
-    if ((await confirmDialog('Excluir regional?')) === 'confirm') { await removeRegional(b.dataset.delReg); toast('Excluída.', 'success'); window.location.hash = 'administracao'; }
+    if ((await confirmDialog('Excluir regional?')) === 'confirm') { await removeRegional(b.dataset.delReg); toast('Excluída.', 'success'); goAdminTab('regs'); }
   }));
 
   document.querySelector('[data-tab-content="contas"]')?.addEventListener('change', async (e) => {
