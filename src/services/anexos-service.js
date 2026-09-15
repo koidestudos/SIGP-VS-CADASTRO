@@ -7,7 +7,7 @@ import { auth } from '../firebase/config.js';
 import { getProgramacaoById, getProgramacaoRawById, markProgramacaoRealizadaPorAnexo } from './programacoes-service.js';
 import { notifyProgramacaoAnexo } from './notifications-service.js';
 import { canAttachAnexo, isRealizada } from '../utils/status.js';
-import { isAdmin, getUserRole } from './roles.js';
+import { isAdmin, getUserRole, isAutorDaProgramacao } from './roles.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** Seguro abaixo do limite de 1 MB do documento Firestore */
@@ -113,7 +113,8 @@ export function formatUploadError(err) {
 
 export function canUploadAnexo(programacao, user) {
   if (!programacao?.id) return false;
-  const allowed = user ? isAdmin(user) : getUserRole() === 'admin';
+  const actor = user || { uid: '', role: getUserRole() };
+  const allowed = isAdmin(actor) || isAutorDaProgramacao(actor, programacao);
   if (!allowed) return false;
   return canAttachAnexo(programacao.status);
 }
@@ -215,8 +216,8 @@ export async function uploadProgramacaoAnexo(programacaoId, file, options = {}) 
   const programacao = getProgramacaoById(programacaoId) || getProgramacaoRawById(programacaoId);
   if (!programacao) throw new Error('Programação não encontrada.');
 
-  if (!canUploadAnexo(programacao)) {
-    throw new Error('Não é possível anexar documentos em programações reprovadas ou canceladas.');
+  if (!canUploadAnexo(programacao, { uid: user.uid, role: getUserRole() })) {
+    throw new Error('Não é possível anexar documentos nesta programação.');
   }
   if (!file) throw new Error('Selecione um arquivo.');
   if (file.size > MAX_FILE_SIZE) throw new Error('Arquivo muito grande (máx. 10 MB).');

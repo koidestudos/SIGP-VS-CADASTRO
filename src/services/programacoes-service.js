@@ -6,16 +6,17 @@ import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { resolveAccessRole } from '../config/access-roster.js';
-import { setUserRole, getUserRole, getUserGerencia, normalizeRole, normalizeGerencia } from './roles.js';
+import { setUserRole, getUserRole, getUserGerencia, normalizeRole, normalizeGerencia, canCreateProgramacao, canEditProgramacao, canChangeProgramacaoStatus, MSG_EDICAO_NEGADA, MSG_PRIORIZADA_SEMANA, programacaoGerencia } from './roles.js';
 import { notifyProgramacaoEnviada, notifyProgramacaoDevolvida, notifyProgramacaoAprovada } from './notifications-service.js';
 import { getUsers } from './users-service.js';
 import {
-  normalizeStatus, canAttachAnexo,
+  normalizeStatus, canAttachAnexo, statusRequiresJustificativa,
   STATUS_AGUARDANDO_GERENCIA, STATUS_DEVOLVIDA, STATUS_REENVIADA, STATUS_APROVADA_GERENCIA,
   isPendenteGerencia,
 } from '../utils/status.js';
 import { getCoordenacaoById } from '../data/seed.js';
 import { appendHistorico, makeHistoricoEntry, currentActorMeta } from '../utils/programacao-historico.js';
+import { findPriorizadaConflito } from '../utils/programacao-prioridade.js';
 
 const SEED_IMPORT_KEY = 'sigp-seed-xlsx-v5';
 const MIN_PROGRAMACAO_DATE = '2026-07-01';
@@ -60,6 +61,48 @@ function requireUser() {
   return uid;
 }
 
+function actorUser() {
+  return {
+    uid: auth?.currentUser?.uid || '',
+    role: getUserRole(),
+    gerencia: getUserGerencia(),
+    perfil: getUserRole(),
+    gerenciaId: getUserGerencia(),
+  };
+}
+
+function canSendToGerencia(prevStatus, nextStatus) {
+  const prev = normalizeStatus(prevStatus);
+  const next = normalizeStatus(nextStatus);
+  const sending = next === STATUS_AGUARDANDO_GERENCIA || next === STATUS_REENVIADA;
+  if (!sending) return false;
+  return prev === 'Rascunho'
+    || prev === STATUS_DEVOLVIDA
+    || prev === STATUS_AGUARDANDO_GERENCIA
+    || prev === STATUS_REENVIADA;
+}
+
+function applyStatusActor(payload, prevStatus) {
+  if (normalizeStatus(payload.status) === normalizeStatus(prevStatus)) return payload;
+  const actor = currentActorMeta();
+  payload.statusAlteradoPorUid = actor.uid;
+  payload.statusAlteradoPorNome = actor.nome;
+  payload.statusAlteradoEm = new Date().toISOString();
+  return payload;
+}
+
+function assertPriorizadaUnica(payload, excludeId, { forcePriorizada = false } = {}) {
+  if (normalizeStatus(payload.status) !== 'Priorizada') return;
+  const conflito = findPriorizadaConflito(programacoesCache, {
+    gerencia: payload.gerencia || payload.gerenciaId,
+    dataInicial: payload.dataInicial,
+    excludeId,
+  });
+  if (!conflito) return;
+  if (getUserRole() === 'admin' && forcePriorizada) return;
+  throw new Error(MSG_PRIORIZADA_SEMANA);
+}
+
 function currentAuthorMeta() {
   const u = auth?.currentUser;
   return {
@@ -70,9 +113,12 @@ function currentAuthorMeta() {
 
 function resolveAuthorMeta(data, uid, isNew) {
   const me = currentAuthorMeta();
-  const authorUid = isNew ? uid : (data.criadoPor || uid);
-  let nome = isNew ? me.nome : String(data.criadoPorNome || '').trim();
-  let email = isNew ? me.email : String(data.criadoPorEmail || '').trim();
+  if (isNew) {
+    return { uid, nome: me.nome, email: me.email };
+  }
+  const authorUid = String(data.criadoPorUid || data.criadoPor || '').trim();
+  let nome = String(data.criadoPorNome || '').trim();
+  let email = String(data.criadoPorEmail || '').trim();
 
   if (!isNew && (!nome || !email)) {
     if (authorUid === uid) {
@@ -193,7 +239,9 @@ function sanitizeProgramacao(data, uid, isNew) {
     observacoes: data.observacoes || '',
     status: data.status || 'Rascunho',
     gerencia: resolveGerenciaFromData(data),
+    gerenciaId: resolveGerenciaFromData(data),
     criadoPor: author.uid,
+    criadoPorUid: author.uid,
     criadoPorNome: author.nome,
     criadoPorEmail: author.email,
     historico: Array.isArray(data.historico) ? data.historico.slice(-50) : [],
@@ -207,6 +255,9 @@ function sanitizeProgramacao(data, uid, isNew) {
     devolvidoPorNome: data.devolvidoPorNome || '',
     devolvidoEm: data.devolvidoEm || '',
     justificativaDevolucao: data.justificativaDevolucao || '',
+    statusAlteradoPorUid: data.statusAlteradoPorUid || '',
+    statusAlteradoPorNome: data.statusAlteradoPorNome || '',
+    statusAlteradoEm: data.statusAlteradoEm || '',
     atualizadoEm: new Date().toISOString(),
   };
   if (isNew) {
@@ -252,12 +303,19 @@ function applyEnvioMetadata(payload, prevStatus, isNew) {
   return { notifiedEnvio: sending && prev !== next };
 }
 
-export async function saveProgramacao(data, existingId = null) {
+function assertEquipeAndGerencia(payload, nextStatus) {
+  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
+    throw new Error('Informe pelo menos um participante na equipe.');
+  }
+  if ((nextStatus === STATUS_AGUARDANDO_GERENCIA || nextStatus === STATUS_REENVIADA) && !payload.gerencia) {
+    throw new Error('A coordenação precisa estar vinculada a uma Gerência (GAS, GVS ou GAP).');
+  }
+}
+
+export async function saveProgramacao(data, existingId = null, extra = {}) {
   const database = requireDb();
   const uid = requireUser();
-  if (getUserRole() !== 'admin') {
-    throw new Error('Somente a administradora pode cadastrar ou editar programações.');
-  }
+  const actor = actorUser();
 
   if (existingId) {
     const ref = doc(database, 'programacoes', existingId);
@@ -265,11 +323,9 @@ export async function saveProgramacao(data, existingId = null) {
     if (!snap.exists()) {
       throw new Error('Programação não encontrada. Pode ter sido removida por outro usuário.');
     }
-    const server = snap.data();
-    const isOwner = server.criadoPor === uid;
-    const isAdminUser = getUserRole() === 'admin';
-    if (!isOwner && !isAdminUser) {
-      throw new Error('Você só pode editar suas próprias programações.');
+    const server = { id: existingId, ...snap.data() };
+    if (!canEditProgramacao(actor, server)) {
+      throw new Error(MSG_EDICAO_NEGADA);
     }
     if (data.baseAtualizadoEm && server.atualizadoEm && data.baseAtualizadoEm !== server.atualizadoEm) {
       throw new Error('Esta programação foi alterada por outra pessoa. Recarregue a página e tente novamente.');
@@ -278,9 +334,10 @@ export async function saveProgramacao(data, existingId = null) {
     const payload = sanitizeProgramacao({
       ...server,
       ...data,
-      criadoPor: server.criadoPor,
-      criadoPorNome: data.criadoPorNome || server.criadoPorNome,
-      criadoPorEmail: data.criadoPorEmail || server.criadoPorEmail,
+      criadoPor: server.criadoPor || server.criadoPorUid || '',
+      criadoPorUid: server.criadoPorUid || server.criadoPor || '',
+      criadoPorNome: server.criadoPorNome || data.criadoPorNome,
+      criadoPorEmail: server.criadoPorEmail || data.criadoPorEmail,
       historico: server.historico,
       enviadoEm: server.enviadoEm,
       enviadoPor: server.enviadoPor,
@@ -292,17 +349,33 @@ export async function saveProgramacao(data, existingId = null) {
       devolvidoPorNome: server.devolvidoPorNome,
       devolvidoEm: server.devolvidoEm,
       justificativaDevolucao: server.justificativaDevolucao,
+      statusAlteradoPorUid: server.statusAlteradoPorUid,
+      statusAlteradoPorNome: server.statusAlteradoPorNome,
+      statusAlteradoEm: server.statusAlteradoEm,
+      gerencia: server.gerencia || data.gerencia,
     }, uid, false);
-    const prevStatus = normalizeStatus(server.status);
-    const { notifiedEnvio } = applyEnvioMetadata(payload, prevStatus, false);
-    const nextStatus = normalizeStatus(payload.status);
 
-    if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
-      throw new Error('Informe pelo menos um participante na equipe.');
+    const prevStatus = normalizeStatus(server.status);
+    const requested = normalizeStatus(data.status);
+    if (getUserRole() !== 'admin') {
+      if (canSendToGerencia(prevStatus, requested)) {
+        payload.status = requested;
+      } else {
+        payload.status = server.status;
+      }
     }
-    if ((nextStatus === STATUS_AGUARDANDO_GERENCIA || nextStatus === STATUS_REENVIADA) && !payload.gerencia) {
-      throw new Error('A coordenação precisa estar vinculada a uma Gerência (GAS, GVS ou GAP).');
-    }
+
+    const { notifiedEnvio } = applyEnvioMetadata(payload, prevStatus, false);
+    applyStatusActor(payload, prevStatus);
+    const nextStatus = normalizeStatus(payload.status);
+    payload.historico = appendHistorico(payload.historico, makeHistoricoEntry({
+      tipo: 'edicao',
+      statusAnterior: prevStatus,
+      statusNovo: nextStatus,
+      gerencia: payload.gerencia,
+    }));
+    assertEquipeAndGerencia(payload, nextStatus);
+    assertPriorizadaUnica(payload, existingId, extra);
 
     await updateDoc(ref, payload);
     const saved = { id: existingId, ...payload };
@@ -321,16 +394,16 @@ export async function saveProgramacao(data, existingId = null) {
     return saved;
   }
 
-  const payload = sanitizeProgramacao(data, uid, true);
-  const { notifiedEnvio } = applyEnvioMetadata(payload, '', true);
-  const nextStatus = normalizeStatus(payload.status);
+  if (!canCreateProgramacao(actor)) {
+    throw new Error('Você não possui permissão para incluir programações.');
+  }
 
-  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada' && (!payload.equipe || payload.equipe.length < 1)) {
-    throw new Error('Informe pelo menos um participante na equipe.');
-  }
-  if ((nextStatus === STATUS_AGUARDANDO_GERENCIA || nextStatus === STATUS_REENVIADA) && !payload.gerencia) {
-    throw new Error('A coordenação precisa estar vinculada a uma Gerência (GAS, GVS ou GAP).');
-  }
+  const payload = sanitizeProgramacao({ ...data, criadoPor: uid, criadoPorUid: uid }, uid, true);
+  const { notifiedEnvio } = applyEnvioMetadata(payload, '', true);
+  applyStatusActor(payload, '');
+  const nextStatus = normalizeStatus(payload.status);
+  assertEquipeAndGerencia(payload, nextStatus);
+  assertPriorizadaUnica(payload, null, extra);
 
   const { criadoEm, ...createPayload } = payload;
   const ref = await addDoc(collection(database, 'programacoes'), {
@@ -369,9 +442,15 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   const database = requireDb();
   requireUser();
   const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
-  if (!prog) return null;
+  if (!prog) throw new Error('Programação não encontrada.');
+  if (!canChangeProgramacaoStatus(actorUser(), prog)) {
+    throw new Error('Você não possui permissão para alterar o status desta programação.');
+  }
 
   const nextStatus = normalizeStatus(status);
+  const prevStatus = normalizeStatus(prog.status);
+  if (nextStatus === prevStatus) return { ...prog };
+
   if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
     const equipe = prog.equipe || [];
     if (!equipe.length) {
@@ -379,21 +458,28 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
     }
   }
 
-  const prevStatus = normalizeStatus(prog.status);
+  const observacao = String(extra.observacao || extra.justificativaDevolucao || '').trim();
+  if (statusRequiresJustificativa(nextStatus) && !observacao) {
+    throw new Error('Informe a justificativa ou observação para este status.');
+  }
+
+  const gerencia = programacaoGerencia(prog) || resolveGerenciaFromData(prog);
   const historico = appendHistorico(prog.historico, makeHistoricoEntry({
     tipo: extra.historicoTipo || 'status',
     statusAnterior: prevStatus,
     statusNovo: nextStatus,
-    observacao: extra.observacao || extra.justificativaDevolucao || '',
-    gerencia: prog.gerencia || resolveGerenciaFromData(prog),
+    observacao,
+    gerencia,
   }));
-  const { historicoTipo, observacao, ...restExtra } = extra;
+  const { historicoTipo, observacao: _obs, forcePriorizada, ...restExtra } = extra;
   const patch = {
     status: nextStatus,
     atualizadoEm: new Date().toISOString(),
     historico,
     ...restExtra,
   };
+  applyStatusActor(patch, prevStatus);
+  assertPriorizadaUnica({ ...prog, ...patch, gerencia, gerenciaId: gerencia }, id, { forcePriorizada });
   await updateDoc(doc(database, 'programacoes', id), patch);
   return { ...prog, ...patch };
 }
@@ -409,8 +495,8 @@ export async function rejectProgramacao(id) {
   return patchProgramacaoStatus(id, 'Reprovada', { historicoTipo: 'status' });
 }
 
-export async function updateProgramacaoStatus(id, status) {
-  return patchProgramacaoStatus(id, status);
+export async function updateProgramacaoStatus(id, status, extra = {}) {
+  return patchProgramacaoStatus(id, status, extra);
 }
 
 export async function approveProgramacaoByGerencia(id) {
@@ -491,14 +577,27 @@ export async function markProgramacaoRealizadaPorAnexo(id) {
   requireUser();
   const prog = programacoesCache.find((p) => p.id === id);
   if (!prog) throw new Error('Programação não encontrada.');
+  if (!canChangeProgramacaoStatus(actorUser(), prog)) {
+    return prog;
+  }
   const current = normalizeStatus(prog.status);
   if (current === 'Realizada') return { ...prog, status: 'Realizada' };
   if (!canAttachAnexo(current)) return prog;
-  await updateDoc(doc(database, 'programacoes', id), {
+  const historico = appendHistorico(prog.historico, makeHistoricoEntry({
+    tipo: 'status',
+    statusAnterior: current,
+    statusNovo: 'Realizada',
+    observacao: 'Marcada como realizada após anexo',
+    gerencia: programacaoGerencia(prog) || resolveGerenciaFromData(prog),
+  }));
+  const patch = {
     status: 'Realizada',
     atualizadoEm: new Date().toISOString(),
-  });
-  return { ...prog, status: 'Realizada' };
+    historico,
+  };
+  applyStatusActor(patch, current);
+  await updateDoc(doc(database, 'programacoes', id), patch);
+  return { ...prog, ...patch };
 }
 
 async function syncLogisticaToFirestore(programacao) {
@@ -556,23 +655,35 @@ export async function upsertUserProfile(user) {
   const desired = resolveAccessRole({ nome: payload.nome, email: payload.email });
   if (desired.role === 'admin' || isBootstrapAdminEmail(user.email)) {
     payload.role = 'admin';
+    payload.perfil = 'admin';
     payload.gerencia = '';
+    payload.gerenciaId = '';
     payload.ativo = true;
   } else if (desired.role === 'gerencia') {
     payload.role = 'gerencia';
-    const existingGer = existing.exists() ? normalizeGerencia(existing.data().gerencia) : '';
+    payload.perfil = 'gerencia';
+    const existingGer = existing.exists()
+      ? (normalizeGerencia(existing.data().gerenciaId) || normalizeGerencia(existing.data().gerencia))
+      : '';
     payload.gerencia = existingGer || desired.gerencia;
+    payload.gerenciaId = payload.gerencia;
   } else if (!existing.exists()) {
     payload.role = 'usuario';
+    payload.perfil = 'usuario';
     payload.gerencia = '';
+    payload.gerenciaId = '';
   }
+  if (payload.role && !payload.perfil) payload.perfil = payload.role;
+  if (payload.gerencia != null && payload.gerenciaId == null) payload.gerenciaId = payload.gerencia;
   await setDoc(ref, payload, { merge: true });
   const data = existing.exists() ? { ...existing.data(), ...payload } : payload;
-  const role = normalizeRole(data.role);
+  const role = normalizeRole(data.perfil || data.role);
   return {
     ativo: data.ativo !== false,
     role,
-    gerencia: normalizeGerencia(data.gerencia),
+    perfil: role,
+    gerencia: normalizeGerencia(data.gerenciaId || data.gerencia),
+    gerenciaId: normalizeGerencia(data.gerenciaId || data.gerencia),
     coordenacaoId: data.coordenacaoId || '',
   };
 }
@@ -585,12 +696,12 @@ export function subscribeUserRole(uid, callback) {
   }
   return onSnapshot(doc(db, 'users', uid), (snap) => {
     const data = snap.exists() ? snap.data() : {};
-    const role = normalizeRole(data.role);
+    const role = normalizeRole(data.perfil || data.role);
     const ativo = data.ativo !== false;
-    const gerencia = normalizeGerencia(data.gerencia);
+    const gerencia = normalizeGerencia(data.gerenciaId || data.gerencia);
     const coordenacaoId = data.coordenacaoId || '';
-    setUserRole(role, { gerencia });
-    callback(role, { ativo, gerencia, coordenacaoId });
+    setUserRole(role, { gerencia, gerenciaId: gerencia });
+    callback(role, { ativo, gerencia, gerenciaId: gerencia, coordenacaoId, perfil: role });
   }, () => {
     setUserRole('usuario');
     callback('usuario', { ativo: true, gerencia: '', coordenacaoId: '' });
@@ -601,8 +712,8 @@ export async function fetchUserRole(uid) {
   if (!db || !uid) return 'usuario';
   const snap = await getDoc(doc(db, 'users', uid));
   const data = snap.exists() ? snap.data() : {};
-  const role = normalizeRole(data.role);
-  setUserRole(role, { gerencia: data.gerencia });
+  const role = normalizeRole(data.perfil || data.role);
+  setUserRole(role, { gerencia: data.gerenciaId || data.gerencia });
   return role;
 }
 

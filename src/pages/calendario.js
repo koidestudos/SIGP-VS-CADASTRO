@@ -5,7 +5,7 @@ import {
 } from '../data/seed.js';
 import { showModal } from '../components/ui.js';
 import { normalizeStatus, isAutorizada, isRealizada } from '../utils/status.js';
-import { canSeeAuthor, canCreateProgramacao } from '../services/roles.js';
+import { canSeeAuthor, canCreateProgramacao, canEditProgramacao } from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -246,8 +246,13 @@ function showEvent(id, user) {
       <div class="detail-item"><label>Data inicial</label><span>${formatDate(p.dataInicial)}</span></div>
       <div class="detail-item"><label>Data final</label><span>${formatDate(p.dataFinal)}</span></div>
     </div>`,
-    footer: `<button class="btn btn-outline" data-modal-action="edit">Editar</button><button class="btn btn-primary" data-modal-action="close">Fechar</button>`,
-  }).then((a) => { if (a === 'edit') window.location.hash = `nova-programacao/edit/${id}`; });
+    footer: `${canEditProgramacao(user, p) ? '<button class="btn btn-outline" data-modal-action="edit">Editar</button>' : ''}<button class="btn btn-primary" data-modal-action="close">Fechar</button>`,
+  }).then((a) => {
+    if (a === 'edit') {
+      if (!canEditProgramacao(user, p)) return;
+      window.location.hash = `nova-programacao/edit/${id}`;
+    }
+  });
 }
 
 export function bindCalendario(user) {

@@ -2,7 +2,7 @@ import { showModal } from './ui.js';
 import { getCoordenacaoById, formatDate, getGerenciaByProgramacao, getMunicipiosLabel, getRegionaisLabel } from '../data/seed.js';
 import { normalizeStatus, isDevolvidaGerencia } from '../utils/status.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
-import { historicoTipoLabel } from '../utils/programacao-historico.js';
+import { historicoTipoLabel, historicoPerfilLabel } from '../utils/programacao-historico.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -29,7 +29,7 @@ function historicoHtml(p) {
   return `<ul class="historico-list">${items.map((h) => `
     <li>
       <strong>${esc(historicoTipoLabel(h.tipo))}</strong>
-      <span>${esc(h.porNome) || '—'} · ${formatQuando(h.em)}</span>
+      <span>${esc(h.porNome) || '—'}${historicoPerfilLabel(h.perfil) ? ` · ${esc(historicoPerfilLabel(h.perfil))}` : ''} · ${formatQuando(h.em)}</span>
       ${h.statusAnterior || h.statusNovo ? `<small>${esc(h.statusAnterior || '—')} → ${esc(h.statusNovo || '—')}</small>` : ''}
       ${h.observacao ? `<p>${esc(h.observacao)}</p>` : ''}
     </li>

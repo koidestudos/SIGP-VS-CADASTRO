@@ -1,6 +1,6 @@
 import { getProgramacoes, approveProgramacaoByGerencia, devolverProgramacaoParaCorrecao, getProgramacaoById } from '../services/programacoes-service.js';
 import {
-  canViewGerencias, canViewGerenciaTab, canApproveGerencia, canSeeAuthor, isGerencia, isDiretoria,
+  canViewGerencias, canViewGerenciaTab, canApproveGerencia, canSeeAuthor, isGerencia, isDiretoria, canSeeHistory,
 } from '../services/roles.js';
 import {
   GERENCIAS_TABS, needsGerenciaApproval, isAprovadaGerencia, isDevolvidaGerencia,
@@ -170,7 +170,7 @@ async function analisarProgramacao(id, user) {
   const canAct = canApproveGerencia(user, p) && needsGerenciaApproval(p.status);
   const action = await showProgramacaoDetail(p, {
     showAuthor: canSeeAuthor(user),
-    showHistory: true,
+    showHistory: canSeeHistory(user, p),
     footer: canAct
       ? `<button class="btn btn-ghost" data-modal-action="cancel">Fechar</button>
          <button class="btn btn-outline" data-modal-action="devolver">Devolver para correção</button>

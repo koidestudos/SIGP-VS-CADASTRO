@@ -134,11 +134,22 @@ export function getStatusRowClass(status) {
   return map[s] || 'row-status-rascunho';
 }
 
+export function statusRequiresJustificativa(status) {
+  const s = normalizeStatus(status);
+  return s === STATUS_DEVOLVIDA || s === 'Reprovada' || s === 'Cancelada';
+}
+
 /** Opções de status que o usuário pode selecionar no dropdown */
 export function getStatusOptionsForUser(user, programacao) {
   const current = normalizeStatus(programacao?.status);
-  if (user?.role === 'admin') return [...STATUS_PROGRAMACAO];
-  return [current];
+  const role = user?.perfil || user?.role;
+  if (role === 'admin') return [...STATUS_PROGRAMACAO];
+  if (role === 'gerencia') {
+    const ug = String(user?.gerenciaId || user?.gerencia || '').toUpperCase();
+    const pg = String(programacao?.gerenciaId || programacao?.gerencia || '').toUpperCase();
+    if (ug && pg && ug === pg) return [...STATUS_PROGRAMACAO];
+  }
+  return current ? [current] : [];
 }
 
 export function filterForBI(programacoes) {
@@ -172,7 +183,7 @@ export function countPendenciasGerencia(programacoes, gerencia) {
   return programacoes.filter((p) => {
     if (!needsGerenciaApproval(p.status)) return false;
     if (!gerencia) return true;
-    return String(p.gerencia || '').toUpperCase() === String(gerencia).toUpperCase();
+    return String(p.gerenciaId || p.gerencia || '').toUpperCase() === String(gerencia).toUpperCase();
   }).length;
 }
 

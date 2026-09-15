@@ -3,13 +3,18 @@ import {
   canUploadAnexo, uploadProgramacaoAnexo, formatUploadError,
   getAnexosByProgramacao, canDeleteAnexo, deleteAnexo, openAnexo,
 } from '../services/anexos-service.js';
-import { canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin, canSeeAuthor, canCreateProgramacao } from '../services/roles.js';
+import {
+  canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin,
+  canSeeAuthor, canCreateProgramacao, canChangeProgramacaoStatus, canSeeHistory,
+  filterProgramacoesByAccess, programacaoActionFlags, MSG_EDICAO_NEGADA, MSG_PRIORIZADA_SEMANA,
+  statusChangeConfirmMessage,
+} from '../services/roles.js';
 import { getIncluidoPorLabel } from '../services/users-service.js';
 import {
   getCoordenacaoById, getMunicipioById, formatDate, getStatusBadgeClass,
   getGerenciaByProgramacao, getMunicipiosLabel,
 } from '../data/seed.js';
-import { normalizeStatus, getStatusOptionsForUser, needsGerenciaApproval, STATUS_PROGRAMACAO, canAttachAnexo, getStatusRowClass } from '../utils/status.js';
+import { normalizeStatus, getStatusOptionsForUser, needsGerenciaApproval, STATUS_PROGRAMACAO, canAttachAnexo, getStatusRowClass, statusRequiresJustificativa, STATUS_APROVADA_GERENCIA } from '../utils/status.js';
 import { showModal, confirmDialog, toast, renderActionButtons } from '../components/ui.js';
 import { showProgramacaoDetail } from '../components/programacao-detail.js';
 import { downloadProgramacaoPdf } from '../utils/programacao-report-pdf.js';
@@ -24,6 +29,11 @@ import {
   filterProgramacoes, readFilterState, getFilterDescription,
   renderProgramacoesFilterBar, bindProgramacoesFilterBar, persistCurrentFilters,
 } from '../utils/programacoes-filters.js';
+import { findPriorizadaConflito } from '../utils/programacao-prioridade.js';
+
+function scopedProgramacoes(user) {
+  return filterProgramacoesByAccess(getProgramacoes(), user);
+}
 
 const FILTER_KEY = 'programacoes';
 
@@ -32,7 +42,7 @@ export function renderProgramacoes(user) {
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const showAuthor = canSeeAuthor(user);
   const filterState = readFilterState(FILTER_KEY);
-  const items = filterProgramacoes(getProgramacoes(), filterState);
+  const items = filterProgramacoes(scopedProgramacoes(user), filterState);
 
   return `
     <div class="page-header">
@@ -79,12 +89,16 @@ function renderRows(items, user) {
     const coord = getCoordenacaoById(p.coordenacaoId);
     const munLabel = getMunicipiosLabel(p);
     const ger = getGerenciaByProgramacao(p);
-    const canEdit = canEditProgramacao(user, p);
-    const approve = canApproveGerencia(user, p) && needsGerenciaApproval(p.status)
-      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Analisar na Gerência">✔</button>`
+    const flags = programacaoActionFlags(user, p);
+    const canEdit = flags.edit;
+    const approve = flags.approve
+      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Aprovar">✔</button>`
+      : '';
+    const reject = flags.reject
+      ? `<button class="btn-icon" data-action="reprovar" data-id="${p.id}" title="Reprovar">✖</button>`
       : '';
     const statusOptions = getStatusOptionsForUser(user, p);
-    const canChangeStatus = isAdmin(user) || (canEdit && statusOptions.length > 1);
+    const canChangeStatus = flags.changeStatus && statusOptions.length > 1;
     const statusCell = canChangeStatus
       ? `<select class="form-control status-select" data-status-id="${p.id}">
           ${statusOptions.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
@@ -117,7 +131,9 @@ function renderRows(items, user) {
           + ((canAttach || temAnexo)
             ? `<button class="btn-icon" data-action="anexo" data-id="${p.id}" title="Anexos">📎</button>`
             : `<button class="btn-icon" disabled title="Anexo indisponível (reprovada/cancelada)">📎</button>`)
-          + approve + (canEdit ? `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` : ''),
+          + approve + reject
+          + (flags.changeStatus ? `<button class="btn-icon" data-action="status" data-id="${p.id}" title="Alterar status">⟳</button>` : '')
+          + (canEdit ? `<button class="btn-icon" data-action="duplicate" data-id="${p.id}" title="Duplicar">📋</button>` : ''),
       })}</td>
     </tr>`;
   }).join('');
@@ -151,6 +167,111 @@ function renderAnexosListHtml(prog, user) {
     </div>`;
 }
 
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function promptStatusChange(prog, nextStatus, user) {
+  const prev = normalizeStatus(prog.status);
+  const next = normalizeStatus(nextStatus);
+  if (!next || prev === next) return null;
+  if (!canChangeProgramacaoStatus(user, prog)) {
+    toast('Você não possui permissão para alterar o status desta programação.', 'error');
+    return null;
+  }
+  const needsObs = statusRequiresJustificativa(next);
+  const conflito = next === 'Priorizada'
+    ? findPriorizadaConflito(getProgramacoes(), {
+      gerencia: prog.gerenciaId || prog.gerencia,
+      dataInicial: prog.dataInicial,
+      excludeId: prog.id,
+    })
+    : null;
+  if (conflito && !isAdmin(user)) {
+    toast(MSG_PRIORIZADA_SEMANA, 'error');
+    return null;
+  }
+
+  let observacao = '';
+  let forcePriorizada = false;
+  const result = await showModal({
+    title: 'Alterar status',
+    body: `
+      <p>${escHtml(statusChangeConfirmMessage(prev, next))}</p>
+      ${needsObs ? `<div class="form-group mt-2"><label>Justificativa *</label>
+        <textarea class="form-control" id="status-obs" rows="3" maxlength="2000"></textarea></div>` : ''}
+      ${conflito && isAdmin(user) ? `<div class="alert alert-error mt-2">${escHtml(MSG_PRIORIZADA_SEMANA)}</div>
+        <label class="text-sm"><input type="checkbox" id="force-priorizada"> Confirmo explicitamente esta priorização mesmo com outra programação já priorizada nesta semana.</label>` : ''}
+    `,
+    footer: `<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+      <button class="btn btn-primary" data-modal-action="confirm">Confirmar</button>`,
+    onAction: (act, overlay) => {
+      if (act !== 'confirm') return;
+      observacao = overlay.querySelector('#status-obs')?.value.trim() || '';
+      if (needsObs && !observacao) {
+        toast('Informe a justificativa ou observação para este status.', 'error');
+        return false;
+      }
+      if (conflito && isAdmin(user)) {
+        forcePriorizada = Boolean(overlay.querySelector('#force-priorizada')?.checked);
+        if (!forcePriorizada) {
+          toast('Confirme explicitamente a priorização para continuar.', 'error');
+          return false;
+        }
+      }
+    },
+  });
+  if (result !== 'confirm') return null;
+  return { observacao, forcePriorizada, next };
+}
+
+async function applyStatusChange(prog, nextStatus, user) {
+  const decision = await promptStatusChange(prog, nextStatus, user);
+  if (!decision) return false;
+  try {
+    await updateProgramacaoStatus(prog.id, decision.next, {
+      observacao: decision.observacao,
+      justificativaDevolucao: statusRequiresJustificativa(decision.next) ? decision.observacao : undefined,
+      forcePriorizada: decision.forcePriorizada,
+    });
+    toast('Status atualizado.', 'success');
+    return true;
+  } catch (err) {
+    toast(err.message || 'Erro ao atualizar status.', 'error');
+    return false;
+  }
+}
+
+async function showStatusPicker(prog, user) {
+  if (!canChangeProgramacaoStatus(user, prog)) {
+    toast('Você não possui permissão para alterar o status desta programação.', 'error');
+    return false;
+  }
+  const options = getStatusOptionsForUser(user, prog);
+  const current = normalizeStatus(prog.status);
+  let selected = current;
+  const result = await showModal({
+    title: 'Alterar status',
+    body: `<p class="text-sm text-muted mb-2">Somente o status será alterado. O conteúdo cadastrado permanece bloqueado para quem não é o autor.</p>
+      <div class="form-group"><label>Novo status</label>
+      <select class="form-control" id="status-pick">
+        ${options.map((s) => `<option value="${escHtml(s)}" ${s === current ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}
+      </select></div>`,
+    footer: `<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+      <button class="btn btn-primary" data-modal-action="confirm">Continuar</button>`,
+    onAction: (act, overlay) => {
+      if (act !== 'confirm') return;
+      selected = overlay.querySelector('#status-pick')?.value || current;
+    },
+  });
+  if (result !== 'confirm') return false;
+  return applyStatusChange(prog, selected, user);
+}
+
 async function showAnexoDialog(prog, user) {
   let reopen = true;
   while (reopen) {
@@ -169,7 +290,7 @@ async function showAnexoDialog(prog, user) {
       </div>
       <p class="text-sm text-muted mb-0 mt-2">Ao enviar, a programação será marcada como <strong>Realizada</strong>.</p>
       <p class="text-sm text-muted" id="anexo-status" style="display:none;margin-top:8px">Enviando arquivo...</p>`
-      : `<p class="text-sm text-muted">${isAdmin(user) ? 'Envio bloqueado para programações reprovadas ou canceladas.' : 'Consulta apenas — somente a administradora envia ou exclui anexos.'}</p>`;
+      : `<p class="text-sm text-muted">${isAdmin(user) ? 'Envio bloqueado para programações reprovadas ou canceladas.' : 'Consulta apenas — somente o autor do cadastro ou o administrador envia anexos.'}</p>`;
 
     const result = await showModal({
       title: 'Anexos da programação',
@@ -298,7 +419,7 @@ async function showApproveDialog(id, user) {
   const canAct = canApproveGerencia(user, prog) && needsGerenciaApproval(prog.status);
   const action = await showProgramacaoDetail(prog, {
     showAuthor: canSeeAuthor(user),
-    showHistory: true,
+    showHistory: canSeeHistory(user, prog),
     footer: canAct
       ? `<button class="btn btn-ghost" data-modal-action="cancel">Fechar</button>
          <button class="btn btn-outline" data-modal-action="devolver">Devolver para correção</button>
@@ -350,7 +471,7 @@ export function bindProgramacoes(user) {
 
   const refresh = () => {
     const state = readFilterState(FILTER_KEY);
-    const items = filterProgramacoes(getProgramacoes(), state);
+    const items = filterProgramacoes(scopedProgramacoes(user), state);
     const tbody = document.querySelector('#tabela-programacoes tbody');
     if (tbody) tbody.innerHTML = renderRows(items, user);
     const resumo = document.getElementById('filtro-resumo');
@@ -363,7 +484,7 @@ export function bindProgramacoes(user) {
 
   document.getElementById('btn-download-filtro')?.addEventListener('click', async () => {
     const state = readFilterState(FILTER_KEY);
-    const items = filterProgramacoes(getProgramacoes(), state);
+    const items = filterProgramacoes(scopedProgramacoes(user), state);
     if (state.tipo === 'intervalo' && (!state.dataIni || !state.dataFim)) {
       toast('Informe as datas De e Até.', 'error');
       return;
@@ -404,20 +525,21 @@ export function bindProgramacoes(user) {
   document.getElementById('btn-modelo-anexo')?.addEventListener('click', () => { showModeloAnexoDialog(user); });
   document.getElementById('tabela-programacoes')?.addEventListener('change', async (e) => {
     const sel = e.target.closest('[data-status-id]');
-    if (!sel || !(isAdmin(user) || canEditProgramacao(user, getProgramacaoById(sel.dataset.statusId)))) return;
-    try {
-      await updateProgramacaoStatus(sel.dataset.statusId, sel.value);
-      toast('Status atualizado.', 'success');
-    } catch (err) {
-      toast(err.message || 'Erro ao atualizar status.', 'error');
-    }
+    if (!sel) return;
+    const prog = getProgramacaoById(sel.dataset.statusId);
+    const previous = normalizeStatus(prog?.status);
+    const changed = await applyStatusChange(prog, sel.value, user);
+    if (!changed) sel.value = previous;
+    else refresh();
   });
   document.getElementById('tabela-programacoes')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const { id, action } = btn.dataset;
     const prog = getProgramacaoById(id);
-    if (action === 'view') showProgramacaoDetail(prog, { showAuthor: canSeeAuthor(user), showHistory: canSeeAuthor(user) });
+    if (action === 'view') {
+      showProgramacaoDetail(prog, { showAuthor: canSeeAuthor(user), showHistory: canSeeHistory(user, prog) });
+    }
     if (action === 'pdf') {
       btn.disabled = true;
       try {
@@ -430,18 +552,39 @@ export function bindProgramacoes(user) {
       }
     }
     if (action === 'edit') {
-      if (!canEditProgramacao(user, prog)) { toast('Você só pode editar suas próprias programações.', 'error'); return; }
+      if (!canEditProgramacao(user, prog)) { toast(MSG_EDICAO_NEGADA, 'error'); return; }
       persistCurrentFilters(FILTER_KEY);
       window.location.hash = `nova-programacao/edit/${id}`;
+    }
+    if (action === 'status') {
+      await showStatusPicker(prog, user);
+      refresh();
     }
     if (action === 'duplicate') {
       persistCurrentFilters(FILTER_KEY);
       window.location.hash = `nova-programacao/duplicate/${id}`;
     }
-    if (action === 'delete' && (await confirmDialog('Excluir programação?')) === 'confirm') {
-      await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
+    if (action === 'delete') {
+      if (!canDeleteProgramacao(user)) {
+        toast('Somente o administrador pode excluir programações.', 'error');
+        return;
+      }
+      if ((await confirmDialog('Excluir programação?')) === 'confirm') {
+        await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
+      }
     }
-    if (action === 'approve') { await showApproveDialog(id, user); refresh(); }
+    if (action === 'approve') {
+      if (needsGerenciaApproval(prog?.status)) {
+        await showApproveDialog(id, user);
+      } else {
+        await applyStatusChange(prog, STATUS_APROVADA_GERENCIA, user);
+      }
+      refresh();
+    }
+    if (action === 'reprovar') {
+      await applyStatusChange(prog, 'Reprovada', user);
+      refresh();
+    }
     if (action === 'anexo' && prog) { await showAnexoDialog(prog, user); refresh(); }
   });
   refresh();

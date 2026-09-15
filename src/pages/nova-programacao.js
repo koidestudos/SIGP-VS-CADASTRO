@@ -1,7 +1,7 @@
 import {
   saveProgramacao, syncLogisticaFromProgramacao, getProgramacaoById, formatProgramacaoError,
 } from '../services/programacoes-service.js';
-import { canEditProgramacao } from '../services/roles.js';
+import { canEditProgramacao, canCreateProgramacao, MSG_EDICAO_NEGADA } from '../services/roles.js';
 import {
   getCoordenacoes, getRegionais, TIPOS_ATIVIDADE, formatDate,
   getCoordenacaoById, getMunicipioById, getMunicipiosByRegionais,
@@ -97,7 +97,7 @@ export function renderNovaProgramacao(user, params = []) {
       const existing = getProgramacaoById(editId);
       if (!existing || !canEditProgramacao(user, existing)) {
         wizardSessionKey = null;
-        return `<div class="card"><div class="card-body"><p class="alert alert-error">Você não pode editar esta programação.</p>
+        return `<div class="card"><div class="card-body"><p class="alert alert-error">${MSG_EDICAO_NEGADA}</p>
           <button class="btn btn-primary" onclick="window.location.hash='programacoes'">Voltar</button></div></div>`;
       }
       wizardState = normalizeWizardState({
@@ -105,6 +105,11 @@ export function renderNovaProgramacao(user, params = []) {
         baseAtualizadoEm: existing.atualizadoEm || '',
       });
     } else if (params[0] === 'duplicate' && params[1]) {
+      if (!canCreateProgramacao(user)) {
+        wizardSessionKey = null;
+        return `<div class="card"><div class="card-body"><p class="alert alert-error">Você não possui permissão para incluir programações.</p>
+          <button class="btn btn-primary" onclick="window.location.hash='programacoes'">Voltar</button></div></div>`;
+      }
       const o = getProgramacaoById(params[1]);
       wizardState = normalizeWizardState({
         ...o,
@@ -117,8 +122,13 @@ export function renderNovaProgramacao(user, params = []) {
         duracao: '',
         baseAtualizadoEm: '',
         criadoPor: undefined,
+        criadoPorUid: undefined,
         criadoPorNome: undefined,
         criadoPorEmail: undefined,
+        historico: [],
+        statusAlteradoPorUid: '',
+        statusAlteradoPorNome: '',
+        statusAlteradoEm: '',
       });
     } else {
       wizardState = normalizeWizardState({
@@ -554,7 +564,7 @@ async function persist(status) {
   if (!wizardState.responsavel && wizardState.equipe?.length) {
     wizardState.responsavel = wizardState.equipe[0].nome;
   }
-  const saved = await saveProgramacao({ ...wizardState, status, criadoPor: wizardState.criadoPor }, editId);
+  const saved = await saveProgramacao({ ...wizardState, status }, editId);
   if (saved?.atualizadoEm) wizardState.baseAtualizadoEm = saved.atualizadoEm;
   syncLogisticaFromProgramacao(saved);
   return saved;

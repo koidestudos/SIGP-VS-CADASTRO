@@ -14,7 +14,8 @@ export function foldPersonName(value) {
 /**
  * Define o papel da conta pelo nome/e-mail.
  * Bhassia → GAP, Joselma → GVS, Marylane → GAS (uma gerência cada).
- * Sandgy Crystine permanece administradora. Demais contas são membro (só leitura).
+ * Sandgy Crystine permanece administradora. Bhassia, Joselma e Marylane são gerentes.
+ * Demais contas são membros (podem cadastrar e editar somente as próprias programações).
  */
 export function resolveAccessRole(person = {}) {
   const email = String(person.email || '').trim().toLowerCase();
