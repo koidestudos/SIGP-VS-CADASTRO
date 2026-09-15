@@ -122,21 +122,23 @@ function renderContasRows(viewer) {
   }
   return `<div class="admin-account-list">${users.map((u) => {
     const ativo = u.ativo !== false;
-    const role = roleLabel({ role: normalizeRole(u.role), gerencia: u.gerencia });
+    const accountRole = normalizeRole(u.perfil || u.role);
+    const accountGer = u.gerenciaId || u.gerencia;
+    const role = roleLabel({ role: accountRole, gerencia: accountGer });
     const isSelf = u.id === currentUid;
     const initials = String(u.nome || u.email || '?')
       .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '?';
     const roleEditor = canManage && !isSelf ? `
       <div class="admin-role-row">
         <select class="form-control btn-sm" data-set-role="${u.id}">
-          <option value="usuario" ${!u.role || u.role === 'usuario' ? 'selected' : ''}>Membro</option>
-          <option value="gerencia" ${u.role === 'gerencia' ? 'selected' : ''}>Gerência</option>
-          <option value="diretoria" ${u.role === 'diretoria' ? 'selected' : ''}>Diretoria</option>
-          <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+          <option value="usuario" ${accountRole === 'usuario' ? 'selected' : ''}>Membro</option>
+          <option value="gerencia" ${accountRole === 'gerencia' ? 'selected' : ''}>Gerência</option>
+          <option value="diretoria" ${accountRole === 'diretoria' ? 'selected' : ''}>Diretoria</option>
+          <option value="admin" ${accountRole === 'admin' ? 'selected' : ''}>Administrador</option>
         </select>
-        <select class="form-control btn-sm ${u.role === 'gerencia' ? '' : 'hidden'}" data-set-gerencia="${u.id}">
+        <select class="form-control btn-sm ${accountRole === 'gerencia' ? '' : 'hidden'}" data-set-gerencia="${u.id}">
           <option value="">Gerência...</option>
-          ${GERENCIAS.map((g) => `<option value="${g}" ${u.gerencia === g ? 'selected' : ''}>${g}</option>`).join('')}
+          ${GERENCIAS.map((g) => `<option value="${g}" ${accountGer === g ? 'selected' : ''}>${g}</option>`).join('')}
         </select>
       </div>` : '';
     return `
@@ -146,7 +148,7 @@ function renderContasRows(viewer) {
           <div class="admin-account-title">
             <strong class="admin-account-name" title="${esc(u.nome) || '—'}">${esc(u.nome) || '—'}</strong>
             <div class="admin-account-pills">
-              <span class="admin-pill ${u.role === 'admin' || u.role === 'diretoria' ? 'admin-pill-admin' : 'admin-pill-user'}">${esc(role)}</span>
+              <span class="admin-pill ${accountRole === 'admin' || accountRole === 'diretoria' ? 'admin-pill-admin' : 'admin-pill-user'}">${esc(role)}</span>
               <span class="admin-pill ${ativo ? 'admin-pill-ok' : 'admin-pill-off'}">${ativo ? 'Ativa' : 'Desativada'}</span>
             </div>
           </div>

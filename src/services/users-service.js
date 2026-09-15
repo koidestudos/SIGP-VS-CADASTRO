@@ -99,10 +99,12 @@ export async function fetchUserAccountStatus(uid) {
   const data = snap.data();
   return {
     ativo: data.ativo !== false,
-    role: data.role || 'usuario',
+    role: data.perfil || data.role || 'usuario',
+    perfil: data.perfil || data.role || 'usuario',
     nome: data.nome || '',
     email: data.email || '',
-    gerencia: data.gerencia || '',
+    gerencia: data.gerenciaId || data.gerencia || '',
+    gerenciaId: data.gerenciaId || data.gerencia || '',
     coordenacaoId: data.coordenacaoId || '',
   };
 }
@@ -146,38 +148,27 @@ export async function setUserAccess(uid, { role, gerencia = '', coordenacaoId = 
   }
   await updateDoc(doc(db, 'users', uid), {
     role: nextRole,
+    perfil: nextRole,
     gerencia: nextGerencia,
+    gerenciaId: nextGerencia,
     coordenacaoId: nextRole === 'usuario' ? (coordenacaoId || '') : '',
     atualizadoEm: new Date().toISOString(),
   });
 }
 
-let rosterApplyPromise = null;
-
-/** Aplica Sandgy=admin, Bhassia/Joselma/Marylane=gerência e o restante=membro. */
+/** Mantém só a administradora bootstrap. Os demais papéis ficam como definidos na Administração. */
 export async function applyAccessRoster(users = getUsers()) {
   if (!db || !Array.isArray(users) || !users.length) return 0;
-  if (rosterApplyPromise) return rosterApplyPromise;
-  rosterApplyPromise = (async () => {
-    let changed = 0;
-    for (const u of users) {
-      if (!u?.id) continue;
-      const desired = resolveAccessRole(u);
-      const currentRole = normalizeRole(u.role);
-      const currentGer = normalizeGerencia(u.gerencia);
-      const nextRole = desired.role;
-      const nextGer = nextRole === 'gerencia' && currentRole === 'gerencia' && currentGer
-        ? currentGer
-        : desired.gerencia;
-      if (nextRole === currentRole && nextGer === currentGer) continue;
-      await setUserAccess(u.id, { role: nextRole, gerencia: nextGer });
-      changed += 1;
-    }
-    return changed;
-  })().finally(() => {
-    rosterApplyPromise = null;
-  });
-  return rosterApplyPromise;
+  let changed = 0;
+  for (const u of users) {
+    if (!u?.id) continue;
+    const desired = resolveAccessRole(u);
+    if (desired.role !== 'admin') continue;
+    if (normalizeRole(u.perfil || u.role) === 'admin') continue;
+    await setUserAccess(u.id, { role: 'admin', gerencia: '' });
+    changed += 1;
+  }
+  return changed;
 }
 
 /** E-mails que já acessaram antes (exceto o acesso mais recente do mesmo login) */

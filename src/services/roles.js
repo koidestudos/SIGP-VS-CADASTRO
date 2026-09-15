@@ -168,8 +168,10 @@ export function canApprove(user, programacao) {
   return canApproveGerencia(user, programacao);
 }
 
-export function canDeleteProgramacao(user) {
-  return isAdmin(user);
+export function canDeleteProgramacao(user, programacao) {
+  if (isAdmin(user)) return true;
+  if (!programacao) return false;
+  return isMembro(user) && isAutorDaProgramacao(user, programacao);
 }
 
 /** Botões da listagem: editar conteúdo ≠ alterar status. */
@@ -181,7 +183,7 @@ export function programacaoActionFlags(user, programacao) {
     changeStatus,
     approve: changeStatus,
     reject: changeStatus,
-    del: canDeleteProgramacao(user),
+    del: canDeleteProgramacao(user, programacao),
   };
 }
 

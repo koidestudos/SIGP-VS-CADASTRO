@@ -134,6 +134,7 @@ service cloud.firestore {
         && data.email.size() <= 320
         && (!('role' in data) || data.role in ['admin', 'usuario', 'diretoria', 'gerencia'])
         && (!('perfil' in data) || data.perfil in ['admin', 'usuario', 'diretoria', 'gerencia'])
+        && (!('perfil' in data) || !('role' in data) || data.perfil == data.role)
         && (!('ativo' in data) || data.ativo is bool)
         && (!('gerencia' in data) || data.gerencia in ['GAS', 'GVS', 'GAP', ''])
         && (!('gerenciaId' in data) || data.gerenciaId in ['GAS', 'GVS', 'GAP', ''])
@@ -142,6 +143,10 @@ service cloud.firestore {
 
     function isDiretoriaOnly() {
       return hasUserDoc() && userData().role == 'diretoria';
+    }
+
+    function isMembroRole() {
+      return hasUserDoc() && userData().get('role', 'usuario') == 'usuario';
     }
 
     function canCreateProgramacaoRole() {
@@ -275,7 +280,8 @@ service cloud.firestore {
         && validProgramacaoFields(request.resource.data)
         && authorUnchanged();
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        || (isMembroRole() && isProgramacaoAuthor());
     }
 
     match /logistica/{logisticaId} {
@@ -297,7 +303,15 @@ service cloud.firestore {
         && request.resource.data.transporte is bool
         && request.resource.data.alimentacao is bool;
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        || (
+          isMembroRole()
+          && resource.data.programacaoId is string
+          && exists(/databases/$(database)/documents/programacoes/$(resource.data.programacaoId))
+          && get(/databases/$(database)/documents/programacoes/$(resource.data.programacaoId)).data.criadoPor == request.auth.uid
+          && get(/databases/$(database)/documents/programacoes/$(resource.data.programacaoId)).data.criadoPor is string
+          && get(/databases/$(database)/documents/programacoes/$(resource.data.programacaoId)).data.criadoPor.size() > 0
+        );
     }
 
     match /users/{userId} {

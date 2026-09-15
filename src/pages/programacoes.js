@@ -126,7 +126,7 @@ function renderRows(items, user) {
       <td class="col-status">${statusCell}</td>
       <td class="col-acoes">${renderActionButtons(p.id, {
         edit: canEdit,
-        del: canDeleteProgramacao(user, p),
+        del: flags.del,
         extra: `<button class="btn-icon" data-action="pdf" data-id="${p.id}" title="Baixar PDF">📄</button>`
           + ((canAttach || temAnexo)
             ? `<button class="btn-icon" data-action="anexo" data-id="${p.id}" title="Anexos">📎</button>`
@@ -565,12 +565,18 @@ export function bindProgramacoes(user) {
       window.location.hash = `nova-programacao/duplicate/${id}`;
     }
     if (action === 'delete') {
-      if (!canDeleteProgramacao(user)) {
-        toast('Somente o administrador pode excluir programações.', 'error');
+      if (!canDeleteProgramacao(user, prog)) {
+        toast('Você só pode excluir as programações que você cadastrou.', 'error');
         return;
       }
-      if ((await confirmDialog('Excluir programação?')) === 'confirm') {
-        await removeProgramacao(id); toast('Excluída.', 'success'); refresh();
+      if ((await confirmDialog('Excluir esta programação?')) === 'confirm') {
+        try {
+          await removeProgramacao(id);
+          toast('Excluída.', 'success');
+          refresh();
+        } catch (err) {
+          toast(err.message || 'Erro ao excluir.', 'error');
+        }
       }
     }
     if (action === 'approve') {

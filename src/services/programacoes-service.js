@@ -6,7 +6,7 @@ import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { auth } from '../firebase/config.js';
 import { isBootstrapAdminEmail } from '../config/admins.js';
 import { resolveAccessRole } from '../config/access-roster.js';
-import { setUserRole, getUserRole, getUserGerencia, normalizeRole, normalizeGerencia, canCreateProgramacao, canEditProgramacao, canChangeProgramacaoStatus, MSG_EDICAO_NEGADA, MSG_PRIORIZADA_SEMANA, programacaoGerencia } from './roles.js';
+import { setUserRole, getUserRole, getUserGerencia, normalizeRole, normalizeGerencia, canCreateProgramacao, canEditProgramacao, canChangeProgramacaoStatus, canDeleteProgramacao, MSG_EDICAO_NEGADA, MSG_PRIORIZADA_SEMANA, programacaoGerencia } from './roles.js';
 import { notifyProgramacaoEnviada, notifyProgramacaoDevolvida, notifyProgramacaoAprovada } from './notifications-service.js';
 import { getUsers } from './users-service.js';
 import {
@@ -429,12 +429,20 @@ export async function saveProgramacao(data, existingId = null, extra = {}) {
 export async function removeProgramacao(id) {
   const database = requireDb();
   requireUser();
-  if (getUserRole() !== 'admin') {
-    throw new Error('Somente a administradora pode excluir programações.');
+  const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
+  if (!prog) throw new Error('Programação não encontrada.');
+  if (!canDeleteProgramacao(actorUser(), prog)) {
+    throw new Error('Você só pode excluir as programações que você cadastrou.');
+  }
+  const logItem = logisticaCache.find((l) => l.programacaoId === id);
+  if (logItem) {
+    try {
+      await deleteDoc(doc(database, 'logistica', logItem.id));
+    } catch (err) {
+      console.error('Falha ao excluir logística da programação:', err);
+    }
   }
   await deleteDoc(doc(database, 'programacoes', id));
-  const logItem = logisticaCache.find((l) => l.programacaoId === id);
-  if (logItem) await deleteDoc(doc(database, 'logistica', logItem.id));
 }
 
 /** Atualiza somente o status — não sobrescreve o restante do documento */
@@ -659,19 +667,11 @@ export async function upsertUserProfile(user) {
     payload.gerencia = '';
     payload.gerenciaId = '';
     payload.ativo = true;
-  } else if (desired.role === 'gerencia') {
-    payload.role = 'gerencia';
-    payload.perfil = 'gerencia';
-    const existingGer = existing.exists()
-      ? (normalizeGerencia(existing.data().gerenciaId) || normalizeGerencia(existing.data().gerencia))
-      : '';
-    payload.gerencia = existingGer || desired.gerencia;
-    payload.gerenciaId = payload.gerencia;
   } else if (!existing.exists()) {
-    payload.role = 'usuario';
-    payload.perfil = 'usuario';
-    payload.gerencia = '';
-    payload.gerenciaId = '';
+    payload.role = desired.role === 'gerencia' ? 'gerencia' : 'usuario';
+    payload.perfil = payload.role;
+    payload.gerencia = desired.gerencia || '';
+    payload.gerenciaId = payload.gerencia;
   }
   if (payload.role && !payload.perfil) payload.perfil = payload.role;
   if (payload.gerencia != null && payload.gerenciaId == null) payload.gerenciaId = payload.gerencia;

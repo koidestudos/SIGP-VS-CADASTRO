@@ -149,12 +149,14 @@ assert(MSG_PRIORIZADA_SEMANA.includes('já possui uma programação priorizada n
 /* 15 */ assert(!isAutorDaProgramacao(membro, legado) && !canEditProgramacao(membro, legado) && canEditProgramacao(adm, legado), '15. legado sem autor só o admin edita');
 assert(!canChangeProgramacaoStatus(outroMembro, deGvs), '15. acesso direto a outra gerência é negado ao membro');
 assert(!canChangeProgramacaoStatus(gvs, progGas), '15. gerente GVS não altera GAS mesmo via URL');
-assert(!canDeleteProgramacao(gas) && !canDeleteProgramacao(membro) && canDeleteProgramacao(adm), 'somente admin exclui');
+assert(!canDeleteProgramacao(gas, deGerente) && !canDeleteProgramacao(membro, deOutro) && canDeleteProgramacao(adm, deOutro), 'gerente e membro não excluem de outros');
+assert(canDeleteProgramacao(membro, rascunho) && canDeleteProgramacao(adm, rascunho), 'membro exclui a própria; admin exclui qualquer');
+assert(!canDeleteProgramacao(membro, legado), 'legado sem autor só o admin exclui');
 
 const flagsMembroAutor = programacaoActionFlags(membro, rascunho);
-assert(flagsMembroAutor.view && flagsMembroAutor.edit && !flagsMembroAutor.changeStatus && !flagsMembroAutor.approve && !flagsMembroAutor.del, 'botões: membro autor');
+assert(flagsMembroAutor.view && flagsMembroAutor.edit && flagsMembroAutor.del && !flagsMembroAutor.changeStatus && !flagsMembroAutor.approve, 'botões: membro autor');
 const flagsMembroOutro = programacaoActionFlags(membro, deOutro);
-assert(flagsMembroOutro.view && !flagsMembroOutro.edit && !flagsMembroOutro.changeStatus, 'botões: membro não autor');
+assert(flagsMembroOutro.view && !flagsMembroOutro.edit && !flagsMembroOutro.changeStatus && !flagsMembroOutro.del, 'botões: membro não autor');
 const flagsGerenteAutor = programacaoActionFlags(gas, deGerente);
 assert(flagsGerenteAutor.edit && flagsGerenteAutor.changeStatus && flagsGerenteAutor.approve && !flagsGerenteAutor.del, 'botões: gerente autor');
 const flagsGerenteOutro = programacaoActionFlags(gas, deOutro);
