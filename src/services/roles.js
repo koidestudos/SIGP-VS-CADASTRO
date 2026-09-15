@@ -1,4 +1,4 @@
-/** Papéis: usuario (membro, só leitura), gerencia, diretoria, admin */
+/** Papéis: usuario (membro), gerencia, diretoria, admin */
 
 export const ROLE_USUARIO = 'usuario';
 export const ROLE_GERENCIA = 'gerencia';
@@ -6,6 +6,9 @@ export const ROLE_DIRETORIA = 'diretoria';
 export const ROLE_ADMIN = 'admin';
 
 export const GERENCIAS = ['GAS', 'GVS', 'GAP'];
+
+export const MSG_EDICAO_NEGADA = 'Você não possui permissão para editar esta programação. Somente o responsável pelo cadastro pode alterar seu conteúdo.';
+export const MSG_PRIORIZADA_SEMANA = 'Esta gerência já possui uma programação priorizada nesta semana. Altere a programação já priorizada ou escolha outra semana.';
 
 let currentRole = ROLE_USUARIO;
 let currentGerencia = '';
@@ -24,7 +27,7 @@ export function normalizeGerencia(value) {
 
 export function setUserRole(role, extra = {}) {
   currentRole = normalizeRole(role);
-  currentGerencia = normalizeGerencia(extra.gerencia);
+  currentGerencia = normalizeGerencia(extra.gerenciaId || extra.gerencia);
 }
 
 export function getUserRole() {
@@ -36,8 +39,26 @@ export function getUserGerencia() {
 }
 
 function roleOf(user) {
-  if (user && typeof user === 'object') return normalizeRole(user.role);
+  if (user && typeof user === 'object') {
+    return normalizeRole(user.perfil || user.role);
+  }
   return currentRole;
+}
+
+export function userGerenciaId(user) {
+  if (user && typeof user === 'object') {
+    return normalizeGerencia(user.gerenciaId || user.gerencia) || currentGerencia;
+  }
+  return currentGerencia;
+}
+
+/** Autoria: campo novo ou legado. Vazio = sem autor validado. */
+export function programacaoAutorUid(programacao) {
+  return String(programacao?.criadoPorUid || programacao?.criadoPor || '').trim();
+}
+
+export function programacaoGerencia(programacao) {
+  return normalizeGerencia(programacao?.gerenciaId || programacao?.gerencia);
 }
 
 export function isAdmin(user) {
@@ -66,17 +87,14 @@ export function roleLabel(user) {
   if (role === ROLE_ADMIN) return 'Administrador';
   if (role === ROLE_DIRETORIA) return 'Diretoria';
   if (role === ROLE_GERENCIA) {
-    const g = user && typeof user === 'object'
-      ? normalizeGerencia(user.gerencia)
-      : currentGerencia;
+    const g = userGerenciaId(user);
     return g ? `Gerência ${g}` : 'Gerência';
   }
   return 'Membro';
 }
 
-/** Cadastro/edição de programações, equipes e catálogo. */
 export function canCreateProgramacao(user) {
-  return isAdmin(user);
+  return isAdmin(user) || isGerencia(user) || isMembro(user);
 }
 
 export function canUpdateLogistica(user) {
@@ -87,13 +105,32 @@ export function canEdit(user) {
   return isAdmin(user);
 }
 
-export function programacaoGerencia(programacao) {
-  return normalizeGerencia(programacao?.gerencia);
+export function isAutorDaProgramacao(user, programacao) {
+  if (!user?.uid || !programacao) return false;
+  const author = programacaoAutorUid(programacao);
+  return Boolean(author) && author === user.uid;
 }
 
+/** Editar conteúdo: admin, ou autor (membro/gerente). Sem autor legado → só admin. */
 export function canEditProgramacao(user, programacao) {
   if (!user || !programacao) return false;
-  return isAdmin(user);
+  if (isAdmin(user)) return true;
+  if (!isMembro(user) && !isGerencia(user)) return false;
+  return isAutorDaProgramacao(user, programacao);
+}
+
+export function sameGerencia(user, programacao) {
+  const g = programacaoGerencia(programacao);
+  const mine = userGerenciaId(user);
+  return Boolean(g && mine && g === mine);
+}
+
+/** Alterar somente o status: admin ou gerente da mesma gerência. */
+export function canChangeProgramacaoStatus(user, programacao) {
+  if (!user || !programacao) return false;
+  if (isAdmin(user)) return true;
+  if (!isGerencia(user)) return false;
+  return sameGerencia(user, programacao);
 }
 
 export function canViewBI(user) {
@@ -115,16 +152,14 @@ export function canViewGerencias(user) {
 export function canViewGerenciaTab(user, gerencia) {
   if (isDiretoria(user)) return true;
   if (!isGerencia(user)) return false;
-  return normalizeGerencia(user.gerencia || currentGerencia) === normalizeGerencia(gerencia);
+  return userGerenciaId(user) === normalizeGerencia(gerencia);
 }
 
-/** Aprovar / devolver na fila da Gerência */
 export function canApproveGerencia(user, programacao) {
   if (!user) return false;
   if (isAdmin(user)) return true;
   if (!isGerencia(user) || !programacao) return false;
-  const g = programacaoGerencia(programacao);
-  return g && g === normalizeGerencia(user.gerencia || currentGerencia);
+  return sameGerencia(user, programacao);
 }
 
 /** @deprecated use canApproveGerencia */
@@ -137,15 +172,38 @@ export function canDeleteProgramacao(user) {
   return isAdmin(user);
 }
 
+/** Botões da listagem: editar conteúdo ≠ alterar status. */
+export function programacaoActionFlags(user, programacao) {
+  const changeStatus = canChangeProgramacaoStatus(user, programacao);
+  return {
+    view: true,
+    edit: canEditProgramacao(user, programacao),
+    changeStatus,
+    approve: changeStatus,
+    reject: changeStatus,
+    del: canDeleteProgramacao(user),
+  };
+}
+
+export function statusChangeConfirmMessage(statusAtual, statusNovo) {
+  return `Deseja alterar o status desta programação de ‘${statusAtual}’ para ‘${statusNovo}’?`;
+}
+
 export function canSeeAuthor(user) {
   return isDiretoria(user) || isGerencia(user);
+}
+
+export function canSeeHistory(user, programacao) {
+  if (isAdmin(user) || isDiretoria(user)) return true;
+  if (isGerencia(user) && programacao) return sameGerencia(user, programacao);
+  return false;
 }
 
 export function filterProgramacoesByAccess(programacoes, user) {
   const list = programacoes || [];
   if (isDiretoria(user)) return list;
   if (isGerencia(user)) {
-    const g = normalizeGerencia(user.gerencia || currentGerencia);
+    const g = userGerenciaId(user);
     if (!g) return [];
     return list.filter((p) => programacaoGerencia(p) === g);
   }

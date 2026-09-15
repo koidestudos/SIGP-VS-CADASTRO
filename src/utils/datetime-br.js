@@ -69,3 +69,29 @@ export function programacaoNaSemana(p, weekStart, weekEnd) {
   if (!ini) return false;
   return ini <= weekEnd && fim >= weekStart;
 }
+
+/** Semana (segunda a domingo) que contém a data YYYY-MM-DD. */
+export function weekRangeContainingDateBR(isoDate) {
+  const raw = String(isoDate || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return currentWeekRangeBR();
+  const [y, m, d] = raw.split('-').map(Number);
+  const noon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const weekday = (noon.getUTCDay() + 6) % 7;
+  const monday = new Date(noon);
+  monday.setUTCDate(noon.getUTCDate() - weekday);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (dt) => {
+    const yy = dt.getUTCFullYear();
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getUTCDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  };
+  const start = fmt(monday);
+  const end = fmt(sunday);
+  return {
+    start,
+    end,
+    label: `${start.split('-').reverse().join('/')} – ${end.split('-').reverse().join('/')}`,
+  };
+}

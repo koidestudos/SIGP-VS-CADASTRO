@@ -1,4 +1,5 @@
 import { auth } from '../firebase/config.js';
+import { getUserRole } from '../services/roles.js';
 
 const MAX_HISTORICO = 50;
 const MAX_OBS = 2000;
@@ -9,6 +10,7 @@ export function currentActorMeta() {
     uid: u?.uid || '',
     nome: String(u?.displayName || u?.email?.split('@')[0] || 'Usuário').slice(0, 200),
     email: String(u?.email || '').slice(0, 320),
+    perfil: getUserRole(),
   };
 }
 
@@ -26,6 +28,7 @@ export function makeHistoricoEntry({
     por: actor.uid,
     porNome: actor.nome,
     porEmail: actor.email,
+    perfil: actor.perfil || '',
     statusAnterior: String(statusAnterior || '').slice(0, 80),
     statusNovo: String(statusNovo || '').slice(0, 80),
     observacao: String(observacao || '').slice(0, MAX_OBS),
@@ -41,6 +44,7 @@ export function appendHistorico(list, entry) {
 export function historicoTipoLabel(tipo) {
   const map = {
     cadastro: 'Cadastro',
+    edicao: 'Edição do cadastro',
     envio: 'Envio para a Gerência',
     reenvio: 'Reenvio para análise',
     aprovacao: 'Aprovação da Gerência',
@@ -48,4 +52,13 @@ export function historicoTipoLabel(tipo) {
     status: 'Alteração de status',
   };
   return map[tipo] || tipo || 'Evento';
+}
+
+export function historicoPerfilLabel(perfil) {
+  const p = String(perfil || '').toLowerCase();
+  if (p === 'admin') return 'Administrador';
+  if (p === 'gerencia') return 'Gerente';
+  if (p === 'diretoria') return 'Diretoria';
+  if (p === 'usuario') return 'Membro';
+  return perfil || '';
 }
