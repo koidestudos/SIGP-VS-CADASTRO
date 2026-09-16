@@ -93,13 +93,15 @@ function applyStatusActor(payload, prevStatus) {
 
 function assertPriorizadaUnica(payload, excludeId, { forcePriorizada = false } = {}) {
   if (normalizeStatus(payload.status) !== 'Priorizada') return;
+  // Administrador tem permissão total e pode priorizar mesmo com conflito
+  if (getUserRole() === 'admin') return;
   const conflito = findPriorizadaConflito(programacoesCache, {
     gerencia: payload.gerencia || payload.gerenciaId,
     dataInicial: payload.dataInicial,
     excludeId,
   });
   if (!conflito) return;
-  if (getUserRole() === 'admin' && forcePriorizada) return;
+  if (forcePriorizada) return;
   throw new Error(MSG_PRIORIZADA_SEMANA);
 }
 
@@ -451,7 +453,8 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   const prevStatus = normalizeStatus(prog.status);
   if (nextStatus === prevStatus) return { ...prog };
 
-  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
+  const isAdm = getUserRole() === 'admin';
+  if (!isAdm && nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
     const equipe = prog.equipe || [];
     if (!equipe.length) {
       throw new Error('Informe pelo menos um participante na equipe antes de alterar o status.');

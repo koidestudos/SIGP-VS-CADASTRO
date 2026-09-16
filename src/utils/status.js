@@ -142,7 +142,8 @@ export function statusRequiresJustificativa(status) {
 /** Opções de status que o usuário pode selecionar no dropdown */
 export function getStatusOptionsForUser(user, programacao) {
   const current = normalizeStatus(programacao?.status);
-  const role = user?.perfil || user?.role;
+  const role = String(user?.perfil || user?.role || '').toLowerCase();
+  // Administrador: qualquer status, inclusive aguardando aprovação da gerência
   if (role === 'admin') return [...STATUS_PROGRAMACAO];
   if (role === 'gerencia') {
     const ug = String(user?.gerenciaId || user?.gerencia || '').toUpperCase();

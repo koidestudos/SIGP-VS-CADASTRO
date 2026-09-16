@@ -91,17 +91,18 @@ function renderRows(items, user) {
     const ger = getGerenciaByProgramacao(p);
     const flags = programacaoActionFlags(user, p);
     const canEdit = flags.edit;
-    const approve = flags.approve
-      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="Aprovar">✔</button>`
+    const pendingGerencia = needsGerenciaApproval(p.status);
+    const approve = (flags.approve && (isAdmin(user) || pendingGerencia))
+      ? `<button class="btn-icon" data-action="approve" data-id="${p.id}" title="${pendingGerencia ? 'Aprovar / analisar' : 'Analisar programação'}">✔</button>`
       : '';
-    const reject = flags.reject
-      ? `<button class="btn-icon" data-action="reprovar" data-id="${p.id}" title="Reprovar">✖</button>`
+    const reject = (flags.reject && pendingGerencia)
+      ? `<button class="btn-icon" data-action="reprovar" data-id="${p.id}" title="Reprovar / devolver">✖</button>`
       : '';
     const statusOptions = getStatusOptionsForUser(user, p);
-    const canChangeStatus = flags.changeStatus && statusOptions.length > 1;
+    const canChangeStatus = Boolean(flags.changeStatus) && (isAdmin(user) || statusOptions.length > 1);
     const statusCell = canChangeStatus
-      ? `<select class="form-control status-select" data-status-id="${p.id}">
-          ${statusOptions.map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
+      ? `<select class="form-control status-select" data-status-id="${p.id}" title="Alterar status">
+          ${(isAdmin(user) ? STATUS_PROGRAMACAO : statusOptions).map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
     const canAttach = canAttachAnexo(p.status);
@@ -202,10 +203,11 @@ async function promptStatusChange(prog, nextStatus, user) {
     title: 'Alterar status',
     body: `
       <p>${escHtml(statusChangeConfirmMessage(prev, next))}</p>
+      ${isAdmin(user) ? '<p class="text-sm text-muted">Como administrador, você pode alterar qualquer status.</p>' : ''}
       ${needsObs ? `<div class="form-group mt-2"><label>Justificativa *</label>
         <textarea class="form-control" id="status-obs" rows="3" maxlength="2000"></textarea></div>` : ''}
-      ${conflito && isAdmin(user) ? `<div class="alert alert-error mt-2">${escHtml(MSG_PRIORIZADA_SEMANA)}</div>
-        <label class="text-sm"><input type="checkbox" id="force-priorizada"> Confirmo explicitamente esta priorização mesmo com outra programação já priorizada nesta semana.</label>` : ''}
+      ${conflito && isAdmin(user) ? `<div class="alert alert-warning mt-2">${escHtml(MSG_PRIORIZADA_SEMANA)}</div>
+        <p class="text-sm text-muted">Administrador: a priorização será aplicada mesmo com conflito.</p>` : ''}
     `,
     footer: `<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
       <button class="btn btn-primary" data-modal-action="confirm">Confirmar</button>`,
@@ -217,11 +219,7 @@ async function promptStatusChange(prog, nextStatus, user) {
         return false;
       }
       if (conflito && isAdmin(user)) {
-        forcePriorizada = Boolean(overlay.querySelector('#force-priorizada')?.checked);
-        if (!forcePriorizada) {
-          toast('Confirme explicitamente a priorização para continuar.', 'error');
-          return false;
-        }
+        forcePriorizada = true;
       }
     },
   });
@@ -251,12 +249,14 @@ async function showStatusPicker(prog, user) {
     toast('Você não possui permissão para alterar o status desta programação.', 'error');
     return false;
   }
-  const options = getStatusOptionsForUser(user, prog);
+  const options = isAdmin(user) ? STATUS_PROGRAMACAO : getStatusOptionsForUser(user, prog);
   const current = normalizeStatus(prog.status);
   let selected = current;
   const result = await showModal({
     title: 'Alterar status',
-    body: `<p class="text-sm text-muted mb-2">Somente o status será alterado. O conteúdo cadastrado permanece bloqueado para quem não é o autor.</p>
+    body: `<p class="text-sm text-muted mb-2">${isAdmin(user)
+      ? 'Administrador: você pode alterar o status livremente em qualquer programação.'
+      : 'Somente o status será alterado. O conteúdo cadastrado permanece bloqueado para quem não é o autor.'}</p>
       <div class="form-group"><label>Novo status</label>
       <select class="form-control" id="status-pick">
         ${options.map((s) => `<option value="${escHtml(s)}" ${s === current ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}
@@ -416,7 +416,13 @@ async function showModeloAnexoDialog(user) {
 async function showApproveDialog(id, user) {
   const prog = getProgramacaoById(id);
   if (!prog) { toast('Programação não encontrada.', 'error'); return; }
-  const canAct = canApproveGerencia(user, prog) && needsGerenciaApproval(prog.status);
+  const pending = needsGerenciaApproval(prog.status);
+  const canAct = canApproveGerencia(user, prog) && (pending || isAdmin(user));
+  // Se não está pendente e é admin, abre o seletor de status (permissão total)
+  if (isAdmin(user) && !pending) {
+    await showStatusPicker(prog, user);
+    return;
+  }
   const action = await showProgramacaoDetail(prog, {
     showAuthor: canSeeAuthor(user),
     showHistory: canSeeHistory(user, prog),

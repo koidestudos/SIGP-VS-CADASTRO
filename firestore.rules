@@ -271,9 +271,7 @@ service cloud.firestore {
 
       allow update: if isOwnerContentUpdate();
 
-      allow update: if isAdmin()
-        && validProgramacaoFields(request.resource.data)
-        && authorUnchanged();
+      allow update: if isAdmin() && authorUnchanged();
 
       allow delete: if isAdmin();
     }

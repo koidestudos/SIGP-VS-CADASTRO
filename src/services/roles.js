@@ -168,12 +168,24 @@ export function canApprove(user, programacao) {
   return canApproveGerencia(user, programacao);
 }
 
-export function canDeleteProgramacao(user) {
+export function canDeleteProgramacao(user, _programacao) {
   return isAdmin(user);
 }
 
-/** Botões da listagem: editar conteúdo ≠ alterar status. */
+/** Botões da listagem: editar conteúdo ≠ alterar status. Admin = permissão total. */
 export function programacaoActionFlags(user, programacao) {
+  if (isAdmin(user)) {
+    return {
+      view: true,
+      edit: true,
+      changeStatus: true,
+      approve: true,
+      reject: true,
+      del: true,
+      anexar: true,
+      duplicate: true,
+    };
+  }
   const changeStatus = canChangeProgramacaoStatus(user, programacao);
   return {
     view: true,
@@ -181,7 +193,9 @@ export function programacaoActionFlags(user, programacao) {
     changeStatus,
     approve: changeStatus,
     reject: changeStatus,
-    del: canDeleteProgramacao(user),
+    del: false,
+    anexar: false,
+    duplicate: canEditProgramacao(user, programacao),
   };
 }
 
@@ -201,7 +215,7 @@ export function canSeeHistory(user, programacao) {
 
 export function filterProgramacoesByAccess(programacoes, user) {
   const list = programacoes || [];
-  if (isDiretoria(user)) return list;
+  if (isAdmin(user) || isDiretoria(user)) return list;
   if (isGerencia(user)) {
     const g = userGerenciaId(user);
     if (!g) return [];
