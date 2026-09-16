@@ -479,8 +479,13 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
     status: nextStatus,
     atualizadoEm: new Date().toISOString(),
     historico,
-    ...restExtra,
   };
+  for (const [key, value] of Object.entries(restExtra)) {
+    if (value !== undefined) patch[key] = value;
+  }
+  if (statusRequiresJustificativa(nextStatus) && observacao) {
+    patch.justificativaDevolucao = observacao.slice(0, 2000);
+  }
   applyStatusActor(patch, prevStatus);
   assertPriorizadaUnica({ ...prog, ...patch, gerencia, gerenciaId: gerencia }, id, { forcePriorizada });
   try {

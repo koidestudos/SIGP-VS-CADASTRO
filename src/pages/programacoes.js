@@ -243,7 +243,9 @@ async function applyStatusChange(prog, nextStatus, user) {
   try {
     await updateProgramacaoStatus(prog.id, decision.next, {
       observacao: decision.observacao,
-      justificativaDevolucao: statusRequiresJustificativa(decision.next) ? decision.observacao : undefined,
+      ...(statusRequiresJustificativa(decision.next) && decision.observacao
+        ? { justificativaDevolucao: decision.observacao }
+        : {}),
       forcePriorizada: decision.forcePriorizada,
     });
     toast('Status atualizado.', 'success');
