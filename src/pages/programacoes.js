@@ -1,10 +1,10 @@
-import { getProgramacoes, removeProgramacao, getProgramacaoById, updateProgramacaoStatus, approveProgramacaoByGerencia, devolverProgramacaoParaCorrecao } from '../services/programacoes-service.js';
+import { getProgramacoes, removeProgramacao, getProgramacaoById, updateProgramacaoStatus, approveProgramacaoByGerencia, devolverProgramacaoParaCorrecao, formatProgramacaoError } from '../services/programacoes-service.js';
 import {
   canUploadAnexo, uploadProgramacaoAnexo, formatUploadError,
   getAnexosByProgramacao, canDeleteAnexo, deleteAnexo, openAnexo,
 } from '../services/anexos-service.js';
 import {
-  canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin,
+  canApproveGerencia, canDeleteProgramacao, canEditProgramacao, isAdmin, getUserRole,
   canSeeAuthor, canCreateProgramacao, canChangeProgramacaoStatus, canSeeHistory,
   filterProgramacoesByAccess, programacaoActionFlags, MSG_EDICAO_NEGADA, MSG_PRIORIZADA_SEMANA,
   statusChangeConfirmMessage,
@@ -99,10 +99,11 @@ function renderRows(items, user) {
       ? `<button class="btn-icon" data-action="reprovar" data-id="${p.id}" title="Reprovar / devolver">✖</button>`
       : '';
     const statusOptions = getStatusOptionsForUser(user, p);
-    const canChangeStatus = Boolean(flags.changeStatus) && (isAdmin(user) || statusOptions.length > 1);
+    const adminUser = isAdmin(user) || getUserRole() === 'admin';
+    const canChangeStatus = Boolean(flags.changeStatus || adminUser) && (adminUser || statusOptions.length > 1);
     const statusCell = canChangeStatus
       ? `<select class="form-control status-select" data-status-id="${p.id}" title="Alterar status">
-          ${(isAdmin(user) ? STATUS_PROGRAMACAO : statusOptions).map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${(adminUser ? STATUS_PROGRAMACAO : statusOptions).map((s) => `<option value="${s}" ${normalizeStatus(p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>`
       : `<span class="badge ${getStatusBadgeClass(p.status)}">${normalizeStatus(p.status)}</span>`;
     const canAttach = canAttachAnexo(p.status);
@@ -176,14 +177,23 @@ function escHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function userIsAdmin(user) {
+  return isAdmin(user) || getUserRole() === 'admin';
+}
+
+function canChangeStatusNow(user, prog) {
+  return userIsAdmin(user) || canChangeProgramacaoStatus(user, prog);
+}
+
 async function promptStatusChange(prog, nextStatus, user) {
   const prev = normalizeStatus(prog.status);
   const next = normalizeStatus(nextStatus);
   if (!next || prev === next) return null;
-  if (!canChangeProgramacaoStatus(user, prog)) {
+  if (!canChangeStatusNow(user, prog)) {
     toast('Você não possui permissão para alterar o status desta programação.', 'error');
     return null;
   }
+  const admin = userIsAdmin(user);
   const needsObs = statusRequiresJustificativa(next);
   const conflito = next === 'Priorizada'
     ? findPriorizadaConflito(getProgramacoes(), {
@@ -192,7 +202,7 @@ async function promptStatusChange(prog, nextStatus, user) {
       excludeId: prog.id,
     })
     : null;
-  if (conflito && !isAdmin(user)) {
+  if (conflito && !admin) {
     toast(MSG_PRIORIZADA_SEMANA, 'error');
     return null;
   }
@@ -203,10 +213,10 @@ async function promptStatusChange(prog, nextStatus, user) {
     title: 'Alterar status',
     body: `
       <p>${escHtml(statusChangeConfirmMessage(prev, next))}</p>
-      ${isAdmin(user) ? '<p class="text-sm text-muted">Como administrador, você pode alterar qualquer status.</p>' : ''}
+      ${admin ? '<p class="text-sm text-muted">Como administrador, você pode alterar qualquer status.</p>' : ''}
       ${needsObs ? `<div class="form-group mt-2"><label>Justificativa *</label>
         <textarea class="form-control" id="status-obs" rows="3" maxlength="2000"></textarea></div>` : ''}
-      ${conflito && isAdmin(user) ? `<div class="alert alert-warning mt-2">${escHtml(MSG_PRIORIZADA_SEMANA)}</div>
+      ${conflito && admin ? `<div class="alert alert-warning mt-2">${escHtml(MSG_PRIORIZADA_SEMANA)}</div>
         <p class="text-sm text-muted">Administrador: a priorização será aplicada mesmo com conflito.</p>` : ''}
     `,
     footer: `<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
@@ -218,7 +228,7 @@ async function promptStatusChange(prog, nextStatus, user) {
         toast('Informe a justificativa ou observação para este status.', 'error');
         return false;
       }
-      if (conflito && isAdmin(user)) {
+      if (conflito && admin) {
         forcePriorizada = true;
       }
     },
@@ -239,22 +249,22 @@ async function applyStatusChange(prog, nextStatus, user) {
     toast('Status atualizado.', 'success');
     return true;
   } catch (err) {
-    toast(err.message || 'Erro ao atualizar status.', 'error');
+    toast(formatProgramacaoError(err, 'Erro ao atualizar status.'), 'error');
     return false;
   }
 }
 
 async function showStatusPicker(prog, user) {
-  if (!canChangeProgramacaoStatus(user, prog)) {
+  if (!canChangeStatusNow(user, prog)) {
     toast('Você não possui permissão para alterar o status desta programação.', 'error');
     return false;
   }
-  const options = isAdmin(user) ? STATUS_PROGRAMACAO : getStatusOptionsForUser(user, prog);
+  const options = userIsAdmin(user) ? STATUS_PROGRAMACAO : getStatusOptionsForUser(user, prog);
   const current = normalizeStatus(prog.status);
   let selected = current;
   const result = await showModal({
     title: 'Alterar status',
-    body: `<p class="text-sm text-muted mb-2">${isAdmin(user)
+    body: `<p class="text-sm text-muted mb-2">${userIsAdmin(user)
       ? 'Administrador: você pode alterar o status livremente em qualquer programação.'
       : 'Somente o status será alterado. O conteúdo cadastrado permanece bloqueado para quem não é o autor.'}</p>
       <div class="form-group"><label>Novo status</label>

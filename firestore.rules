@@ -25,8 +25,11 @@ service cloud.firestore {
       return isSignedIn() && (
         isBootstrapAdminEmail()
         || (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid))
-          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          hasUserDoc()
+          && (
+            userData().get('role', '') == 'admin'
+            || userData().get('perfil', '') == 'admin'
+          )
         )
       );
     }
@@ -40,15 +43,23 @@ service cloud.firestore {
     }
 
     function isDiretoria() {
-      return isAdmin() || (hasUserDoc() && userData().role == 'diretoria');
+      return isAdmin() || (hasUserDoc() && (
+        userData().get('role', '') == 'diretoria'
+        || userData().get('perfil', '') == 'diretoria'
+      ));
     }
 
     function isGerenciaRole() {
-      return hasUserDoc() && userData().role == 'gerencia';
+      return hasUserDoc() && (
+        userData().get('role', '') == 'gerencia'
+        || userData().get('perfil', '') == 'gerencia'
+      );
     }
 
     function userGerencia() {
-      return hasUserDoc() && ('gerencia' in userData()) ? userData().gerencia : '';
+      return hasUserDoc()
+        ? userData().get('gerenciaId', userData().get('gerencia', ''))
+        : '';
     }
 
     function catalogGerencia(coordId) {
@@ -141,7 +152,10 @@ service cloud.firestore {
     }
 
     function isDiretoriaOnly() {
-      return hasUserDoc() && userData().role == 'diretoria';
+      return hasUserDoc() && (
+        userData().get('role', '') == 'diretoria'
+        || userData().get('perfil', '') == 'diretoria'
+      ) && !isAdmin();
     }
 
     function canCreateProgramacaoRole() {
@@ -149,9 +163,8 @@ service cloud.firestore {
     }
 
     function authorUnchanged() {
-      return request.resource.data.criadoPor == resource.data.criadoPor
-        && request.resource.data.get('criadoPorUid', resource.data.get('criadoPorUid', ''))
-          == resource.data.get('criadoPorUid', '');
+      return request.resource.data.get('criadoPor', '') == resource.data.get('criadoPor', '')
+        && request.resource.data.get('criadoPorUid', '') == resource.data.get('criadoPorUid', '');
     }
 
     function isProgramacaoAuthor() {
@@ -230,10 +243,12 @@ service cloud.firestore {
         );
     }
 
+    // Status-only: não exige validProgramacaoFields (equipe etc.) — só status válido
     function isGerenciaStatusOnlyUpdate() {
       return canManageGerenciaStatus()
         && authorUnchanged()
-        && validProgramacaoFields(request.resource.data)
+        && request.resource.data.status is string
+        && validStatus(request.resource.data.status)
         && statusOnlyAffectedKeys()
         && gerenciaFieldsUnchanged();
     }
@@ -271,7 +286,8 @@ service cloud.firestore {
 
       allow update: if isOwnerContentUpdate();
 
-      allow update: if isAdmin() && authorUnchanged();
+      // Administrador: permissão total (editar, status, qualquer campo)
+      allow update: if isAdmin();
 
       allow delete: if isAdmin();
     }

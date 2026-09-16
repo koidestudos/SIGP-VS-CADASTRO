@@ -146,7 +146,9 @@ export async function setUserAccess(uid, { role, gerencia = '', coordenacaoId = 
   }
   await updateDoc(doc(db, 'users', uid), {
     role: nextRole,
+    perfil: nextRole,
     gerencia: nextGerencia,
+    gerenciaId: nextGerencia,
     coordenacaoId: nextRole === 'usuario' ? (coordenacaoId || '') : '',
     atualizadoEm: new Date().toISOString(),
   });

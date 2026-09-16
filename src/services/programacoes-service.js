@@ -47,7 +47,7 @@ export function formatProgramacaoError(err, fallback = 'Erro ao salvar programa�
   const code = err?.code || '';
   const msg = String(err?.message || '');
   if (code === 'permission-denied' || /insufficient permissions|permission/i.test(msg)) {
-    return 'Sem permissão para salvar agora. Confirme que está logada e tente de novo em alguns segundos.';
+    return 'Sem permissão no Firestore para esta alteração. Se você é administradora, atualize a página (Ctrl+Shift+R) e tente de novo.';
   }
   if (code === 'unauthenticated') {
     return 'Sessão expirada. Faça login novamente e tente de novo.';
@@ -445,7 +445,8 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   requireUser();
   const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
   if (!prog) throw new Error('Programação não encontrada.');
-  if (!canChangeProgramacaoStatus(actorUser(), prog)) {
+  const isAdm = getUserRole() === 'admin';
+  if (!isAdm && !canChangeProgramacaoStatus(actorUser(), prog)) {
     throw new Error('Você não possui permissão para alterar o status desta programação.');
   }
 
@@ -453,7 +454,6 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   const prevStatus = normalizeStatus(prog.status);
   if (nextStatus === prevStatus) return { ...prog };
 
-  const isAdm = getUserRole() === 'admin';
   if (!isAdm && nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
     const equipe = prog.equipe || [];
     if (!equipe.length) {
@@ -483,7 +483,11 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   };
   applyStatusActor(patch, prevStatus);
   assertPriorizadaUnica({ ...prog, ...patch, gerencia, gerenciaId: gerencia }, id, { forcePriorizada });
-  await updateDoc(doc(database, 'programacoes', id), patch);
+  try {
+    await updateDoc(doc(database, 'programacoes', id), patch);
+  } catch (err) {
+    throw new Error(formatProgramacaoError(err, 'Erro ao atualizar status.'));
+  }
   return { ...prog, ...patch };
 }
 
