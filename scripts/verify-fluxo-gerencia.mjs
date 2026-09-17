@@ -163,6 +163,10 @@ const flagsGerenteOutro = programacaoActionFlags(gas, deOutro);
 assert(!flagsGerenteOutro.edit && flagsGerenteOutro.changeStatus && flagsGerenteOutro.approve, 'botões: gerente não autor');
 const flagsAdmin = programacaoActionFlags(adm, deOutro);
 assert(flagsAdmin.edit && flagsAdmin.changeStatus && flagsAdmin.approve && flagsAdmin.del, 'botões: administrador');
+const flagsAdminPendente = programacaoActionFlags(adm, progGas);
+assert(flagsAdminPendente.edit && flagsAdminPendente.changeStatus && flagsAdminPendente.del, 'admin edita/exclui/status mesmo aguardando gerência');
+assert(getStatusOptionsForUser(adm, progGas).length === getStatusOptionsForUser(adm, rascunho).length, 'admin vê todos os status na fila da gerência');
+assert(canEditProgramacao(adm, progGas) && canChangeProgramacaoStatus(adm, progGas) && canDeleteProgramacao(adm, progGas), 'admin permissão total na fila');
 
 assert(
   statusChangeConfirmMessage('Programada', 'Priorizada')

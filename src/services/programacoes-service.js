@@ -47,7 +47,7 @@ export function formatProgramacaoError(err, fallback = 'Erro ao salvar programa�
   const code = err?.code || '';
   const msg = String(err?.message || '');
   if (code === 'permission-denied' || /insufficient permissions|permission/i.test(msg)) {
-    return 'Sem permissão para salvar agora. Confirme que está logada e tente de novo em alguns segundos.';
+    return 'Sem permissão no Firestore para esta alteração. Se você é administradora, atualize a página (Ctrl+Shift+R) e tente de novo.';
   }
   if (code === 'unauthenticated') {
     return 'Sessão expirada. Faça login novamente e tente de novo.';
@@ -93,13 +93,15 @@ function applyStatusActor(payload, prevStatus) {
 
 function assertPriorizadaUnica(payload, excludeId, { forcePriorizada = false } = {}) {
   if (normalizeStatus(payload.status) !== 'Priorizada') return;
+  // Administrador tem permissão total e pode priorizar mesmo com conflito
+  if (getUserRole() === 'admin') return;
   const conflito = findPriorizadaConflito(programacoesCache, {
     gerencia: payload.gerencia || payload.gerenciaId,
     dataInicial: payload.dataInicial,
     excludeId,
   });
   if (!conflito) return;
-  if (getUserRole() === 'admin' && forcePriorizada) return;
+  if (forcePriorizada) return;
   throw new Error(MSG_PRIORIZADA_SEMANA);
 }
 
@@ -451,7 +453,8 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   requireUser();
   const prog = getProgramacaoById(id) || programacoesCache.find((p) => p.id === id);
   if (!prog) throw new Error('Programação não encontrada.');
-  if (!canChangeProgramacaoStatus(actorUser(), prog)) {
+  const isAdm = getUserRole() === 'admin';
+  if (!isAdm && !canChangeProgramacaoStatus(actorUser(), prog)) {
     throw new Error('Você não possui permissão para alterar o status desta programação.');
   }
 
@@ -459,7 +462,7 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
   const prevStatus = normalizeStatus(prog.status);
   if (nextStatus === prevStatus) return { ...prog };
 
-  if (nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
+  if (!isAdm && nextStatus !== 'Rascunho' && nextStatus !== 'Realizada') {
     const equipe = prog.equipe || [];
     if (!equipe.length) {
       throw new Error('Informe pelo menos um participante na equipe antes de alterar o status.');
@@ -484,11 +487,20 @@ export async function patchProgramacaoStatus(id, status, extra = {}) {
     status: nextStatus,
     atualizadoEm: new Date().toISOString(),
     historico,
-    ...restExtra,
   };
+  for (const [key, value] of Object.entries(restExtra)) {
+    if (value !== undefined) patch[key] = value;
+  }
+  if (statusRequiresJustificativa(nextStatus) && observacao) {
+    patch.justificativaDevolucao = observacao.slice(0, 2000);
+  }
   applyStatusActor(patch, prevStatus);
   assertPriorizadaUnica({ ...prog, ...patch, gerencia, gerenciaId: gerencia }, id, { forcePriorizada });
-  await updateDoc(doc(database, 'programacoes', id), patch);
+  try {
+    await updateDoc(doc(database, 'programacoes', id), patch);
+  } catch (err) {
+    throw new Error(formatProgramacaoError(err, 'Erro ao atualizar status.'));
+  }
   return { ...prog, ...patch };
 }
 

@@ -145,7 +145,9 @@ watchAuth(async (user) => {
         currentUser = {
           ...user,
           role,
+          perfil: role,
           gerencia: meta.gerencia || '',
+          gerenciaId: meta.gerencia || meta.gerenciaId || '',
           coordenacaoId: meta.coordenacaoId || '',
         };
         initSuporteSync(role === 'admin' || role === 'diretoria');
