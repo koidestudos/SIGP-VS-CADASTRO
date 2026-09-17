@@ -117,9 +117,9 @@ assert(MSG_EDICAO_NEGADA.includes('Somente o responsável pelo cadastro'), 'mens
 /* 9 */ assert(!canEditProgramacao(gas, deOutro) && !canEditProgramacao(gas, rascunho), '9. gerente não edita conteúdo de outra pessoa');
 /* 10 */ assert(canChangeProgramacaoStatus(gas, deOutro) && canChangeProgramacaoStatus(gas, rascunho), '10. gerente altera status da sua gerência');
 /* 11 */ assert(!canChangeProgramacaoStatus(gas, deGvs), '11. gerente não altera programação de outra gerência');
-/* 12 */ assert(filterProgramacoesByAccess([progGas, deGvs], gas).every((p) => (p.gerenciaId || p.gerencia) === 'GAS'), '12. gerente só vê a gerência correta');
+/* 12 */ assert(filterProgramacoesByAccess([progGas, deGvs], gas).length === 2, '12. gerente vê todas na visão geral');
 assert(filterProgramacoesByAccess([progGas, deGvs], adm).length === 2, 'admin vê todas as gerências');
-assert(filterProgramacoesByAccess([progGas, deGvs], membro).length === 2, 'membro permanece no fluxo atual de visualização');
+assert(filterProgramacoesByAccess([progGas, deGvs], membro).length === 2, 'membro vê todas no dashboard/listagem');
 
 const hist = [{
   tipo: 'status',

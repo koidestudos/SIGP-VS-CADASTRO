@@ -7,7 +7,12 @@ import { promoteUserToAdmin } from '../services/suporte-service.js';
 import {
   getUsers, getAcessos, subscribeUsers, subscribeAcessos, setUserAtivo, firstAccessEmails, initUsersAdminSync, setUserAccess, getUsersSyncError,
 } from '../services/users-service.js';
-import { isAdmin, canManageUsers, roleLabel, normalizeRole } from '../services/roles.js';
+import {
+  getCargos, getCargoById, subscribeCargos, initCargosSync, saveCargo, deleteCargo,
+  PERMISSAO_DEFS, summarizePermissoes, emptyPermissoes, permissoesForPapel,
+  cargoLabelForUser, resolveCargoForUser, countUsersWithCargo, CARGO_MEMBRO_ID,
+} from '../services/cargos-service.js';
+import { isAdmin, canManageUsers, normalizeRole, ROLE_GERENCIA } from '../services/roles.js';
 import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
 
@@ -17,14 +22,17 @@ const ADMIN_TAB_KEY = 'sigp-vs-admin-tab';
 let unsubAdminAnexos = null;
 let unsubAdminUsers = null;
 let unsubAdminAcessos = null;
+let unsubAdminCargos = null;
 
 export function unbindAdministracao() {
   unsubAdminAnexos?.();
   unsubAdminUsers?.();
   unsubAdminAcessos?.();
+  unsubAdminCargos?.();
   unsubAdminAnexos = null;
   unsubAdminUsers = null;
   unsubAdminAcessos = null;
+  unsubAdminCargos = null;
 }
 
 function persistAdminTab(tab) {
@@ -113,6 +121,7 @@ function renderContasRows(viewer) {
   const users = getUsers();
   const currentUid = viewer?.uid;
   const canManage = canManageUsers(viewer);
+  const cargos = getCargos();
   if (!users.length) {
     const syncError = getUsersSyncError();
     if (syncError) {
@@ -122,21 +131,20 @@ function renderContasRows(viewer) {
   }
   return `<div class="admin-account-list">${users.map((u) => {
     const ativo = u.ativo !== false;
-    const accountRole = normalizeRole(u.perfil || u.role);
+    const cargo = resolveCargoForUser(u);
+    const cargoNome = cargoLabelForUser(u);
     const accountGer = u.gerenciaId || u.gerencia;
-    const role = roleLabel({ role: accountRole, gerencia: accountGer });
     const isSelf = u.id === currentUid;
     const initials = String(u.nome || u.email || '?')
       .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '?';
+    const needsGerencia = (cargo?.papelBase || normalizeRole(u.perfil || u.role)) === ROLE_GERENCIA;
     const roleEditor = canManage && !isSelf ? `
       <div class="admin-role-row">
-        <select class="form-control btn-sm" data-set-role="${u.id}">
-          <option value="usuario" ${accountRole === 'usuario' ? 'selected' : ''}>Membro</option>
-          <option value="gerencia" ${accountRole === 'gerencia' ? 'selected' : ''}>Gerência</option>
-          <option value="diretoria" ${accountRole === 'diretoria' ? 'selected' : ''}>Diretoria</option>
-          <option value="admin" ${accountRole === 'admin' ? 'selected' : ''}>Administrador</option>
+        <label class="admin-field-label">Cargo</label>
+        <select class="form-control btn-sm" data-set-cargo="${u.id}">
+          ${cargos.map((c) => `<option value="${esc(c.id)}" ${cargo?.id === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
         </select>
-        <select class="form-control btn-sm ${accountRole === 'gerencia' ? '' : 'hidden'}" data-set-gerencia="${u.id}">
+        <select class="form-control btn-sm ${needsGerencia ? '' : 'hidden'}" data-set-gerencia="${u.id}">
           <option value="">Gerência...</option>
           ${GERENCIAS.map((g) => `<option value="${g}" ${accountGer === g ? 'selected' : ''}>${g}</option>`).join('')}
         </select>
@@ -148,7 +156,7 @@ function renderContasRows(viewer) {
           <div class="admin-account-title">
             <strong class="admin-account-name" title="${esc(u.nome) || '—'}">${esc(u.nome) || '—'}</strong>
             <div class="admin-account-pills">
-              <span class="admin-pill ${accountRole === 'admin' || accountRole === 'diretoria' ? 'admin-pill-admin' : 'admin-pill-user'}">${esc(role)}</span>
+              <span class="admin-pill ${cargo?.papelBase === 'admin' || cargo?.papelBase === 'diretoria' ? 'admin-pill-admin' : 'admin-pill-user'}" title="Cargo">Cargo: ${esc(cargoNome)}</span>
               <span class="admin-pill ${ativo ? 'admin-pill-ok' : 'admin-pill-off'}">${ativo ? 'Ativa' : 'Desativada'}</span>
             </div>
           </div>
@@ -163,6 +171,50 @@ function renderContasRows(viewer) {
             </button>` : '')}
         </div>
       </article>`;
+  }).join('')}</div>`;
+}
+
+function renderCargosAccordion(viewer) {
+  const canManage = canManageUsers(viewer);
+  const users = getUsers();
+  const cargos = getCargos();
+  if (!cargos.length) {
+    return '<div class="admin-empty">Nenhum cargo cadastrado.</div>';
+  }
+  return `<div class="cargo-accordion" id="lista-cargos">${cargos.map((c) => {
+    const summary = summarizePermissoes(c.permissoes);
+    const nUsers = countUsersWithCargo(c.id, users);
+    const checks = PERMISSAO_DEFS.map((p) => `
+      <label class="cargo-perm-item">
+        <input type="checkbox" data-cargo-perm="${esc(c.id)}" data-perm-key="${p.key}"
+          ${c.permissoes?.[p.key] ? 'checked' : ''} ${canManage ? '' : 'disabled'} />
+        <span>${esc(p.label)}</span>
+      </label>`).join('');
+    return `
+      <details class="cargo-acc-item" data-cargo-id="${esc(c.id)}">
+        <summary class="cargo-acc-summary">
+          <div class="cargo-acc-title">
+            <strong>${esc(c.nome)}</strong>
+            ${c.sistema ? '<span class="admin-pill admin-pill-user">Sistema</span>' : '<span class="admin-pill admin-pill-warn">Personalizado</span>'}
+            <span class="admin-pill">${nUsers} conta(s)</span>
+          </div>
+          <p class="cargo-acc-resumo">${esc(summary)}</p>
+        </summary>
+        <div class="cargo-acc-body">
+          ${canManage && !c.sistema ? `
+            <div class="form-group">
+              <label>Nome do cargo</label>
+              <input class="form-control" data-cargo-nome="${esc(c.id)}" value="${esc(c.nome)}" maxlength="80" />
+            </div>` : ''}
+          <p class="text-sm text-muted mb-2">Permissões deste cargo (abra/feche no resumo acima). A autorização efetiva no sistema continua pelo papel base (${esc(c.papelBase)}).</p>
+          <div class="cargo-perm-grid">${checks}</div>
+          ${canManage ? `
+            <div class="cargo-acc-actions">
+              <button type="button" class="btn btn-primary btn-sm" data-save-cargo="${esc(c.id)}">Salvar permissões</button>
+              ${c.sistema ? '' : `<button type="button" class="btn btn-outline-danger btn-sm" data-del-cargo="${esc(c.id)}">Excluir cargo</button>`}
+            </div>` : ''}
+        </div>
+      </details>`;
   }).join('')}</div>`;
 }
 
@@ -269,11 +321,22 @@ export function renderAdministracao(user, params = []) {
         <div class="admin-panel-head">
           <div>
             <h3>Contas cadastradas</h3>
-            <p>Quem pode entrar no sistema. O administrador define o perfil: Membro (só consulta), Gerência (GAS/GVS/GAP), Diretoria ou Administrador.</p>
+            <p>Contas novas entram como <strong>Membro</strong>. O administrador define o <strong>cargo</strong> de cada conta (Membro, Gerência, Diretoria, Administrador ou personalizado).</p>
           </div>
           <span class="admin-count">${usersCount}</span>
         </div>
         <div id="lista-contas">${renderContasRows(user)}</div>
+      </div>
+
+      <div class="admin-panel mt-3">
+        <div class="admin-panel-head">
+          <div>
+            <h3>Cargos e permissões</h3>
+            <p>Expanda um cargo para ver ou ajustar as permissões. Fechado, aparece só o nome e o resumo.</p>
+          </div>
+          ${isAdmin(user) ? '<button type="button" class="btn btn-primary btn-sm" id="btn-add-cargo">+ Novo cargo</button>' : ''}
+        </div>
+        <div id="painel-cargos">${renderCargosAccordion(user)}</div>
       </div>
 
       <div class="admin-panel mt-3">
@@ -426,6 +489,8 @@ export function bindAdministracao(user, params = []) {
   const refreshContasTables = () => {
     const lista = document.getElementById('lista-contas');
     if (lista) lista.innerHTML = renderContasRows(user);
+    const cargosPainel = document.getElementById('painel-cargos');
+    if (cargosPainel) cargosPainel.innerHTML = renderCargosAccordion(user);
     const acessosBody = document.querySelector('#tabela-acessos tbody');
     if (acessosBody) acessosBody.innerHTML = renderAcessosRows();
     const tab = document.querySelector('#admin-tabs [data-tab="contas"]');
@@ -491,27 +556,104 @@ export function bindAdministracao(user, params = []) {
   }));
 
   document.querySelector('[data-tab-content="contas"]')?.addEventListener('change', async (e) => {
-    const roleSel = e.target.closest('[data-set-role]');
+    const cargoSel = e.target.closest('[data-set-cargo]');
     const gerSel = e.target.closest('[data-set-gerencia]');
-    if (!roleSel && !gerSel) return;
+    if (!cargoSel && !gerSel) return;
     if (!canManageUsers(user)) return;
-    const uid = (roleSel || gerSel).dataset.setRole || (roleSel || gerSel).dataset.setGerencia;
+    const uid = (cargoSel || gerSel).dataset.setCargo || (cargoSel || gerSel).dataset.setGerencia;
     const card = e.target.closest('.admin-account-card');
-    const role = card?.querySelector('[data-set-role]')?.value || 'usuario';
+    const cargoId = card?.querySelector('[data-set-cargo]')?.value || CARGO_MEMBRO_ID;
     const gerencia = card?.querySelector('[data-set-gerencia]')?.value || '';
     const gerSelect = card?.querySelector('[data-set-gerencia]');
-    if (gerSelect) gerSelect.classList.toggle('hidden', role !== 'gerencia');
-    if (role === 'gerencia' && !gerencia) return;
+    const cargo = getCargoById(cargoId);
+    const needsGer = cargo?.papelBase === ROLE_GERENCIA;
+    if (gerSelect) gerSelect.classList.toggle('hidden', !needsGer);
+    if (needsGer && !gerencia) return;
     try {
-      await setUserAccess(uid, { role, gerencia });
-      toast('Perfil atualizado.', 'success');
+      await setUserAccess(uid, { cargoId, gerencia });
+      toast('Cargo atualizado.', 'success');
       refreshContasTables();
     } catch (err) {
-      toast(err.message || 'Erro ao atualizar perfil.', 'error');
+      toast(err.message || 'Erro ao atualizar cargo.', 'error');
+    }
+  });
+
+  document.getElementById('btn-add-cargo')?.addEventListener('click', async () => {
+    if (!canManageUsers(user)) return;
+    let nome = '';
+    const result = await showModal({
+      title: 'Novo cargo',
+      body: `<div class="form-group"><label>Nome do cargo</label>
+        <input class="form-control" id="novo-cargo-nome" maxlength="80" placeholder="Ex.: Professor, Coordenador, Monitor" /></div>
+        <p class="text-sm text-muted">Depois de criar, abra o cargo no accordion para marcar as permissões.</p>`,
+      footer: `<button class="btn btn-ghost" data-modal-action="cancel">Cancelar</button>
+        <button class="btn btn-primary" data-modal-action="confirm">Criar</button>`,
+      onAction: (act, overlay) => {
+        if (act !== 'confirm') return;
+        nome = overlay.querySelector('#novo-cargo-nome')?.value.trim() || '';
+        if (!nome) {
+          toast('Informe o nome do cargo.', 'error');
+          return false;
+        }
+      },
+    });
+    if (result !== 'confirm' || !nome) return;
+    try {
+      await saveCargo({ nome, permissoes: permissoesForPapel('usuario') });
+      toast(`Cargo “${nome}” criado.`, 'success');
+      refreshContasTables();
+    } catch (err) {
+      toast(err.message || 'Erro ao criar cargo.', 'error');
     }
   });
 
   document.querySelector('[data-tab-content="contas"]')?.addEventListener('click', async (e) => {
+    const saveBtn = e.target.closest('[data-save-cargo]');
+    if (saveBtn) {
+      if (!canManageUsers(user)) return;
+      const cargoId = saveBtn.dataset.saveCargo;
+      const root = document.querySelector(`[data-cargo-id="${cargoId}"]`) || saveBtn.closest('.cargo-acc-item');
+      const nomeInput = root?.querySelector(`[data-cargo-nome="${cargoId}"]`);
+      const nome = nomeInput?.value?.trim();
+      const permissoes = emptyPermissoes();
+      root?.querySelectorAll(`[data-cargo-perm="${cargoId}"]`).forEach((input) => {
+        permissoes[input.dataset.permKey] = input.checked;
+      });
+      saveBtn.disabled = true;
+      try {
+        await saveCargo({ id: cargoId, nome: nome || getCargos().find((c) => c.id === cargoId)?.nome, permissoes });
+        toast('Permissões do cargo salvas.', 'success');
+        refreshContasTables();
+      } catch (err) {
+        toast(err.message || 'Erro ao salvar cargo.', 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+      return;
+    }
+
+    const delCargoBtn = e.target.closest('[data-del-cargo]');
+    if (delCargoBtn) {
+      if (!canManageUsers(user)) return;
+      const cargoId = delCargoBtn.dataset.delCargo;
+      const cargo = getCargos().find((c) => c.id === cargoId);
+      const n = countUsersWithCargo(cargoId, getUsers());
+      const msg = n > 0
+        ? `Excluir o cargo “${cargo?.nome || ''}”? ${n} conta(s) serão movidas para Membro.`
+        : `Excluir o cargo “${cargo?.nome || ''}”?`;
+      if ((await confirmDialog(msg)) !== 'confirm') return;
+      try {
+        const res = await deleteCargo(cargoId, getUsers());
+        toast(res.reassigned
+          ? `Cargo excluído. ${res.reassigned} conta(s) foram para Membro.`
+          : 'Cargo excluído.', 'success');
+        refreshContasTables();
+      } catch (err) {
+        toast(err.message || 'Erro ao excluir cargo.', 'error');
+      }
+      return;
+    }
+
     const btn = e.target.closest('[data-toggle-ativo]');
     if (!btn) return;
     const uid = btn.dataset.toggleAtivo;
@@ -538,6 +680,10 @@ export function bindAdministracao(user, params = []) {
   });
   unsubAdminAcessos = subscribeAcessos(() => {
     if (document.querySelector('#tabela-acessos')) refreshContasTables();
+  });
+  initCargosSync();
+  unsubAdminCargos = subscribeCargos(() => {
+    if (document.getElementById('painel-cargos')) refreshContasTables();
   });
 
   document.getElementById('tabela-anexos')?.closest('.tab-content')?.addEventListener('click', async (e) => {

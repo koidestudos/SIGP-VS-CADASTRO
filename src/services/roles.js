@@ -216,13 +216,8 @@ export function canSeeHistory(user, programacao) {
   return false;
 }
 
-export function filterProgramacoesByAccess(programacoes, user) {
-  const list = programacoes || [];
-  if (isAdmin(user) || isDiretoria(user)) return list;
-  if (isGerencia(user)) {
-    const g = userGerenciaId(user);
-    if (!g) return [];
-    return list.filter((p) => programacaoGerencia(p) === g);
-  }
-  return list;
+export function filterProgramacoesByAccess(programacoes, _user) {
+  // Visão geral: todos veem todas as programações.
+  // Edição/status continuam restritos por canEditProgramacao / canChangeProgramacaoStatus.
+  return programacoes || [];
 }

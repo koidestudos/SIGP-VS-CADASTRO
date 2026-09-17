@@ -9,6 +9,7 @@ import { initNotificationsSync, subscribeNotifications } from './services/notifi
 import { initAnexosSync, subscribeAnexos } from './services/anexos-service.js';
 import { initSuporteSync, registerSuporteAdmin, subscribeSuporteChats } from './services/suporte-service.js';
 import { initUsersAdminSync, logUserAccess, subscribeUsers } from './services/users-service.js';
+import { initCargosSync } from './services/cargos-service.js';
 import { setUserRole } from './services/roles.js';
 import { renderLogin } from './pages/login.js';
 import { mountApp, resetAppShell } from './app.js';
@@ -122,6 +123,7 @@ watchAuth(async (user) => {
       initCatalogSync();
       initNotificationsSync();
       initAnexosSync();
+      initCargosSync();
       const profile = await upsertUserProfile(user);
       if (profile && profile.ativo === false) {
         await logoutUser();
@@ -149,6 +151,8 @@ watchAuth(async (user) => {
           gerencia: meta.gerencia || '',
           gerenciaId: meta.gerencia || meta.gerenciaId || '',
           coordenacaoId: meta.coordenacaoId || '',
+          cargoId: meta.cargoId || '',
+          cargoNome: meta.cargoNome || '',
         };
         initSuporteSync(role === 'admin' || role === 'diretoria');
         if (role === 'admin') {
@@ -156,6 +160,7 @@ watchAuth(async (user) => {
         }
         if (role === 'admin' || role === 'diretoria') {
           initUsersAdminSync();
+          initCargosSync();
         }
         if (role === 'admin' || role === 'diretoria' || role === 'gerencia') {
           initNotificationsSync();
