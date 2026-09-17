@@ -16,7 +16,7 @@ import { isAdmin, canManageUsers, normalizeRole, ROLE_GERENCIA } from '../servic
 import { GERENCIAS, getCoordenacaoById } from '../data/seed.js';
 import { confirmDialog, toast, showModal } from '../components/ui.js';
 
-const ADMIN_TABS = ['coords', 'muns', 'regs', 'anexos', 'admins', 'contas'];
+const ADMIN_TABS = ['coords', 'muns', 'regs', 'anexos', 'contas', 'cargos', 'admins'];
 const ADMIN_TAB_KEY = 'sigp-vs-admin-tab';
 
 let unsubAdminAnexos = null;
@@ -252,13 +252,14 @@ export function renderAdministracao(user, params = []) {
 
   return `
     <div class="page-header"><h2>Administração</h2></div>
-    <p class="text-muted mb-3">Gerencie coordenações (e o vínculo com GAS, GVS ou GAP), municípios, regionais, anexos, contas e acessos.</p>
+    <p class="text-muted mb-3">Gerencie coordenações (e o vínculo com GAS, GVS ou GAP), municípios, regionais, anexos, contas, cargos e acessos.</p>
     <div class="tabs" id="admin-tabs">
       <button class="tab ${activeTab === 'coords' ? 'active' : ''}" data-tab="coords">Coordenações</button>
       <button class="tab ${activeTab === 'muns' ? 'active' : ''}" data-tab="muns">Municípios (${municipios.length})</button>
       <button class="tab ${activeTab === 'regs' ? 'active' : ''}" data-tab="regs">Regionais (${regionais.length})</button>
       <button class="tab ${activeTab === 'anexos' ? 'active' : ''}" data-tab="anexos">Anexos (${anexosCount})</button>
       <button class="tab ${activeTab === 'contas' ? 'active' : ''}" data-tab="contas">Contas (${usersCount})</button>
+      <button class="tab ${activeTab === 'cargos' ? 'active' : ''}" data-tab="cargos">Cargos (${getCargos().length})</button>
       <button class="tab ${activeTab === 'admins' ? 'active' : ''}" data-tab="admins">Administradores</button>
     </div>
     <div class="tab-content ${activeTab === 'coords' ? 'active' : ''}" data-tab-content="coords">
@@ -321,22 +322,11 @@ export function renderAdministracao(user, params = []) {
         <div class="admin-panel-head">
           <div>
             <h3>Contas cadastradas</h3>
-            <p>Contas novas entram como <strong>Membro</strong>. O administrador define o <strong>cargo</strong> de cada conta (Membro, Gerência, Diretoria, Administrador ou personalizado).</p>
+            <p>Contas novas entram como <strong>Membro</strong>. O administrador define o <strong>cargo</strong> de cada conta. Gerencie os cargos na aba <strong>Cargos</strong>.</p>
           </div>
           <span class="admin-count">${usersCount}</span>
         </div>
         <div id="lista-contas">${renderContasRows(user)}</div>
-      </div>
-
-      <div class="admin-panel mt-3">
-        <div class="admin-panel-head">
-          <div>
-            <h3>Cargos e permissões</h3>
-            <p>Expanda um cargo para ver ou ajustar as permissões. Fechado, aparece só o nome e o resumo.</p>
-          </div>
-          ${isAdmin(user) ? '<button type="button" class="btn btn-primary btn-sm" id="btn-add-cargo">+ Novo cargo</button>' : ''}
-        </div>
-        <div id="painel-cargos">${renderCargosAccordion(user)}</div>
       </div>
 
       <div class="admin-panel mt-3">
@@ -360,6 +350,18 @@ export function renderAdministracao(user, params = []) {
             <tbody>${renderAcessosRows()}</tbody>
           </table>
         </div>
+      </div>
+    </div>
+    <div class="tab-content ${activeTab === 'cargos' ? 'active' : ''}" data-tab-content="cargos">
+      <div class="admin-panel mt-2">
+        <div class="admin-panel-head">
+          <div>
+            <h3>Cargos e permissões</h3>
+            <p>Expanda um cargo para ver ou ajustar as permissões. Fechado, aparece só o nome e o resumo.</p>
+          </div>
+          ${isAdmin(user) ? '<button type="button" class="btn btn-primary btn-sm" id="btn-add-cargo">+ Novo cargo</button>' : ''}
+        </div>
+        <div id="painel-cargos">${renderCargosAccordion(user)}</div>
       </div>
     </div>
     <div class="tab-content ${activeTab === 'admins' ? 'active' : ''}" data-tab-content="admins">
@@ -489,8 +491,6 @@ export function bindAdministracao(user, params = []) {
   const refreshContasTables = () => {
     const lista = document.getElementById('lista-contas');
     if (lista) lista.innerHTML = renderContasRows(user);
-    const cargosPainel = document.getElementById('painel-cargos');
-    if (cargosPainel) cargosPainel.innerHTML = renderCargosAccordion(user);
     const acessosBody = document.querySelector('#tabela-acessos tbody');
     if (acessosBody) acessosBody.innerHTML = renderAcessosRows();
     const tab = document.querySelector('#admin-tabs [data-tab="contas"]');
@@ -500,8 +500,16 @@ export function bindAdministracao(user, params = []) {
     });
   };
 
+  const refreshCargosPanel = () => {
+    const cargosPainel = document.getElementById('painel-cargos');
+    if (cargosPainel) cargosPainel.innerHTML = renderCargosAccordion(user);
+    const tab = document.querySelector('#admin-tabs [data-tab="cargos"]');
+    if (tab) tab.textContent = `Cargos (${getCargos().length})`;
+  };
+
   if (resolveAdminTab(params) === 'anexos') refreshAnexosTable();
   if (resolveAdminTab(params) === 'contas') refreshContasTables();
+  if (resolveAdminTab(params) === 'cargos') refreshCargosPanel();
 
   document.getElementById('btn-reimport-seed')?.addEventListener('click', async () => {
     if ((await confirmDialog('Reimportar todas as viagens da planilha Excel? Itens existentes serão atualizados.')) !== 'confirm') return;
@@ -573,6 +581,7 @@ export function bindAdministracao(user, params = []) {
       await setUserAccess(uid, { cargoId, gerencia });
       toast('Cargo atualizado.', 'success');
       refreshContasTables();
+      refreshCargosPanel();
     } catch (err) {
       toast(err.message || 'Erro ao atualizar cargo.', 'error');
     }
@@ -601,13 +610,14 @@ export function bindAdministracao(user, params = []) {
     try {
       await saveCargo({ nome, permissoes: permissoesForPapel('usuario') });
       toast(`Cargo “${nome}” criado.`, 'success');
+      refreshCargosPanel();
       refreshContasTables();
     } catch (err) {
       toast(err.message || 'Erro ao criar cargo.', 'error');
     }
   });
 
-  document.querySelector('[data-tab-content="contas"]')?.addEventListener('click', async (e) => {
+  document.querySelector('[data-tab-content="cargos"]')?.addEventListener('click', async (e) => {
     const saveBtn = e.target.closest('[data-save-cargo]');
     if (saveBtn) {
       if (!canManageUsers(user)) return;
@@ -623,6 +633,7 @@ export function bindAdministracao(user, params = []) {
       try {
         await saveCargo({ id: cargoId, nome: nome || getCargos().find((c) => c.id === cargoId)?.nome, permissoes });
         toast('Permissões do cargo salvas.', 'success');
+        refreshCargosPanel();
         refreshContasTables();
       } catch (err) {
         toast(err.message || 'Erro ao salvar cargo.', 'error');
@@ -633,27 +644,28 @@ export function bindAdministracao(user, params = []) {
     }
 
     const delCargoBtn = e.target.closest('[data-del-cargo]');
-    if (delCargoBtn) {
-      if (!canManageUsers(user)) return;
-      const cargoId = delCargoBtn.dataset.delCargo;
-      const cargo = getCargos().find((c) => c.id === cargoId);
-      const n = countUsersWithCargo(cargoId, getUsers());
-      const msg = n > 0
-        ? `Excluir o cargo “${cargo?.nome || ''}”? ${n} conta(s) serão movidas para Membro.`
-        : `Excluir o cargo “${cargo?.nome || ''}”?`;
-      if ((await confirmDialog(msg)) !== 'confirm') return;
-      try {
-        const res = await deleteCargo(cargoId, getUsers());
-        toast(res.reassigned
-          ? `Cargo excluído. ${res.reassigned} conta(s) foram para Membro.`
-          : 'Cargo excluído.', 'success');
-        refreshContasTables();
-      } catch (err) {
-        toast(err.message || 'Erro ao excluir cargo.', 'error');
-      }
-      return;
+    if (!delCargoBtn) return;
+    if (!canManageUsers(user)) return;
+    const cargoId = delCargoBtn.dataset.delCargo;
+    const cargo = getCargos().find((c) => c.id === cargoId);
+    const n = countUsersWithCargo(cargoId, getUsers());
+    const msg = n > 0
+      ? `Excluir o cargo “${cargo?.nome || ''}”? ${n} conta(s) serão movidas para Membro.`
+      : `Excluir o cargo “${cargo?.nome || ''}”?`;
+    if ((await confirmDialog(msg)) !== 'confirm') return;
+    try {
+      const res = await deleteCargo(cargoId, getUsers());
+      toast(res.reassigned
+        ? `Cargo excluído. ${res.reassigned} conta(s) foram para Membro.`
+        : 'Cargo excluído.', 'success');
+      refreshCargosPanel();
+      refreshContasTables();
+    } catch (err) {
+      toast(err.message || 'Erro ao excluir cargo.', 'error');
     }
+  });
 
+  document.querySelector('[data-tab-content="contas"]')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-toggle-ativo]');
     if (!btn) return;
     const uid = btn.dataset.toggleAtivo;
@@ -677,13 +689,16 @@ export function bindAdministracao(user, params = []) {
   });
   unsubAdminUsers = subscribeUsers(() => {
     if (document.getElementById('lista-contas')) refreshContasTables();
+    if (document.getElementById('painel-cargos')) refreshCargosPanel();
   });
   unsubAdminAcessos = subscribeAcessos(() => {
     if (document.querySelector('#tabela-acessos')) refreshContasTables();
   });
   initCargosSync();
   unsubAdminCargos = subscribeCargos(() => {
-    if (document.getElementById('painel-cargos')) refreshContasTables();
+    if (document.getElementById('painel-cargos')) refreshCargosPanel();
+    const tab = document.querySelector('#admin-tabs [data-tab="cargos"]');
+    if (tab) tab.textContent = `Cargos (${getCargos().length})`;
   });
 
   document.getElementById('tabela-anexos')?.closest('.tab-content')?.addEventListener('click', async (e) => {
