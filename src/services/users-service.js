@@ -4,6 +4,21 @@ import {
 import { db, isFirebaseConfigured } from '../firebase/config.js';
 import { resolveAccessRole } from '../config/access-roster.js';
 import { normalizeGerencia, normalizeRole } from './roles.js';
+import {
+  CARGO_ADMIN_ID,
+  CARGO_DIRETORIA_ID,
+  CARGO_GERENCIA_ID,
+  CARGO_MEMBRO_ID,
+  getCargoById,
+} from './cargos-service.js';
+
+function cargoIdForRole(role) {
+  const r = normalizeRole(role);
+  if (r === 'admin') return CARGO_ADMIN_ID;
+  if (r === 'diretoria') return CARGO_DIRETORIA_ID;
+  if (r === 'gerencia') return CARGO_GERENCIA_ID;
+  return CARGO_MEMBRO_ID;
+}
 
 let usersCache = [];
 let acessosCache = [];
@@ -136,10 +151,19 @@ export async function setUserAtivo(uid, ativo) {
   });
 }
 
-export async function setUserAccess(uid, { role, gerencia = '', coordenacaoId = '' }) {
+export async function setUserAccess(uid, {
+  role,
+  gerencia = '',
+  coordenacaoId = '',
+  cargoId = '',
+} = {}) {
   if (!db || !uid) throw new Error('Usuário inválido.');
-  const allowed = ['admin', 'diretoria', 'gerencia', 'usuario'];
-  const nextRole = allowed.includes(role) ? role : 'usuario';
+  const cargo = cargoId ? getCargoById(cargoId) : null;
+  const nextRole = cargo
+    ? normalizeRole(cargo.papelBase)
+    : (['admin', 'diretoria', 'gerencia', 'usuario'].includes(role) ? role : 'usuario');
+  const nextCargoId = cargo?.id || cargoIdForRole(nextRole);
+  const nextCargoNome = cargo?.nome || (getCargoById(nextCargoId)?.nome || 'Membro');
   const nextGerencia = nextRole === 'gerencia' ? String(gerencia || '').toUpperCase() : '';
   if (nextRole === 'gerencia' && !['GAS', 'GVS', 'GAP'].includes(nextGerencia)) {
     throw new Error('Selecione a Gerência (GAS, GVS ou GAP).');
@@ -147,6 +171,8 @@ export async function setUserAccess(uid, { role, gerencia = '', coordenacaoId = 
   await updateDoc(doc(db, 'users', uid), {
     role: nextRole,
     perfil: nextRole,
+    cargoId: nextCargoId,
+    cargoNome: nextCargoNome,
     gerencia: nextGerencia,
     gerenciaId: nextGerencia,
     coordenacaoId: nextRole === 'usuario' ? (coordenacaoId || '') : '',
@@ -171,8 +197,14 @@ export async function applyAccessRoster(users = getUsers()) {
       const nextGer = nextRole === 'gerencia' && currentRole === 'gerencia' && currentGer
         ? currentGer
         : desired.gerencia;
-      if (nextRole === currentRole && nextGer === currentGer) continue;
-      await setUserAccess(u.id, { role: nextRole, gerencia: nextGer });
+      const roleChanged = nextRole !== currentRole || nextGer !== currentGer;
+      const missingCargo = !u.cargoId;
+      if (!roleChanged && !missingCargo) continue;
+      await setUserAccess(u.id, {
+        role: nextRole,
+        gerencia: nextGer,
+        cargoId: roleChanged || missingCargo ? cargoIdForRole(nextRole) : u.cargoId,
+      });
       changed += 1;
     }
     return changed;

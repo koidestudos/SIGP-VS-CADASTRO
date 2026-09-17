@@ -145,6 +145,8 @@ service cloud.firestore {
         && data.email.size() <= 320
         && (!('role' in data) || data.role in ['admin', 'usuario', 'diretoria', 'gerencia'])
         && (!('perfil' in data) || data.perfil in ['admin', 'usuario', 'diretoria', 'gerencia'])
+        && (!('cargoId' in data) || (data.cargoId is string && data.cargoId.size() <= 80))
+        && (!('cargoNome' in data) || (data.cargoNome is string && data.cargoNome.size() <= 80))
         && (!('ativo' in data) || data.ativo is bool)
         && (!('gerencia' in data) || data.gerencia in ['GAS', 'GVS', 'GAP', ''])
         && (!('gerenciaId' in data) || data.gerenciaId in ['GAS', 'GVS', 'GAP', ''])
@@ -352,6 +354,18 @@ service cloud.firestore {
         && request.resource.data.nome.size() <= 200
         && request.resource.data.criadoEm is string;
       allow delete: if isAdmin();
+    }
+
+    match /cargos/{cargoId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin()
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 80
+        && request.resource.data.papelBase in ['admin', 'usuario', 'diretoria', 'gerencia']
+        && request.resource.data.permissoes is map;
+      allow delete: if isAdmin()
+        && !(resource.data.get('sistema', false) == true);
     }
 
     match /notificacoes/{notifId} {

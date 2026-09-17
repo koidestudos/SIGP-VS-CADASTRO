@@ -1227,8 +1227,80 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .historico-list li span { display: block; font-size: 0.75rem; color: var(--gray-600); }
 .historico-list li small { display: block; font-size: 0.75rem; color: var(--gray-500); margin-top: 2px; }
 .historico-list li p { margin: 6px 0 0; font-size: 0.8125rem; }
-.admin-role-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.admin-role-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
 .admin-role-row .form-control { min-width: 140px; width: auto; }
+.admin-field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 100%;
+  margin: 0;
+}
+
+.cargo-accordion { display: flex; flex-direction: column; gap: 8px; }
+.cargo-acc-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.cargo-acc-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cargo-acc-summary::-webkit-details-marker { display: none; }
+.cargo-acc-summary::after {
+  content: '▾';
+  float: right;
+  margin-top: -28px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.cargo-acc-item[open] > .cargo-acc-summary::after { content: '▴'; }
+.cargo-acc-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-right: 24px;
+}
+.cargo-acc-title strong { font-size: 0.95rem; }
+.cargo-acc-resumo {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  padding-right: 24px;
+}
+.cargo-acc-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.cargo-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.cargo-perm-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin: 0;
+  cursor: pointer;
+}
+.cargo-perm-item input { margin-top: 2px; }
+.cargo-acc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
 @media (max-width: 1024px) {
   .operational-dashboard .dash-quick-grid, .dash-kpi-row, .bi-kpi-hero, .bi-exec-summary, .kpi-grid-6, .charts-row-3, .charts-row-2 { grid-template-columns: 1fr; }

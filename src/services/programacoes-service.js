@@ -668,12 +668,16 @@ export async function upsertUserProfile(user) {
   if (desired.role === 'admin' || isBootstrapAdminEmail(user.email)) {
     payload.role = 'admin';
     payload.perfil = 'admin';
+    payload.cargoId = 'cargo-admin';
+    payload.cargoNome = 'Administrador';
     payload.gerencia = '';
     payload.gerenciaId = '';
     payload.ativo = true;
   } else if (desired.role === 'gerencia') {
     payload.role = 'gerencia';
     payload.perfil = 'gerencia';
+    payload.cargoId = 'cargo-gerencia';
+    payload.cargoNome = 'Gerência';
     const existingGer = existing.exists()
       ? (normalizeGerencia(existing.data().gerenciaId) || normalizeGerencia(existing.data().gerencia))
       : '';
@@ -682,8 +686,26 @@ export async function upsertUserProfile(user) {
   } else if (!existing.exists()) {
     payload.role = 'usuario';
     payload.perfil = 'usuario';
+    payload.cargoId = 'cargo-membro';
+    payload.cargoNome = 'Membro';
     payload.gerencia = '';
     payload.gerenciaId = '';
+  } else if (!existing.data().cargoId) {
+    // Contas antigas sem cargo: assume Membro (ou cargo do papel atual)
+    const role = normalizeRole(existing.data().perfil || existing.data().role);
+    if (role === 'admin') {
+      payload.cargoId = 'cargo-admin';
+      payload.cargoNome = 'Administrador';
+    } else if (role === 'gerencia') {
+      payload.cargoId = 'cargo-gerencia';
+      payload.cargoNome = 'Gerência';
+    } else if (role === 'diretoria') {
+      payload.cargoId = 'cargo-diretoria';
+      payload.cargoNome = 'Diretoria';
+    } else {
+      payload.cargoId = 'cargo-membro';
+      payload.cargoNome = 'Membro';
+    }
   }
   if (payload.role && !payload.perfil) payload.perfil = payload.role;
   if (payload.gerencia != null && payload.gerenciaId == null) payload.gerenciaId = payload.gerencia;
@@ -694,6 +716,8 @@ export async function upsertUserProfile(user) {
     ativo: data.ativo !== false,
     role,
     perfil: role,
+    cargoId: data.cargoId || '',
+    cargoNome: data.cargoNome || '',
     gerencia: normalizeGerencia(data.gerenciaId || data.gerencia),
     gerenciaId: normalizeGerencia(data.gerenciaId || data.gerencia),
     coordenacaoId: data.coordenacaoId || '',
@@ -713,10 +737,18 @@ export function subscribeUserRole(uid, callback) {
     const gerencia = normalizeGerencia(data.gerenciaId || data.gerencia);
     const coordenacaoId = data.coordenacaoId || '';
     setUserRole(role, { gerencia, gerenciaId: gerencia });
-    callback(role, { ativo, gerencia, gerenciaId: gerencia, coordenacaoId, perfil: role });
+    callback(role, {
+      ativo,
+      gerencia,
+      gerenciaId: gerencia,
+      coordenacaoId,
+      perfil: role,
+      cargoId: data.cargoId || '',
+      cargoNome: data.cargoNome || '',
+    });
   }, () => {
     setUserRole('usuario');
-    callback('usuario', { ativo: true, gerencia: '', coordenacaoId: '' });
+    callback('usuario', { ativo: true, gerencia: '', coordenacaoId: '', cargoId: 'cargo-membro', cargoNome: 'Membro' });
   });
 }
 
