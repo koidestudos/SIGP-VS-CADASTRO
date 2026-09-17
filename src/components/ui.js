@@ -87,7 +87,7 @@ export function renderStatusBadge(status) {
 export function renderActionButtons(id, { view = true, edit = true, del = true, extra = '' } = {}) {
   return `
     <div class="table-actions">
-      ${view ? `<button class="btn-icon" title="Visualizar" data-action="view" data-id="${id}">👁</button>` : ''}
+      ${view ? `<button class="btn-icon btn-icon-view" title="Visualizar" data-action="view" data-id="${id}">👁</button>` : ''}
       ${edit ? `<button class="btn-icon" title="Editar" data-action="edit" data-id="${id}">✏</button>` : ''}
       ${del ? `<button class="btn-icon danger" title="Excluir" data-action="delete" data-id="${id}">🗑</button>` : ''}
       ${extra}

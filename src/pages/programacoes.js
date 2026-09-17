@@ -127,6 +127,7 @@ function renderRows(items, user) {
       ${showAuthor ? `<td class="col-incluido"><span class="cell-clip" title="${incluidoTitle}">${incluidoPor.replace(/</g, '&lt;')}</span></td>` : ''}
       <td class="col-status">${statusCell}</td>
       <td class="col-acoes">${renderActionButtons(p.id, {
+        view: true,
         edit: canEdit,
         del: flags.del,
         extra: `<button class="btn-icon" data-action="pdf" data-id="${p.id}" title="Baixar PDF">📄</button>`

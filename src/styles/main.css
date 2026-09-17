@@ -1000,8 +1000,8 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 .prog-table .col-equipe { width: 110px; }
 .prog-table .col-incluido { width: 132px; }
 .prog-table .col-status { width: 168px; }
-.prog-table .col-acoes { width: 220px; }
-.prog-table-admin { min-width: 1260px; }
+.prog-table .col-acoes { width: 280px; min-width: 240px; }
+.prog-table-admin { min-width: 1320px; }
 .prog-acao {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1020,7 +1020,7 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
   overflow: hidden;
 }
 .prog-table .col-acoes {
-  overflow: hidden;
+  overflow: visible;
   padding-left: 10px;
   padding-right: 10px;
   border-left: 1px solid rgba(0, 0, 0, 0.06);
@@ -1028,9 +1028,9 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
 }
 .prog-table .col-acoes .table-actions {
   display: inline-flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 2px;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
   width: 100%;
   max-width: 100%;
@@ -1043,6 +1043,9 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+.prog-table .col-acoes .btn-icon-view {
+  order: -1;
 }
 .prog-table .status-select {
   display: block;
@@ -1073,7 +1076,7 @@ tbody tr[class*="row-status-"] td { border-bottom-color: rgba(0, 0, 0, 0.06); }
   .prog-table .col-equipe,
   .prog-table .col-coord { display: none; }
   .prog-table .col-status { width: 160px; }
-  .prog-table .col-acoes { width: 220px; }
+  .prog-table .col-acoes { width: 260px; min-width: 220px; }
 }
 
 /* Portal Operacional */
